@@ -2,12 +2,14 @@ import { useState } from 'react';
 import ScanResultCard from '../../components/ScanResultCard';
 import { PRESET_SAMPLES } from '../../data/mockData';
 
+// Backend API configuration
+// TODO: Move to import.meta.env.VITE_API_BASE_URL in future environment configuration
+const API_BASE_URL = 'http://127.0.0.1:8000';
+
 /**
  * URL Scanner Component
- * Handles URL phishing detection interface, validation, mock analysis, and result presentation
- * 
- * TODO: Connect to backend API / Firebase Functions in Stage 2
- * TODO: Integrate ML URL phishing classification model in Stage 3
+ * Handles URL phishing detection interface, input validation, real HTTP API requests to FastAPI,
+ * and presenting backend verdicts, risk scores, and indicators.
  */
 export default function UrlScanner() {
   const [urlInput, setUrlInput] = useState('');
@@ -15,21 +17,15 @@ export default function UrlScanner() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
 
-  // Validate URL format
+  // Validate URL input
   const validateUrl = (value) => {
     if (!value || value.trim() === '') {
       return 'Please enter a URL to scan.';
     }
-    const trimmed = value.trim();
-    // Basic regex check for URL / domain format
-    const urlPattern = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(:\d+)?(\/.*)?$/i;
-    if (!urlPattern.test(trimmed) && !trimmed.includes('localhost')) {
-      return 'Please enter a valid URL or domain (e.g., https://example.com or example.com/path).';
-    }
     return '';
   };
 
-  const handleScan = (e) => {
+  const handleScan = async (e) => {
     e?.preventDefault();
     const error = validateUrl(urlInput);
     if (error) {
@@ -38,62 +34,76 @@ export default function UrlScanner() {
       return;
     }
 
+    const targetUrl = urlInput.trim();
     setValidationError('');
     setIsScanning(true);
     setScanResult(null);
 
-    // Mock scan latency simulation
-    // TODO: Replace with real POST request: await fetch('/api/v1/scan/url', { body: JSON.stringify({ url: urlInput }) })
-    setTimeout(() => {
-      const lower = urlInput.toLowerCase();
-      let verdict = 'Safe';
-      let riskScore = 8;
-      let details = {
-        domainAge: '8+ years old',
-        sslValid: true,
-        typosquatting: 'None detected',
-        ipCountry: 'US (Verified ASN)',
-        threatClassification: 'Legitimate Web Resource',
-        dnsRecords: 'A, AAAA, MX, TXT (Verified)',
-        phishingPatternConfidence: '99.1%'
-      };
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/scan/url`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: targetUrl }),
+      });
 
-      if (lower.includes('phish') || lower.includes('chase-bank') || lower.includes('auth-check') || lower.includes('.xyz') || lower.includes('dispute')) {
-        verdict = 'Phishing';
-        riskScore = 96;
-        details = {
-          domainAge: '2 days old (High Risk)',
-          sslValid: false,
-          typosquatting: 'Deceptive Chase Bank Impersonation',
-          ipCountry: 'RU (High-Risk Offshore Host)',
-          threatClassification: 'Active Credential Harvester',
-          dnsRecords: 'Fast-flux DNS rotation detected',
-          phishingPatternConfidence: '99.8%'
-        };
-      } else if (lower.includes('suspicious') || lower.includes('verify') || lower.includes('login-verify') || lower.includes('.top') || lower.includes('.info')) {
-        verdict = 'Suspicious';
-        riskScore = 65;
-        details = {
-          domainAge: '14 days old',
-          sslValid: false,
-          typosquatting: 'Generic account security lure pattern',
-          ipCountry: 'PA (Privacy Protected Registrar)',
-          threatClassification: 'Untrusted Domain / Unverified SSL',
-          dnsRecords: 'Standard DNS without SPF/DKIM',
-          phishingPatternConfidence: '84.2%'
-        };
+      if (!response.ok) {
+        throw new Error(`Server returned HTTP ${response.status}`);
       }
 
+      const data = await response.json();
+
+      // Validate response structure
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid response received from LinkSentry backend.');
+      }
+
+      // Handle backend-reported invalid URL verdict
+      if (data.verdict === 'invalid') {
+        const errorMsg = Array.isArray(data.indicators) && data.indicators.length > 0
+          ? data.indicators.join(', ')
+          : 'Invalid URL format provided.';
+        setValidationError(errorMsg);
+        setScanResult(null);
+        return;
+      }
+
+      // Format verdict to Title Case for UI display (safe -> Safe, suspicious -> Suspicious, phishing -> Phishing)
+      const rawVerdict = typeof data.verdict === 'string' ? data.verdict : 'safe';
+      const formattedVerdict = rawVerdict.charAt(0).toUpperCase() + rawVerdict.slice(1);
+
+      // Build structured details mapping from FastAPI backend response
+      const details = {
+        domain: data.domain || 'N/A',
+        detectionEngine: data.engine || 'LinkSentry Rule-Based Detector',
+        threatIndicators: Array.isArray(data.indicators) && data.indicators.length > 0
+          ? data.indicators
+          : ['No threat indicators detected'],
+        sslStatus: (data.url || targetUrl).startsWith('https://')
+          ? 'HTTPS Enabled (Encrypted)'
+          : 'HTTP Only (Unencrypted / Insecure)',
+      };
+
+      const confidenceDisplay = typeof data.confidence === 'number'
+        ? `${Math.round(data.confidence * 100)}%`
+        : '70%';
+
       setScanResult({
-        target: urlInput.trim(),
-        verdict,
-        riskScore,
-        confidence: details.phishingPatternConfidence,
+        target: data.url || targetUrl,
+        verdict: formattedVerdict,
+        riskScore: typeof data.risk_score === 'number' ? data.risk_score : 0,
+        confidence: confidenceDisplay,
         details,
-        timestamp: new Date().toLocaleTimeString()
+        timestamp: new Date().toLocaleTimeString(),
       });
+    } catch (err) {
+      console.error('URL scan error:', err);
+      setValidationError('Unable to connect to LinkSentry backend.');
+      setScanResult(null);
+    } finally {
       setIsScanning(false);
-    }, 1200);
+    }
   };
 
   const handlePresetSelect = (preset) => {
@@ -121,7 +131,7 @@ export default function UrlScanner() {
               Analyze suspicious links, shortened URLs, brand impersonations, and credential harvesting kits in real-time.
             </p>
           </div>
-          <span className="font-mono scanner-mode-pill">STAGE 1: HEURISTIC MOCK</span>
+          <span className="font-mono scanner-mode-pill">STAGE 2: FASTAPI CONNECTED</span>
         </div>
 
         {/* Input Form */}
@@ -173,7 +183,7 @@ export default function UrlScanner() {
               {isScanning ? (
                 <>
                   <span className="spinner-border" />
-                  <span>Analyzing Heuristics & Signatures...</span>
+                  <span>Connecting to FastAPI Backend...</span>
                 </>
               ) : (
                 <>
@@ -214,7 +224,7 @@ export default function UrlScanner() {
           <div className="scanning-status-texts font-mono">
             <p className="status-primary-text">INSPECTING TARGET: {urlInput}</p>
             <p className="status-sub-text">
-              Checking DNS records • SSL certificate verification • Lexical & Typosquatting heuristic analysis...
+              Querying FastAPI detection engine • Evaluating URL lexical rules • Analyzing heuristics & threat indicators...
             </p>
           </div>
         </div>
