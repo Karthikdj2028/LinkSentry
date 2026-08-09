@@ -4,9 +4,8 @@ import { PRESET_SAMPLES } from '../../data/mockData';
 import { useAuth } from '../../context';
 import { saveScan, mapBackendScanToFirestoreDoc } from '../../firebase';
 
-// Backend API configuration
-// TODO: Move to import.meta.env.VITE_API_BASE_URL in future environment configuration
-const API_BASE_URL = 'http://127.0.0.1:8000';
+// Backend API configuration from environment with local development fallback
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 
 /**
  * URL Scanner Component
