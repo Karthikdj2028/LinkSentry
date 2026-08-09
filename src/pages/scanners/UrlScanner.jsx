@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import ScanResultCard from '../../components/ScanResultCard';
 import { PRESET_SAMPLES } from '../../data/mockData';
+import { useAuth } from '../../context';
+import { saveScan, mapBackendScanToFirestoreDoc } from '../../firebase';
 
 // Backend API configuration
 // TODO: Move to import.meta.env.VITE_API_BASE_URL in future environment configuration
@@ -9,11 +11,13 @@ const API_BASE_URL = 'http://127.0.0.1:8000';
 /**
  * URL Scanner Component
  * Handles URL phishing detection interface, input validation, real HTTP API requests to FastAPI,
- * and presenting backend verdicts, risk scores, and indicators.
+ * and saving scan results into Cloud Firestore scan history for authenticated users.
  */
 export default function UrlScanner() {
+  const { currentUser } = useAuth();
   const [urlInput, setUrlInput] = useState('');
   const [validationError, setValidationError] = useState('');
+  const [saveWarning, setSaveWarning] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
 
@@ -31,11 +35,13 @@ export default function UrlScanner() {
     if (error) {
       setValidationError(error);
       setScanResult(null);
+      setSaveWarning('');
       return;
     }
 
     const targetUrl = urlInput.trim();
     setValidationError('');
+    setSaveWarning('');
     setIsScanning(true);
     setScanResult(null);
 
@@ -89,6 +95,7 @@ export default function UrlScanner() {
         ? `${Math.round(data.confidence * 100)}%`
         : '70%';
 
+      // 1. Display scan result to user
       setScanResult({
         target: data.url || targetUrl,
         verdict: formattedVerdict,
@@ -97,6 +104,22 @@ export default function UrlScanner() {
         details,
         timestamp: new Date().toLocaleTimeString(),
       });
+
+      // 2. Save scan result to Cloud Firestore history for authenticated user
+      if (currentUser?.uid) {
+        try {
+          const firestorePayload = mapBackendScanToFirestoreDoc(
+            currentUser.uid,
+            targetUrl,
+            data,
+            'url'
+          );
+          await saveScan(currentUser.uid, firestorePayload);
+        } catch (saveErr) {
+          console.error('Cloud Firestore scan save error:', saveErr);
+          setSaveWarning('Scan completed, but the result could not be saved to history.');
+        }
+      }
     } catch (err) {
       console.error('URL scan error:', err);
       setValidationError('Unable to connect to LinkSentry backend.');
@@ -109,12 +132,14 @@ export default function UrlScanner() {
   const handlePresetSelect = (preset) => {
     setUrlInput(preset.url);
     setValidationError('');
+    setSaveWarning('');
     setScanResult(null);
   };
 
   const handleClear = () => {
     setUrlInput('');
     setValidationError('');
+    setSaveWarning('');
     setScanResult(null);
   };
 
@@ -131,7 +156,7 @@ export default function UrlScanner() {
               Analyze suspicious links, shortened URLs, brand impersonations, and credential harvesting kits in real-time.
             </p>
           </div>
-          <span className="font-mono scanner-mode-pill">STAGE 2: FASTAPI CONNECTED</span>
+          <span className="font-mono scanner-mode-pill">STAGE 3: FASTAPI + FIRESTORE</span>
         </div>
 
         {/* Input Form */}
@@ -151,6 +176,7 @@ export default function UrlScanner() {
                 onChange={(e) => {
                   setUrlInput(e.target.value);
                   if (validationError) setValidationError('');
+                  if (saveWarning) setSaveWarning('');
                 }}
                 disabled={isScanning}
                 autoComplete="off"
@@ -227,6 +253,23 @@ export default function UrlScanner() {
               Querying FastAPI detection engine • Evaluating URL lexical rules • Analyzing heuristics & threat indicators...
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Firestore Save Warning Banner (Non-blocking) */}
+      {saveWarning && (
+        <div 
+          className="auth-error-alert animate-fade-in" 
+          style={{ 
+            borderColor: 'rgba(234, 179, 8, 0.4)', 
+            background: 'rgba(234, 179, 8, 0.1)', 
+            color: '#fef08a',
+            marginBottom: '1rem'
+          }}
+          role="alert"
+        >
+          <span className="error-icon">⚠️</span>
+          <span className="error-text">{saveWarning}</span>
         </div>
       )}
 
