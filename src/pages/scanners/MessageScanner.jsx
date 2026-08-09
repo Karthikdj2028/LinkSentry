@@ -145,7 +145,7 @@ export default function MessageScanner() {
               Paste suspicious SMS text messages, emails, or chat alerts to evaluate social engineering tactics, urgency levels, and deceptive links.
             </p>
           </div>
-          <span className="font-mono scanner-mode-pill">STAGE 6B: FASTAPI + FIRESTORE</span>
+          <span className="font-mono scanner-mode-pill">STAGE 6C: HEURISTIC HARDENED • FIRESTORE</span>
         </div>
 
         {/* Input Form */}

@@ -27,12 +27,54 @@ class TestMessageDetectorUnit:
         assert result["verdict"] == "safe"
         assert result["risk_score"] < 30
 
+    def test_safe_subscription_renewal(self):
+        msg = "Your cloud storage subscription renews automatically on September 1."
+        result = analyze_message(msg)
+        assert result["verdict"] == "safe"
+        assert result["risk_score"] < 30
+
+    def test_safe_monthly_invoice(self):
+        msg = "Your monthly invoice is available in your account."
+        result = analyze_message(msg)
+        assert result["verdict"] == "safe"
+        assert result["risk_score"] < 30
+
+    def test_safe_billing_documentation_link(self):
+        msg = "Read our billing documentation: https://example.com/billing"
+        result = analyze_message(msg)
+        assert result["verdict"] == "safe"
+        assert result["risk_score"] < 30
+
+    def test_target_cloud_storage_false_negative_fix(self):
+        """Regression test for the false-negative cloud storage renewal phishing message"""
+        msg = (
+            "Dear user, your cloud storage subscription could not renew automatically. "
+            "To keep your files safe, check billing at http://cloud-storage-renewal-fix.net/pay today."
+        )
+        result = analyze_message(msg)
+        assert result["verdict"] in ["phishing", "suspicious"]
+        assert result["risk_score"] >= 70
+        assert any("billing" in i.lower() or "subscription" in i.lower() for i in result["indicators"])
+        assert any("embedded link" in i.lower() or "anomalies" in i.lower() for i in result["indicators"])
+
     def test_suspicious_account_message(self):
         msg = "Your account has been locked. Verify your account now."
         result = analyze_message(msg)
         assert result["verdict"] in ["suspicious", "phishing"]
         assert result["risk_score"] >= 30
-        assert any("account" in i.lower() or "verification" in i.lower() for i in result["indicators"])
+        assert any("account" in i.lower() or "restriction" in i.lower() for i in result["indicators"])
+
+    def test_billing_with_suspicious_url(self):
+        msg = "Your payment failed. Review your billing here: http://payment-update-example.xyz/verify"
+        result = analyze_message(msg)
+        assert result["verdict"] in ["suspicious", "phishing"]
+        assert result["risk_score"] >= 40
+
+    def test_billing_with_urgency_and_suspicious_url(self):
+        msg = "Your subscription could not renew. Update billing today: http://cloud-storage-renewal-fix.net/pay"
+        result = analyze_message(msg)
+        assert result["verdict"] in ["suspicious", "phishing"]
+        assert result["risk_score"] >= 50
 
     def test_otp_scam_social_engineering(self):
         msg = "Your bank account is suspended. Send the OTP immediately to restore access."
@@ -62,6 +104,13 @@ class TestMessageDetectorUnit:
         assert result["risk_score"] >= 70
         assert any("paypal" in i.lower() or "brand" in i.lower() for i in result["indicators"])
         assert any("embedded link" in i.lower() or "phishing destination" in i.lower() for i in result["indicators"])
+
+    def test_brand_subscription_phishing(self):
+        msg = "Your PayPal subscription payment failed. Verify your account immediately: http://paypal-security-verification.xyz/account/login"
+        result = analyze_message(msg)
+        assert result["verdict"] == "phishing"
+        assert result["risk_score"] >= 70
+        assert any("paypal" in i.lower() or "brand" in i.lower() for i in result["indicators"])
 
     def test_safe_url_in_message(self):
         msg = "Here is the documentation: https://example.com"

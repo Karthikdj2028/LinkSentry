@@ -4,8 +4,8 @@ Engine Version: linksentry-message-heuristic-v1
 
 This is a transparent, explainable heuristic-based message/SMS threat assessment engine.
 It analyzes social-engineering tactics, urgency patterns, credential and OTP harvesting,
-financial lures, brand impersonation, and embedded static URL threats without executing
-external connections, sending messages, or placing phone calls.
+billing and subscription scams, brand impersonation, and embedded static URL threats without
+executing external connections, sending messages, or placing phone calls.
 """
 
 import re
@@ -34,30 +34,45 @@ TARGET_BRANDS = [
 
 # Urgency / Pressure keywords and phrases
 URGENCY_PATTERNS = [
+    r"\btoday\b", r"\bdue today\b", r"\bpast due\b", r"\bfinal notice\b",
     r"\burgent\w*\b", r"\bimmediat\w*\b", r"\bact now\b", r"\baction required\b",
     r"\bwithin 24 hours\b", r"\bexpires? today\b", r"\bfinal warning\b",
     r"\blast chance\b", r"\baccount will be closed\b", r"\brespond now\b",
     r"\btime sensitive\b", r"\bimmediate action\b", r"\blimited time\b",
-    r"\b24 hours\b", r"\basap\b", r"\bwithout delay\b", r"\bpromptly\b"
+    r"\b24 hours\b", r"\basap\b", r"\bwithout delay\b", r"\bpromptly\b",
+    r"\bnow\b"
 ]
 
-# Account Security & Lock keywords
+# Billing, Subscription & Payment-Renewal keywords
+BILLING_SUBSCRIPTION_PATTERNS = [
+    r"\bsubscriptions?\b", r"\brenew\w*\b", r"\bbilling\b", r"\bmemberships?\b",
+    r"\bplan (?:has )?expired\b", r"\bcloud storage\b", r"\bautopay\b",
+    r"\bauto-renew\w*\b", r"\bcould not renew\b", r"\bfailed to renew\b",
+    r"\bpayment declined\b", r"\bpayment failed\b", r"\binvoices?\b",
+    r"\bcharges?\b", r"\btransactions?\b", r"\baccount renewal\b"
+]
+
+# Action Request keywords (actions demanding user intervention)
+ACTION_REQUEST_PATTERNS = [
+    r"\bcheck\b", r"\breview\b", r"\bresolve\b", r"\bpay\b", r"\brenew\b",
+    r"\bfix\b", r"\bclick\w*\b", r"\bverify\w*\b", r"\bconfirm\w*\b",
+    r"\bupdat\w*\b", r"\bvisit\b", r"\bopen\b", r"\btap here\b",
+    r"\blink below\b", r"\bfollowing link\b", r"\bclaim\w*\b", r"\brestore\w*\b",
+    r"\breactivat\w*\b", r"\bmanage\b"
+]
+
+# Account Security keywords
 ACCOUNT_PATTERNS = [
     r"\baccount\w*\b", r"\bpasswords?\b", r"\busernames?\b", r"\bcredentials?\b",
     r"\blogins?\b", r"\bsignin\w*\b", r"\bsecurity alert\b", r"\bunauthorized access\b",
     r"\bunusual sign-in\b", r"\bunusual activity\b", r"\breactivat\w*\b", r"\brestore access\b"
 ]
 
+# Account Lock / Suspension / Threat keywords
 ACCOUNT_LOCK_PATTERNS = [
     r"\bsuspend\w*\b", r"\block\w*\b", r"\bunlock\w*\b", r"\bdeactivat\w*\b",
-    r"\brestrict\w*\b", r"\bcompromis\w*\b", r"\btemporarily disabled\b", r"\bfrozen\b"
-]
-
-# Verification action tokens
-VERIFY_PATTERNS = [
-    r"\bverify\w*\b", r"\bverificat\w*\b", r"\bconfirm\w*\b", r"\bupdat\w*\b",
-    r"\bvalidat\w*\b", r"\bclick\w*\b", r"\btap here\b", r"\bvisit\b", r"\breset\w*\b",
-    r"\bauthenticat\w*\b", r"\blink below\b", r"\bfollowing link\b", r"\bclaim\w*\b"
+    r"\brestrict\w*\b", r"\bcompromis\w*\b", r"\btemporarily disabled\b", r"\bfrozen\b",
+    r"\blose access\b", r"\binterrupted\b", r"\bkeep (?:your )?files safe\b"
 ]
 
 # OTP / MFA sensitive tokens
@@ -74,7 +89,7 @@ OTP_SHARING_PATTERNS = [
     r"\bconfirm your code\b", r"\bsubmit code\b"
 ]
 
-# Financial / Payment / Banking lures
+# Financial / Banking / Payment lures
 FINANCIAL_PATTERNS = [
     r"\bbanks?\b", r"\bbanking\b", r"\bcredit cards?\b", r"\bdebit cards?\b",
     r"\bcards? details?\b", r"\bcard ending in\b", r"\bpayments? failed\b",
@@ -128,7 +143,13 @@ def _check_brand_impersonation(lower_text: str) -> tuple[str | None, bool]:
         if re.search(pattern, lower_text, re.IGNORECASE):
             has_lure = any(
                 len(_matches_any_pattern(group, lower_text)) > 0
-                for group in [ACCOUNT_PATTERNS, ACCOUNT_LOCK_PATTERNS, FINANCIAL_PATTERNS, VERIFY_PATTERNS]
+                for group in [
+                    ACCOUNT_PATTERNS,
+                    ACCOUNT_LOCK_PATTERNS,
+                    BILLING_SUBSCRIPTION_PATTERNS,
+                    FINANCIAL_PATTERNS,
+                    ACTION_REQUEST_PATTERNS,
+                ]
             )
             return brand, has_lure
     return None, False
@@ -167,15 +188,33 @@ def analyze_message(message: str) -> dict[str, Any]:
     indicators: list[str] = []
     signals_count = 0
 
+    # Extract all pattern matches
+    urgency_matches = _matches_any_pattern(URGENCY_PATTERNS, lower_text)
+    billing_matches = _matches_any_pattern(BILLING_SUBSCRIPTION_PATTERNS, lower_text)
+    action_matches = _matches_any_pattern(ACTION_REQUEST_PATTERNS, lower_text)
+    account_matches = _matches_any_pattern(ACCOUNT_PATTERNS, lower_text)
+    lock_matches = _matches_any_pattern(ACCOUNT_LOCK_PATTERNS, lower_text)
+    otp_matches = _matches_any_pattern(OTP_PATTERNS, lower_text)
+    fin_matches = _matches_any_pattern(FINANCIAL_PATTERNS, lower_text)
+    prize_matches = _matches_any_pattern(PRIZE_PATTERNS, lower_text)
+    consequence_matches = _matches_any_pattern(CONSEQUENCE_PATTERNS, lower_text)
+    extracted_urls = _extract_urls(raw_message)
+
+    has_urgency_term = len(urgency_matches) > 0
+    has_billing_term = len(billing_matches) > 0
+    has_action_term = len(action_matches) > 0
+    has_account_term = len(account_matches) > 0
+    has_lock_term = len(lock_matches) > 0
+    has_fin_term = len(fin_matches) > 0
+
     # -------------------------------------------------------------------------
     # Signal 1: Urgency / Pressure Language
     # -------------------------------------------------------------------------
-    urgency_matches = _matches_any_pattern(URGENCY_PATTERNS, lower_text)
     if len(urgency_matches) >= 2:
         risk_score += 15
         signals_count += 2
         indicators.append(f"Multiple urgency pressure triggers detected: '{', '.join(urgency_matches[:3])}'")
-    elif len(urgency_matches) == 1:
+    elif len(urgency_matches) == 1 and urgency_matches[0].lower() not in ["now"]:
         risk_score += 10
         signals_count += 1
         indicators.append(f"Urgency or time-pressure language detected: '{urgency_matches[0]}'")
@@ -183,24 +222,16 @@ def analyze_message(message: str) -> dict[str, Any]:
     # -------------------------------------------------------------------------
     # Signal 2: Credential & Account Suspension/Lock Lures
     # -------------------------------------------------------------------------
-    account_matches = _matches_any_pattern(ACCOUNT_PATTERNS, lower_text)
-    lock_matches = _matches_any_pattern(ACCOUNT_LOCK_PATTERNS, lower_text)
-    verify_matches = _matches_any_pattern(VERIFY_PATTERNS, lower_text)
-
-    has_account_term = len(account_matches) > 0
-    has_lock_term = len(lock_matches) > 0
-    has_verify_term = len(verify_matches) > 0
-
     if has_lock_term:
         risk_score += 20
         signals_count += 1
-        indicators.append(f"Account restriction/suspension claim detected ('{lock_matches[0]}')")
+        indicators.append(f"Account restriction or file loss consequence claim detected ('{lock_matches[0]}')")
 
-    if has_account_term and has_verify_term:
+    if has_account_term and has_action_term:
         risk_score += 20
         signals_count += 2
         indicators.append(
-            f"Account security lure combined with verification request detected ({account_matches[0]} + {verify_matches[0]})"
+            f"Account security lure combined with action request detected ({account_matches[0]} + {action_matches[0]})"
         )
     elif has_account_term and ("password" in lower_text or "credential" in lower_text):
         risk_score += 15
@@ -210,7 +241,6 @@ def analyze_message(message: str) -> dict[str, Any]:
     # -------------------------------------------------------------------------
     # Signal 3: OTP / 2FA Security Code Requests (Social Engineering)
     # -------------------------------------------------------------------------
-    otp_matches = _matches_any_pattern(OTP_PATTERNS, lower_text)
     if otp_matches:
         sharing_matches = _matches_any_pattern(OTP_SHARING_PATTERNS, lower_text)
         if sharing_matches:
@@ -223,28 +253,33 @@ def analyze_message(message: str) -> dict[str, Any]:
             indicators.append("Security verification code (OTP/2FA) mentioned in message")
 
     # -------------------------------------------------------------------------
-    # Signal 4: Financial / Banking / Payment Lures
+    # Signal 4: Financial & Billing / Subscription Renewal Lures
     # -------------------------------------------------------------------------
-    fin_matches = _matches_any_pattern(FINANCIAL_PATTERNS, lower_text)
-    if fin_matches:
-        if has_verify_term or len(urgency_matches) > 0 or "unauthorized" in lower_text or "failed" in lower_text:
+    if has_billing_term:
+        if has_action_term:
+            risk_score += 20
+            signals_count += 1
+            indicators.append(f"Action request associated with billing or subscription renewal detected ('{action_matches[0]}')")
+
+        if has_urgency_term:
+            risk_score += 15
+            signals_count += 1
+            indicators.append(f"Urgency pressure combined with subscription/billing action detected ('{urgency_matches[0]}')")
+
+    if has_fin_term:
+        if has_action_term or has_urgency_term or "unauthorized" in lower_text or "failed" in lower_text:
             risk_score += 25
             signals_count += 2
             indicators.append(f"Financial transaction or banking lure paired with action request ({fin_matches[0]})")
-            if has_verify_term:
+            if has_action_term and not has_billing_term:
                 risk_score += 15
-                indicators.append(f"Action or confirmation demanded on financial instrument ('{verify_matches[0]}')")
-        else:
-            risk_score += 5
-            signals_count += 1
-            indicators.append(f"Financial or transaction terminology detected ({fin_matches[0]})")
+                indicators.append(f"Action or confirmation demanded on financial instrument ('{action_matches[0]}')")
 
     # -------------------------------------------------------------------------
     # Signal 5: Prize / Lottery / Reward Scams
     # -------------------------------------------------------------------------
-    prize_matches = _matches_any_pattern(PRIZE_PATTERNS, lower_text)
     if prize_matches:
-        if has_verify_term or has_account_term or "claim" in lower_text or "fee" in lower_text or "reward" in lower_text:
+        if has_action_term or has_account_term or "claim" in lower_text or "fee" in lower_text or "reward" in lower_text:
             risk_score += 35
             signals_count += 2
             indicators.append(f"Unsolicited prize, lottery, or reward lure with claim requirements detected ({prize_matches[0]})")
@@ -262,14 +297,10 @@ def analyze_message(message: str) -> dict[str, Any]:
             risk_score += 25
             signals_count += 2
             indicators.append(f"Brand impersonation pattern: Target brand '{matched_brand.title()}' paired with security or payment lure")
-        else:
-            # Benign or informational brand mention
-            risk_score += 0
 
     # -------------------------------------------------------------------------
     # Signal 7: Coercive Threats & Punitive Consequence Language
     # -------------------------------------------------------------------------
-    consequence_matches = _matches_any_pattern(CONSEQUENCE_PATTERNS, lower_text)
     if consequence_matches:
         risk_score += 20
         signals_count += 2
@@ -278,10 +309,10 @@ def analyze_message(message: str) -> dict[str, Any]:
     # -------------------------------------------------------------------------
     # Signal 8: Embedded URLs & Static URL Threat Evaluation
     # -------------------------------------------------------------------------
-    extracted_urls = _extract_urls(raw_message)
     if extracted_urls:
         has_shortener = False
         highest_url_score = 0
+        elevated_url_found = False
 
         for embedded_url in extracted_urls:
             # Check for URL Shorteners
@@ -295,17 +326,22 @@ def analyze_message(message: str) -> dict[str, Any]:
                 url_risk = url_scan.get("risk_score", 0)
                 highest_url_score = max(highest_url_score, url_risk)
 
-                if url_scan.get("verdict") == "phishing":
+                if url_scan.get("verdict") == "phishing" or url_risk >= 70:
                     risk_score += 35
                     signals_count += 2
+                    elevated_url_found = True
                     indicators.append(f"Embedded link '{embedded_url}' flagged as high-risk phishing destination")
-                elif url_scan.get("verdict") == "suspicious":
+                elif url_scan.get("verdict") == "suspicious" or url_risk >= 30:
                     risk_score += 20
                     signals_count += 1
+                    elevated_url_found = True
                     indicators.append(f"Embedded link '{embedded_url}' exhibits suspicious characteristics")
-                else:
-                    # Clean/Safe URL
-                    pass
+                elif url_risk >= 15 and not embedded_url.lower().startswith("https://"):
+                    # Unencrypted HTTP transport with domain or path risk signals
+                    risk_score += 15
+                    signals_count += 1
+                    elevated_url_found = True
+                    indicators.append(f"Embedded link '{embedded_url}' uses unencrypted transport with domain/path anomalies")
             except Exception:
                 pass
 
@@ -314,8 +350,12 @@ def analyze_message(message: str) -> dict[str, Any]:
             signals_count += 1
             indicators.append("URL shortening service detected (destination domain is obscured)")
 
-        # URL + Urgency / Account verification synergy
-        if (has_account_term or has_lock_term or len(urgency_matches) > 0) and highest_url_score > 0:
+        # URL Contextual Synergies
+        if elevated_url_found and (has_billing_term or has_fin_term or has_account_term):
+            risk_score += 20
+            indicators.append("Financial / billing context combined with elevated-risk embedded URL")
+
+        if (has_account_term or has_lock_term or has_urgency_term) and highest_url_score > 0:
             risk_score += 10
 
     # -------------------------------------------------------------------------
