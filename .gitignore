@@ -32,3 +32,5 @@ dist-ssr
 backend/.venv/
 backend/__pycache__/
 *.pyc
+*.tmp
+docs/asw-*

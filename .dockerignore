@@ -1,0 +1,22 @@
+# Docker build ignore rules for LinkSentry
+.git
+.github
+.vscode
+.idea
+.venv
+backend/.venv
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.pytest_cache
+node_modules
+dist
+dist-ssr
+.env
+.env.local
+.env.*.local
+docs
+public
+src
+*.md

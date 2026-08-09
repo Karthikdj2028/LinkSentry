@@ -167,3 +167,9 @@ def scan_message(request_data: MessageScanRequest, request: Request) -> dict[str
     limiter.check_rate_limit(request)
     logger.info(f"Message scan requested for payload length {len(request_data.message)}")
     return analyze_message(request_data.message)
+
+
+if __name__ == "__main__":
+    import uvicorn
+    runtime_port = int(os.getenv("PORT", 8000))
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=runtime_port, reload=False)
