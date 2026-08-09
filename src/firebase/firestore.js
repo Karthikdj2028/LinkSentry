@@ -52,17 +52,35 @@ export function mapBackendScanToFirestoreDoc(userId, input, backendResponse = {}
     ? backendResponse.verdict.toLowerCase() 
     : 'safe';
 
+  // Extract embedded URL if present
+  let extractedUrl = backendResponse.url || '';
+  let extractedDomain = backendResponse.domain || '';
+
+  if (scanType === 'message' && !extractedUrl && input) {
+    const urlMatch = input.match(/https?:\/\/[^\s<>"]+/i);
+    if (urlMatch) {
+      extractedUrl = urlMatch[0];
+      try {
+        extractedDomain = new URL(extractedUrl).hostname;
+      } catch {
+        extractedDomain = '';
+      }
+    }
+  } else if (scanType !== 'message' && !extractedUrl) {
+    extractedUrl = input || '';
+  }
+
   return {
     userId,
     type: scanType,
-    input: input || backendResponse.url || '',
-    url: backendResponse.url || input || '',
-    domain: backendResponse.domain || '',
+    input: input || backendResponse.message || backendResponse.url || '',
+    url: extractedUrl,
+    domain: extractedDomain,
     verdict: rawVerdict,
     riskScore: typeof backendResponse.risk_score === 'number' ? backendResponse.risk_score : 0,
     confidence: typeof backendResponse.confidence === 'number' ? backendResponse.confidence : 0.7,
     indicators: Array.isArray(backendResponse.indicators) ? backendResponse.indicators : [],
-    engine: backendResponse.engine || 'temporary-rule-based-detector',
+    engine: backendResponse.engine || (scanType === 'message' ? 'linksentry-message-heuristic-v1' : 'linksentry-heuristic-v1'),
     createdAt: serverTimestamp()
   };
 }

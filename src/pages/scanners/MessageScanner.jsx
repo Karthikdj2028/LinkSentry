@@ -1,28 +1,32 @@
 import { useState } from 'react';
 import ScanResultCard from '../../components/ScanResultCard';
 import { PRESET_SAMPLES } from '../../data/mockData';
+import { useAuth } from '../../context';
+import { saveScan, mapBackendScanToFirestoreDoc } from '../../firebase';
+
+const API_BASE_URL = 'http://127.0.0.1:8000';
 
 /**
  * Message Scanner Component
  * Handles SMS / Email / Chat message analysis for smishing and social engineering attacks
- * 
- * TODO: Connect to backend NLP model (BERT/Transformer-based phishing intent classifier) in Stage 3
- * TODO: Connect to Firebase Functions for real-time scoring in Stage 2
+ * via the FastAPI message threat detection engine, and persists results to Cloud Firestore.
  */
 export default function MessageScanner() {
+  const { currentUser } = useAuth();
   const [messageText, setMessageText] = useState('');
   const [validationError, setValidationError] = useState('');
+  const [saveWarning, setSaveWarning] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
 
   const validateMessage = (text) => {
-    if (!text || text.trim().length < 5) {
-      return 'Please enter or paste at least 5 characters of message content to analyze.';
+    if (!text || !text.trim()) {
+      return 'Please enter a message to analyze.';
     }
     return '';
   };
 
-  const handleScan = (e) => {
+  const handleScan = async (e) => {
     e?.preventDefault();
     const error = validateMessage(messageText);
     if (error) {
@@ -31,81 +35,100 @@ export default function MessageScanner() {
       return;
     }
 
+    const payloadText = messageText.trim();
     setValidationError('');
+    setSaveWarning('');
     setIsScanning(true);
     setScanResult(null);
 
-    // Simulated NLP inference delay
-    // TODO: Replace with fetch('/api/v1/scan/message', { method: 'POST', body: JSON.stringify({ message: messageText }) })
-    setTimeout(() => {
-      const lower = messageText.toLowerCase();
-      let verdict = 'Safe';
-      let riskScore = 5;
-      let details = {
-        urgencyScore: 'Low (0.05 / 1.00)',
-        deceptiveKeywords: [],
-        extractedUrls: [],
-        socialEngineeringTactic: 'None / Informational Routine Content',
-        nlpModelVerdict: 'Safe Consumer Message',
-        confidence: '99.4%'
-      };
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/scan/message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: payloadText }),
+      });
 
-      // Heuristic detection on message content
-      const foundKeywords = [];
-      if (lower.includes('urgent') || lower.includes('immediately')) foundKeywords.push('Urgency Pressure ("URGENT/immediately")');
-      if (lower.includes('unauthorized') || lower.includes('wire transfer') || lower.includes('bank')) foundKeywords.push('Financial Panic Lure');
-      if (lower.includes('lock') || lower.includes('dispute') || lower.includes('verify')) foundKeywords.push('Account Verification Bait');
-      if (lower.includes('card ending in')) foundKeywords.push('Fake Transaction Confirmation');
-
-      // Extract URLs if any
-      const urlRegex = /(https?:\/\/[^\s]+)/g;
-      const urls = messageText.match(urlRegex) || [];
-
-      if (foundKeywords.length >= 2 || lower.includes('chase-security') || lower.includes('unauthorized wire')) {
-        verdict = 'Phishing';
-        riskScore = 95;
-        details = {
-          urgencyScore: 'Critical (0.96 / 1.00 - High Panic Coercion)',
-          deceptiveKeywords: foundKeywords,
-          extractedUrls: urls.length > 0 ? urls : ['Embedded unshortened link: http://chase-security-auth-alert.xyz/dispute'],
-          socialEngineeringTactic: 'Banking Impersonation & Panic-Induced Click Lure (Smishing)',
-          nlpModelVerdict: 'High-Risk Malicious Smishing Campaign',
-          confidence: '98.7%'
-        };
-      } else if (foundKeywords.length === 1 || urls.length > 0 || lower.includes('subscription') || lower.includes('renewal')) {
-        verdict = 'Suspicious';
-        riskScore = 68;
-        details = {
-          urgencyScore: 'Moderate (0.64 / 1.00)',
-          deceptiveKeywords: foundKeywords.length > 0 ? foundKeywords : ['Unsolicited Billing Action'],
-          extractedUrls: urls.length > 0 ? urls : ['http://cloud-storage-renewal-fix.net/pay'],
-          socialEngineeringTactic: 'Unverified Subscription Renewal Demand',
-          nlpModelVerdict: 'Elevated Risk / Suspicious Sender Pattern',
-          confidence: '83.5%'
-        };
+      if (!response.ok) {
+        throw new Error(`Server returned HTTP ${response.status}`);
       }
 
+      const data = await response.json();
+
+      if (data.verdict === 'invalid') {
+        const errorMsg = Array.isArray(data.indicators) && data.indicators.length > 0
+          ? data.indicators.join(', ')
+          : 'Invalid message content provided.';
+        setValidationError(errorMsg);
+        setScanResult(null);
+        return;
+      }
+
+      const rawVerdict = typeof data.verdict === 'string' ? data.verdict : 'safe';
+      const formattedVerdict = rawVerdict.charAt(0).toUpperCase() + rawVerdict.slice(1);
+
+      const details = {
+        detectionEngine: data.engine || 'linksentry-message-heuristic-v1',
+        threatIndicators: Array.isArray(data.indicators) && data.indicators.length > 0
+          ? data.indicators
+          : ['No threat indicators detected'],
+        analyzedLength: `${data.message?.length || payloadText.length} characters`,
+      };
+
+      const confidenceDisplay = typeof data.confidence === 'number'
+        ? `${Math.round(data.confidence * 100)}%`
+        : '85%';
+
+      const targetSnippet = payloadText.length > 75
+        ? `${payloadText.slice(0, 75)}...`
+        : payloadText;
+
+      // 1. Immediately render the ScanResultCard
       setScanResult({
-        target: `Message Snippet: "${messageText.slice(0, 75)}${messageText.length > 75 ? '...' : ''}"`,
-        verdict,
-        riskScore,
-        confidence: details.confidence,
+        target: `Message: "${targetSnippet}"`,
+        verdict: formattedVerdict,
+        riskScore: typeof data.risk_score === 'number' ? data.risk_score : 0,
+        confidence: confidenceDisplay,
         details,
-        timestamp: new Date().toLocaleTimeString()
+        timestamp: new Date().toLocaleTimeString(),
       });
+
+      // 2. Persist successful scan to Cloud Firestore under authenticated user
+      if (currentUser?.uid) {
+        try {
+          const firestorePayload = mapBackendScanToFirestoreDoc(
+            currentUser.uid,
+            payloadText,
+            data,
+            'message'
+          );
+          await saveScan(currentUser.uid, firestorePayload);
+        } catch (saveErr) {
+          console.error('Cloud Firestore Message scan save error:', saveErr);
+          setSaveWarning('Message scan completed, but the result could not be saved to history.');
+        }
+      }
+    } catch (err) {
+      console.error('Message threat scan backend error:', err);
+      setValidationError('Unable to connect to LinkSentry backend.');
+      setScanResult(null);
+    } finally {
       setIsScanning(false);
-    }, 1300);
+    }
   };
 
   const handlePresetSelect = (preset) => {
     setMessageText(preset.text);
     setValidationError('');
+    setSaveWarning('');
     setScanResult(null);
   };
 
   const handleClear = () => {
     setMessageText('');
     setValidationError('');
+    setSaveWarning('');
     setScanResult(null);
   };
 
@@ -122,7 +145,7 @@ export default function MessageScanner() {
               Paste suspicious SMS text messages, emails, or chat alerts to evaluate social engineering tactics, urgency levels, and deceptive links.
             </p>
           </div>
-          <span className="font-mono scanner-mode-pill">STAGE 1: HEURISTIC MOCK</span>
+          <span className="font-mono scanner-mode-pill">STAGE 6B: FASTAPI + FIRESTORE</span>
         </div>
 
         {/* Input Form */}
@@ -160,12 +183,12 @@ export default function MessageScanner() {
               <button
                 type="submit"
                 className="btn btn-primary btn-lg scan-submit-btn"
-                disabled={isScanning}
+                disabled={isScanning || !messageText.trim()}
               >
                 {isScanning ? (
                   <>
                     <span className="spinner-border" />
-                    <span>Running NLP Threat Classifier...</span>
+                    <span>Analyzing Social Engineering Intent...</span>
                   </>
                 ) : (
                   <>
@@ -205,6 +228,40 @@ export default function MessageScanner() {
           </div>
         </form>
       </div>
+
+      {/* Scanning In-Progress Animation */}
+      {isScanning && (
+        <div className="cyber-card scanning-in-progress animate-pulse">
+          <div className="scanning-radar-container">
+            <div className="scanning-radar-sweep" />
+            <div className="scanning-radar-grid" />
+            <div className="scanning-radar-crosshair" />
+          </div>
+          <div className="scanning-status-texts font-mono">
+            <p className="status-primary-text">EVALUATING MESSAGE INTENT & THREAT SIGNALS...</p>
+            <p className="status-sub-text">
+              Querying FastAPI message threat engine • Detecting coercion & urgency • Inspecting embedded URLs...
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Firestore Save Warning Banner (Non-blocking) */}
+      {saveWarning && (
+        <div 
+          className="auth-error-alert animate-fade-in" 
+          style={{ 
+            borderColor: 'rgba(234, 179, 8, 0.4)', 
+            background: 'rgba(234, 179, 8, 0.1)', 
+            color: '#fef08a',
+            marginBottom: '1rem'
+          }}
+          role="alert"
+        >
+          <span className="error-icon">⚠️</span>
+          <span className="error-text">{saveWarning}</span>
+        </div>
+      )}
 
       {/* Results Display */}
       {scanResult && !isScanning && (
