@@ -1,17 +1,18 @@
 import { useState } from 'react';
+import { useAuth } from '../context';
 import { MOCK_USER_PROFILE } from '../data/mockData';
 
 /**
  * ProfilePage Component
- * Displays user profile, security preferences, and mock API credentials
- * 
- * TODO: In Stage 2, connect to Firebase Authentication (firebase/auth) & Firestore user document
+ * Displays authenticated user details from Firebase Auth, security preferences, and mock API credentials
  */
 export default function ProfilePage() {
+  const { currentUser, logout } = useAuth();
   const [userProfile, setUserProfile] = useState(MOCK_USER_PROFILE);
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleTogglePreference = (key) => {
     setUserProfile((prev) => ({
@@ -21,7 +22,7 @@ export default function ProfilePage() {
         [key]: !prev.preferences[key]
       }
     }));
-    setSaveStatus('Preferences saved locally (Stage 1 mock state).');
+    setSaveStatus('Preferences saved locally (Stage 2 session state).');
     setTimeout(() => setSaveStatus(''), 2500);
   };
 
@@ -31,31 +32,64 @@ export default function ProfilePage() {
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      await logout();
+      // Auth state listener in AuthContext will automatically transition user to login screen
+    } catch (err) {
+      console.error('Logout error:', err);
+      setIsLoggingOut(false);
+    }
+  };
+
+  // Derive display values from authenticated Firebase user
+  const userEmail = currentUser?.email || userProfile.email;
+  const userUid = currentUser?.uid ? `${currentUser.uid.slice(0, 12)}...` : 'SOC-ANALYST-01';
+  const creationDate = currentUser?.metadata?.creationTime
+    ? new Date(currentUser.metadata.creationTime).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    : userProfile.joinedDate;
+  
+  const avatarInitials = userEmail
+    ? userEmail.slice(0, 2).toUpperCase()
+    : userProfile.avatarInitials;
+
   return (
     <div className="page-container profile-page animate-fade-in">
       <div className="container">
         {/* Page Header */}
         <div className="page-hero-header">
           <div className="hero-tagline-badge">
-            <span className="cyber-badge-dot pulse" style={{ backgroundColor: '#06b6d4' }} />
-            <span className="font-mono text-cyan">ANALYST CREDENTIALS & WORKSPACE</span>
+            <span className="cyber-badge-dot pulse" style={{ backgroundColor: '#10b981' }} />
+            <span className="font-mono text-cyan">FIREBASE AUTHENTICATED WORKSPACE</span>
           </div>
           <h1 className="page-main-heading">User Profile & Security Settings</h1>
           <p className="page-subheading">
-            Manage your analyst identity, security preferences, and automated threat defense parameters.
+            Manage your authenticated analyst identity, session credentials, and threat defense parameters.
           </p>
         </div>
 
-        {/* Stage 1 Notice */}
-        <div className="cyber-card mock-notice-banner">
-          <div className="notice-icon">👤</div>
-          <div className="notice-text-group">
-            <strong className="notice-title">Stage 1 Notice: Authentication Placeholder</strong>
-            <p className="notice-body">
-              Authentication is currently mocked. In <strong>Stage 2</strong>, this will integrate with <strong>Firebase Authentication</strong> (Email/Password, Google OAuth, Enterprise SSO, and Multi-Factor Auth).
+        {/* Stage 2 Active Notice */}
+        <div className="cyber-card auth-status-banner">
+          <div className="status-icon-box">🔐</div>
+          <div className="status-text-group">
+            <strong className="status-title">Stage 2 Active: Firebase Authentication Connected</strong>
+            <p className="status-body">
+              Signed in as <strong className="font-mono text-cyan">{userEmail}</strong>. Your session is securely authenticated via Firebase Client Auth with persistent browser state.
             </p>
           </div>
-          <span className="font-mono mock-badge">FIREBASE AUTH: PLANNED</span>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm logout-btn-top"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+          >
+            {isLoggingOut ? 'Logging Out...' : '🚪 Sign Out'}
+          </button>
         </div>
 
         <div className="profile-layout-grid">
@@ -63,10 +97,10 @@ export default function ProfilePage() {
           <div className="cyber-card profile-card">
             <div className="profile-avatar-box">
               <div className="profile-avatar-circle">
-                <span className="avatar-initials font-mono">{userProfile.avatarInitials}</span>
+                <span className="avatar-initials font-mono">{avatarInitials}</span>
               </div>
               <div className="profile-identity">
-                <h3 className="profile-name">{userProfile.name}</h3>
+                <h3 className="profile-name font-mono">{userEmail.split('@')[0]}</h3>
                 <span className="profile-role text-cyan font-mono">{userProfile.role}</span>
                 <span className="profile-org">{userProfile.organization}</span>
               </div>
@@ -74,16 +108,24 @@ export default function ProfilePage() {
 
             <div className="profile-meta-list">
               <div className="profile-meta-row">
-                <span className="meta-label">Email Address</span>
-                <span className="meta-val font-mono">{userProfile.email}</span>
+                <span className="meta-label">Authenticated Email</span>
+                <span className="meta-val font-mono text-cyan" title={userEmail}>
+                  {userEmail}
+                </span>
+              </div>
+              <div className="profile-meta-row">
+                <span className="meta-label">Firebase UID</span>
+                <span className="meta-val font-mono text-muted" title={currentUser?.uid || ''}>
+                  {userUid}
+                </span>
               </div>
               <div className="profile-meta-row">
                 <span className="meta-label">Subscription Tier</span>
                 <span className="meta-val badge-tier">{userProfile.tier}</span>
               </div>
               <div className="profile-meta-row">
-                <span className="meta-label">Member Since</span>
-                <span className="meta-val font-mono">{userProfile.joinedDate}</span>
+                <span className="meta-label">Account Created</span>
+                <span className="meta-val font-mono">{creationDate}</span>
               </div>
               <div className="profile-meta-row">
                 <span className="meta-label">Scans Performed</span>
@@ -93,8 +135,18 @@ export default function ProfilePage() {
 
             <div className="profile-auth-status">
               <span className="cyber-badge-dot" style={{ backgroundColor: '#10b981' }} />
-              <span className="status-label font-mono">Simulated Session: SOC-ANALYST-ACTIVE</span>
+              <span className="status-label font-mono">Firebase Session: ACTIVE</span>
             </div>
+
+            {/* Prominent Sign Out Button */}
+            <button
+              type="button"
+              className="btn btn-secondary logout-action-card-btn"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+            >
+              {isLoggingOut ? 'Terminating Security Session...' : '🔒 Sign Out / Lock Console'}
+            </button>
           </div>
 
           {/* Right Column: Security Preferences & API Credentials */}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '../context';
 
 /**
  * Navbar Component for LinkSentry
@@ -6,6 +7,7 @@ import { useState } from 'react';
  * Fully responsive with desktop navigation and mobile drawer menu
  */
 export default function Navbar({ activeTab, onSelectTab }) {
+  const { currentUser } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
@@ -20,6 +22,10 @@ export default function Navbar({ activeTab, onSelectTab }) {
     onSelectTab(id);
     setMobileMenuOpen(false);
   };
+
+  const userSnippet = currentUser?.email
+    ? currentUser.email.split('@')[0]
+    : 'ANALYST';
 
   return (
     <header className="site-header">
@@ -57,8 +63,8 @@ export default function Navbar({ activeTab, onSelectTab }) {
         {/* Live System Status Pill */}
         <div className="system-status-pill desktop-only">
           <span className="cyber-badge-dot pulse" style={{ backgroundColor: '#10b981' }} />
-          <span className="status-text font-mono">SHIELD: ACTIVE</span>
-          <span className="status-version">v0.1.0</span>
+          <span className="status-text font-mono">SOC: {userSnippet.toUpperCase()}</span>
+          <span className="status-version font-mono">v0.2.0</span>
         </div>
 
         {/* Desktop Navigation Tabs */}
@@ -106,7 +112,9 @@ export default function Navbar({ activeTab, onSelectTab }) {
         <div className="mobile-nav-drawer mobile-only animate-fade-in">
           <div className="mobile-drawer-status">
             <span className="cyber-badge-dot pulse" style={{ backgroundColor: '#10b981' }} />
-            <span className="status-text font-mono">LINK SENTRY ONLINE • MOCK MODE</span>
+            <span className="status-text font-mono">
+              USER: {currentUser?.email || 'ANALYST'} • AUTH ACTIVE
+            </span>
           </div>
           <ul className="mobile-nav-list">
             {navItems.map((item) => {

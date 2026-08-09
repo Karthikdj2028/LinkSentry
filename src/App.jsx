@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AuthProvider, useAuth } from './context';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
@@ -6,21 +7,15 @@ import ScannerPage from './pages/ScannerPage';
 import HistoryPage from './pages/HistoryPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
+import AuthPage from './pages/auth/AuthPage';
 import './App.css';
 
 /**
- * LinkSentry Main Application - Stage 1 Frontend Architecture
- * 
- * Manages main navigation tabs:
- * - Home
- * - Scanner (with subtabs: URL, QR, Message)
- * - History
- * - Dashboard
- * - Profile
- * 
- * TODO: In Stage 2, add Firebase Auth state listener, Firestore real-time sync, and protected route handlers
+ * Inner Application Content with Protected Routes
  */
-function App() {
+function MainContent() {
+  const { currentUser, loading } = useAuth();
+  
   // Main active navigation tab: 'home' | 'scanner' | 'history' | 'dashboard' | 'profile'
   const [activeTab, setActiveTab] = useState('home');
   
@@ -40,8 +35,34 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // 1. Loading / Initializing Auth State Splash View
+  if (loading) {
+    return (
+      <div className="auth-loading-splash">
+        <div className="splash-card">
+          <div className="scanning-radar-container">
+            <div className="scanning-radar-sweep" />
+            <div className="scanning-radar-grid" />
+            <div className="scanning-radar-crosshair" />
+          </div>
+          <div className="splash-text-group">
+            <h2 className="splash-title font-mono">LINK<span className="brand-highlight">SENTRY</span></h2>
+            <p className="splash-status font-mono text-cyan">INITIALIZING SECURITY SUBSYSTEMS & AUTH SESSION...</p>
+            <span className="splash-sub">Verifying client token persistence with Firebase</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Unauthenticated View: Login & Registration Portal
+  if (!currentUser) {
+    return <AuthPage />;
+  }
+
+  // 3. Authenticated View: Full LinkSentry Platform
   return (
-    <div className="app-layout">
+    <div className="app-layout animate-fade-in">
       {/* Top Navigation Bar */}
       <Navbar 
         activeTab={activeTab} 
@@ -87,4 +108,14 @@ function App() {
   );
 }
 
-export default App;
+/**
+ * LinkSentry Root Application
+ * Provides Firebase Authentication context across the entire tree
+ */
+export default function App() {
+  return (
+    <AuthProvider>
+      <MainContent />
+    </AuthProvider>
+  );
+}
