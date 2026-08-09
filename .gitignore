@@ -33,4 +33,7 @@ backend/.venv/
 backend/__pycache__/
 *.pyc
 *.tmp
-docs/asw-*
+docs/asw-*.env.production
+
+.env.production
+.firebase/
