@@ -2,15 +2,19 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import jsQR from 'jsqr';
 import ScanResultCard from '../../components/ScanResultCard';
 import { PRESET_SAMPLES } from '../../data/mockData';
+import { useAuth } from '../../context';
+import { saveScan, mapBackendScanToFirestoreDoc } from '../../firebase';
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
 
 /**
  * QR Code Scanner Component
  * Handles QR image decoding (upload and live camera stream) using jsQR,
- * classifies the payload type, and sends URL payloads to the FastAPI URL threat detection engine.
+ * classifies the payload type, queries the FastAPI URL threat engine for HTTP/HTTPS URLs,
+ * and persists successful QR URL scan records to Cloud Firestore under users/{userId}/scans.
  */
 export default function QrScanner() {
+  const { currentUser } = useAuth();
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [activeScanMode, setActiveScanMode] = useState('upload'); // 'upload' | 'camera'
@@ -18,6 +22,7 @@ export default function QrScanner() {
   const [cameraError, setCameraError] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [validationError, setValidationError] = useState('');
+  const [saveWarning, setSaveWarning] = useState('');
   const [scanResult, setScanResult] = useState(null);
 
   const fileInputRef = useRef(null);
@@ -50,8 +55,8 @@ export default function QrScanner() {
 
   /**
    * Processes and analyzes a decoded QR payload.
-   * If the payload is an HTTP/HTTPS URL, it queries the FastAPI detection endpoint.
-   * If the payload is non-URL (text, email, tel, wifi), it displays a structured safe assessment.
+   * If the payload is an HTTP/HTTPS URL, queries FastAPI and persists the result to Firestore.
+   * If the payload is non-URL (text, email, tel, wifi, sms), displays a safe assessment without DB write.
    */
   const classifyAndAnalyzePayload = useCallback(async (rawPayload) => {
     if (!rawPayload || typeof rawPayload !== 'string' || !rawPayload.trim()) {
@@ -61,6 +66,7 @@ export default function QrScanner() {
 
     const payload = rawPayload.trim();
     setValidationError('');
+    setSaveWarning('');
     setScanResult(null);
 
     // 1. Check if payload is an HTTP or HTTPS URL
@@ -111,6 +117,7 @@ export default function QrScanner() {
           ? `${Math.round(data.confidence * 100)}%`
           : '85%';
 
+        // 1. Display scan result card immediately
         setScanResult({
           target: payload,
           verdict: formattedVerdict,
@@ -119,6 +126,22 @@ export default function QrScanner() {
           details,
           timestamp: new Date().toLocaleTimeString(),
         });
+
+        // 2. Persist successful URL QR scan to Cloud Firestore under authenticated user
+        if (currentUser?.uid) {
+          try {
+            const firestorePayload = mapBackendScanToFirestoreDoc(
+              currentUser.uid,
+              payload,
+              data,
+              'qr'
+            );
+            await saveScan(currentUser.uid, firestorePayload);
+          } catch (saveErr) {
+            console.error('Cloud Firestore QR scan save error:', saveErr);
+            setSaveWarning('QR scan completed, but the result could not be saved to history.');
+          }
+        }
       } catch (err) {
         console.error('QR URL scan backend error:', err);
         setValidationError('Unable to connect to LinkSentry backend.');
@@ -220,7 +243,7 @@ export default function QrScanner() {
       },
       timestamp: new Date().toLocaleTimeString(),
     });
-  }, []);
+  }, [currentUser]);
 
   /**
    * Decodes a QR code from an image data URL using jsQR
@@ -271,6 +294,7 @@ export default function QrScanner() {
     }
 
     setValidationError('');
+    setSaveWarning('');
     setSelectedFile(file);
     setScanResult(null);
 
@@ -309,6 +333,7 @@ export default function QrScanner() {
     }
 
     setValidationError('');
+    setSaveWarning('');
     setSelectedFile(file);
     setScanResult(null);
 
@@ -335,9 +360,10 @@ export default function QrScanner() {
     setSelectedFile({ name: preset.name, size: 'Preset Sample' });
     setFilePreview('preset');
     setValidationError('');
+    setSaveWarning('');
     setScanResult(null);
 
-    // Analyze preset decoded URL payload directly with real FastAPI engine
+    // Analyze preset decoded URL payload directly with real FastAPI engine & Firestore save
     classifyAndAnalyzePayload(preset.decoded);
   };
 
@@ -354,6 +380,7 @@ export default function QrScanner() {
       try {
         setIsScanning(true);
         setValidationError('');
+        setSaveWarning('');
         const decoded = await decodeQrFromImageData(filePreview);
         await classifyAndAnalyzePayload(decoded);
       } catch {
@@ -367,6 +394,7 @@ export default function QrScanner() {
   const startCameraMode = async () => {
     setActiveScanMode('camera');
     setValidationError('');
+    setSaveWarning('');
     setCameraError('');
     setScanResult(null);
 
@@ -425,6 +453,7 @@ export default function QrScanner() {
     setFilePreview(null);
     setScanResult(null);
     setValidationError('');
+    setSaveWarning('');
     setCameraError('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -442,7 +471,7 @@ export default function QrScanner() {
               Detect deceptive QR codes, rogue payment stickers, shortened redirect cloaks, and malicious file drops.
             </p>
           </div>
-          <span className="font-mono scanner-mode-pill">STAGE 5A: FASTAPI DECODING CONNECTED</span>
+          <span className="font-mono scanner-mode-pill">STAGE 5B: FASTAPI + FIRESTORE</span>
         </div>
 
         {/* Scan Mode Toggle: File Upload vs Camera Feed */}
@@ -613,6 +642,23 @@ export default function QrScanner() {
               Querying FastAPI detection engine • Evaluating URL lexical rules • Analyzing heuristics & threat indicators...
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Firestore Save Warning Banner (Non-blocking) */}
+      {saveWarning && (
+        <div 
+          className="auth-error-alert animate-fade-in" 
+          style={{ 
+            borderColor: 'rgba(234, 179, 8, 0.4)', 
+            background: 'rgba(234, 179, 8, 0.1)', 
+            color: '#fef08a',
+            marginBottom: '1rem'
+          }}
+          role="alert"
+        >
+          <span className="error-icon">⚠️</span>
+          <span className="error-text">{saveWarning}</span>
         </div>
       )}
 
