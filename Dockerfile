@@ -23,7 +23,7 @@ COPY backend /app/backend
 
 # Create a non-privileged system user for process isolation
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser \
-    && chown -R appuser:appuser /app
+    && chown -R appuser:appgroup /app    && chown -R appuser:appuser /app
 
 USER appuser
 
