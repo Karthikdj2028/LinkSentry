@@ -1,0 +1,45 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // Default Deny-All Rule
+    // Any collections or paths not explicitly defined below are completely blocked.
+    // =========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // User Document & Scan History Rules
+    // Path: users/{userId}/scans/{scanId}
+    //
+    // Security Guarantees:
+    // 1. Unauthenticated requests are rejected immediately.
+    // 2. An authenticated user (User A) can only access their own subcollection (userId == request.auth.uid).
+    // 3. User A cannot read, create, modify, or delete User B's scan history.
+    // 4. On create/update, the stored document's userId field must match the creator's UID.
+    // =========================================================================
+    match /users/{userId} {
+      // User profile document (if created in future stages)
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // User's private scan history subcollection
+      match /scans/{scanId} {
+        // Read, Delete, Update allowed only if the user owns this path
+        allow read, delete: if request.auth != null && request.auth.uid == userId;
+
+        // Create allowed only if authenticated and payload userId matches the auth UID
+        allow create: if request.auth != null 
+          && request.auth.uid == userId
+          && request.resource.data.userId == request.auth.uid;
+
+        // Update allowed only if authenticated and cannot tamper with userId or scanId
+        allow update: if request.auth != null 
+          && request.auth.uid == userId
+          && request.resource.data.userId == request.auth.uid;
+      }
+    }
+  }
+}

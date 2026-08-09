@@ -6,4 +6,11 @@ export {
   logoutUser,
   subscribeToAuthState
 } from './auth';
+export {
+  saveScan,
+  getUserScans,
+  getScanById,
+  deleteScan,
+  mapBackendScanToFirestoreDoc
+} from './firestore';
 export { default } from './config';
