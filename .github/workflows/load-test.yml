@@ -1,0 +1,34 @@
+name: LinkSentry Load Test
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  load-test:
+    name: Execute k6 Load Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup k6 CLI
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 Load Test
+        env:
+          LOAD_TEST_BASE_URL: https://linksentry-api.onrender.com
+        run: |
+          k6 run loadtest/scenarios/api-load.test.js
+
+      - name: Upload Load Test Summary Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linksentry-load-test-report
+          path: loadtest/reports/
+          retention-days: 14
