@@ -23,7 +23,15 @@ export class HistoryPage extends BasePage {
 
   async searchHistory(query) {
     await this.waitForHistoryLoaded();
-    await this.type(this.searchInput, query);
+
+    const input = await this.waitForClickable(this.searchInput, 15000);
+
+    await input.click();
+    await input.clear();
+
+    if (query) {
+      await input.sendKeys(query);
+    }
   }
 
   async filterByType(type) {
