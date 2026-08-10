@@ -1,0 +1,13 @@
+{
+  "spec": "tests/**/*.test.js",
+  "timeout": 60000,
+  "reporter": "mochawesome",
+  "reporter-option": [
+    "reportDir=reports/mochawesome",
+    "reportFilename=LinkSentry_E2E_Report",
+    "html=true",
+    "json=true",
+    "overwrite=true"
+  ],
+  "exit": true
+}

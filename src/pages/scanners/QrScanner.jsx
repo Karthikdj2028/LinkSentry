@@ -62,6 +62,7 @@ export default function QrScanner() {
   const classifyAndAnalyzePayload = useCallback(async (rawPayload) => {
     if (!rawPayload || typeof rawPayload !== 'string' || !rawPayload.trim()) {
       setValidationError('Decoded QR payload is empty or invalid.');
+      setIsScanning(false);
       return;
     }
 
@@ -170,6 +171,7 @@ export default function QrScanner() {
         },
         timestamp: new Date().toLocaleTimeString(),
       });
+      setIsScanning(false);
       return;
     }
 
@@ -190,6 +192,7 @@ export default function QrScanner() {
         },
         timestamp: new Date().toLocaleTimeString(),
       });
+      setIsScanning(false);
       return;
     }
 
@@ -208,6 +211,7 @@ export default function QrScanner() {
         },
         timestamp: new Date().toLocaleTimeString(),
       });
+      setIsScanning(false);
       return;
     }
 
@@ -226,6 +230,7 @@ export default function QrScanner() {
         },
         timestamp: new Date().toLocaleTimeString(),
       });
+      setIsScanning(false);
       return;
     }
 
@@ -244,6 +249,7 @@ export default function QrScanner() {
       },
       timestamp: new Date().toLocaleTimeString(),
     });
+    setIsScanning(false);
   }, [currentUser]);
 
   /**

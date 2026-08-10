@@ -37,3 +37,9 @@ docs/asw-*.env.production
 
 .env.production
 .firebase/
+
+# E2E Automation Artifacts
+e2e/node_modules/
+e2e/reports/
+e2e/screenshots/
+e2e/logs/
