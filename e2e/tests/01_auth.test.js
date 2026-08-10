@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import { createDriver } from '../utils/driver.js';
+import { captureFailureContext } from '../utils/failureHandler.js';
 import config from '../config/environment.js';
 import logger from '../utils/logger.js';
 import excelReporter from '../utils/excelReporter.js';
@@ -35,8 +36,8 @@ describe('Suite 01: Authentication Module', function () {
     const test = this.currentTest;
     const duration = test.duration || 0;
     if (test.state === 'failed') {
-      const screenshot = await loginPage.takeScreenshot(test.title);
-      const currentUrl = await driver.getCurrentUrl().catch(() => 'unknown');
+      const failureContext = await captureFailureContext(driver, test);
+
       excelReporter.recordTest({
         id: test.title.split(':')[0] || 'AUTH',
         module: 'Authentication',
@@ -45,10 +46,13 @@ describe('Suite 01: Authentication Module', function () {
         status: 'FAILED',
         duration,
         error: test.err?.message,
-        screenshot,
-        url: currentUrl,
+        screenshot: failureContext?.screenshot,
+        url: failureContext?.url || 'unknown',
       });
-      logger.error(`Test FAILED: ${test.title} - ${test.err?.message}`);
+
+      logger.error(
+        `Test FAILED: ${test.title} - ${test.err?.message}`
+      );
     } else {
       excelReporter.recordTest({
         id: test.title.split(':')[0] || 'AUTH',
