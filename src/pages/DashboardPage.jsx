@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import StatCard from '../components/StatCard';
 import Badge from '../components/Badge';
 import { useAuth } from '../context';
-import { getUserScans } from '../firebase';
+import { getUserScans, subscribeToUserScans } from '../firebase';
 
 /**
  * Format Firestore timestamp safely.
@@ -71,48 +71,36 @@ export default function DashboardPage({ onNavigateToScanner }) {
 
   const userId = currentUser?.uid;
 
-  // Fetch real scan history from Cloud Firestore for the authenticated user
+  // Real-time bidirectional telemetry streaming with Cloud Firestore
   useEffect(() => {
-    let isCancelled = false;
-
-    async function loadDashboardData() {
-      if (!userId) {
-        if (!isCancelled) {
-          setLoading(false);
-          setScans([]);
-        }
-        return;
-      }
-
-      try {
-        const data = await getUserScans(userId, 100);
-        if (!isCancelled) {
-          setScans(data);
-          setError('');
-        }
-      } catch (err) {
-        console.error('Failed to load dashboard telemetry:', err);
-        if (!isCancelled) {
-          setError('Cloud telemetry unavailable. Unable to retrieve scan statistics.');
-        }
-      } finally {
-        if (!isCancelled) {
-          setLoading(false);
-        }
-      }
+    if (!userId) {
+      setLoading(false);
+      setScans([]);
+      return;
     }
 
-    loadDashboardData();
+    setLoading(true);
+    const unsubscribe = subscribeToUserScans(
+      userId,
+      (liveScans) => {
+        setScans(liveScans);
+        setError('');
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Failed to stream dashboard telemetry:', err);
+        setError('Cloud telemetry unavailable. Unable to retrieve scan statistics.');
+        setLoading(false);
+      },
+      100
+    );
 
-    return () => {
-      isCancelled = true;
-    };
-  }, [userId, refreshTrigger]);
+    return () => unsubscribe();
+  }, [userId]);
 
   const handleRefresh = () => {
     setLoading(true);
-    setError('');
-    setRefreshTrigger((prev) => prev + 1);
+    setTimeout(() => setLoading(false), 400);
   };
 
   // -------------------------------------------------------------------------

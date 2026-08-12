@@ -9,6 +9,7 @@ export {
 export {
   saveScan,
   getUserScans,
+  subscribeToUserScans,
   getScanById,
   deleteScan,
   mapBackendScanToFirestoreDoc

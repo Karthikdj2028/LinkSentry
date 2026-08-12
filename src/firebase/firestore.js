@@ -8,12 +8,13 @@ import {
   query,
   orderBy,
   limit,
+  onSnapshot,
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from './config';
 
 /**
- * LinkSentry Cloud Firestore Scan-History Service (Stage 3 Foundation)
+ * LinkSentry Cloud Firestore Scan-History Service
  * 
  * Target Structure:
  * users/{userId}/scans/{scanId}
@@ -30,6 +31,8 @@ import { db } from './config';
  *   confidence: number,
  *   indicators: string[],
  *   engine: string,
+ *   modelVersion: string,
+ *   source: "web" | "android",
  *   createdAt: FieldValue (serverTimestamp)
  * }
  */
@@ -104,7 +107,7 @@ export async function saveScan(userId, scanData) {
 
   const documentPayload = {
     userId,
-    type: scanData.type || 'url',
+    type: scanData.type || scanData.scanType || 'url',
     input: scanData.input || scanData.url || '',
     url: scanData.url || scanData.input || '',
     domain: scanData.domain || '',
@@ -112,7 +115,9 @@ export async function saveScan(userId, scanData) {
     riskScore: typeof scanData.riskScore === 'number' ? scanData.riskScore : (typeof scanData.risk_score === 'number' ? scanData.risk_score : 0),
     confidence: typeof scanData.confidence === 'number' ? scanData.confidence : 0.7,
     indicators: Array.isArray(scanData.indicators) ? scanData.indicators : [],
-    engine: scanData.engine || 'temporary-rule-based-detector',
+    engine: scanData.engine || 'LinkSentry V3.3 URL ML Engine',
+    modelVersion: scanData.modelVersion || scanData.model_version || 'V3.3',
+    source: scanData.source || 'web',
     createdAt: scanData.createdAt || serverTimestamp()
   };
 
@@ -155,6 +160,48 @@ export async function getUserScans(userId, maxCount = 50) {
   });
 
   return scans;
+}
+
+/**
+ * Subscribes to real-time updates for a user's scan history.
+ * Automatically notifies when scans are added, updated, or deleted from Web or Android.
+ * 
+ * @param {string} userId - Authenticated user's Firebase UID
+ * @param {function} onUpdate - Callback receiving array of scan records
+ * @param {function} [onError] - Callback receiving any listener errors
+ * @param {number} [maxCount=100] - Maximum number of scan records to subscribe to
+ * @returns {function} Unsubscribe function to stop listening
+ */
+export function subscribeToUserScans(userId, onUpdate, onError, maxCount = 100) {
+  if (!userId) {
+    onUpdate([]);
+    return () => {};
+  }
+
+  const scansCollectionRef = collection(db, 'users', userId, 'scans');
+  const scansQuery = query(
+    scansCollectionRef,
+    orderBy('createdAt', 'desc'),
+    limit(maxCount)
+  );
+
+  return onSnapshot(
+    scansQuery,
+    (querySnapshot) => {
+      const scans = [];
+      querySnapshot.forEach((docSnap) => {
+        scans.push({
+          id: docSnap.id,
+          ...docSnap.data()
+        });
+      });
+      onUpdate(scans);
+    },
+    (err) => {
+      console.error('Real-time scan subscription error:', err);
+      if (onError) onError(err);
+    }
+  );
 }
 
 /**

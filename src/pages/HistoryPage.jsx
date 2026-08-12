@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Badge from '../components/Badge';
 import { useAuth } from '../context';
-import { getUserScans, deleteScan } from '../firebase';
+import { getUserScans, subscribeToUserScans, deleteScan } from '../firebase';
 
 /**
  * Format Firestore timestamp safely.
@@ -84,48 +84,37 @@ export default function HistoryPage() {
 
   const userId = currentUser?.uid;
 
-  // Controlled data fetching from Cloud Firestore
+  // Real-time bidirectional synchronization with Cloud Firestore
   useEffect(() => {
-    let isCancelled = false;
-
-    async function loadScans() {
-      if (!userId) {
-        if (!isCancelled) {
-          setLoading(false);
-          setScans([]);
-        }
-        return;
-      }
-
-      try {
-        const data = await getUserScans(userId, 100);
-        if (!isCancelled) {
-          setScans(data);
-          setError('');
-        }
-      } catch (err) {
-        console.error('Failed to fetch user scan history:', err);
-        if (!isCancelled) {
-          setError('Failed to retrieve security scan history from Cloud Firestore. Please check your connection or permissions.');
-        }
-      } finally {
-        if (!isCancelled) {
-          setLoading(false);
-        }
-      }
+    if (!userId) {
+      setLoading(false);
+      setScans([]);
+      return;
     }
 
-    loadScans();
+    setLoading(true);
+    const unsubscribe = subscribeToUserScans(
+      userId,
+      (liveScans) => {
+        setScans(liveScans);
+        setError('');
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Failed to stream user scan history:', err);
+        setError('Failed to retrieve security scan history from Cloud Firestore. Please check your connection.');
+        setLoading(false);
+      },
+      100
+    );
 
-    return () => {
-      isCancelled = true;
-    };
-  }, [userId, refreshTrigger]);
+    return () => unsubscribe();
+  }, [userId]);
 
   const handleRefresh = () => {
+    // Subscription updates automatically, but we can set loading briefly for user visual feedback
     setLoading(true);
-    setError('');
-    setRefreshTrigger((prev) => prev + 1);
+    setTimeout(() => setLoading(false), 400);
   };
 
   // Delete a scan document from Firestore and local state

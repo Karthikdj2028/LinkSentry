@@ -7,8 +7,9 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
-    // Default fallback to ngrok or Android emulator localhost
-    private var currentBaseUrl = "https://curler-another-haven.ngrok-free.dev/"
+    // Default to Android emulator host loopback (10.0.2.2 -> host 127.0.0.1:8000)
+    // Can be changed dynamically at runtime in the Profile screen to a LAN IP or custom domain.
+    private var currentBaseUrl = "http://10.0.2.2:8000/"
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
@@ -33,8 +34,11 @@ object ApiClient {
     }
 
     fun setBaseUrl(newUrl: String) {
-        currentBaseUrl = newUrl
-        retrofit = buildRetrofit(newUrl)
+        val trimmed = newUrl.trim()
+        if (trimmed.isNotBlank()) {
+            currentBaseUrl = if (trimmed.endsWith("/")) trimmed else "$trimmed/"
+            retrofit = buildRetrofit(currentBaseUrl)
+        }
     }
 
     fun getBaseUrl(): String = currentBaseUrl
