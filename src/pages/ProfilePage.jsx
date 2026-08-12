@@ -22,7 +22,7 @@ export default function ProfilePage() {
         [key]: !prev.preferences[key]
       }
     }));
-    setSaveStatus('Preferences saved locally (Stage 2 session state).');
+    setSaveStatus('Preferences saved successfully.');
     setTimeout(() => setSaveStatus(''), 2500);
   };
 
@@ -73,11 +73,11 @@ export default function ProfilePage() {
           </p>
         </div>
 
-        {/* Stage 2 Active Notice */}
+        {/* Auth Status Notice */}
         <div className="cyber-card auth-status-banner">
           <div className="status-icon-box">🔐</div>
           <div className="status-text-group">
-            <strong className="status-title">Stage 2 Active: Firebase Authentication Connected</strong>
+            <strong className="status-title">Firebase Authentication Session Active</strong>
             <p className="status-body">
               Signed in as <strong className="font-mono text-cyan">{userEmail}</strong>. Your session is securely authenticated via Firebase Client Auth with persistent browser state.
             </p>
@@ -182,7 +182,7 @@ export default function ProfilePage() {
                   </button>
                 </div>
                 <span className="api-key-hint font-mono">
-                  Keep this token private. Stage 2 will allow token rotation and revocation.
+                  Keep this API token private. Use this token for programmatic scanner integrations.
                 </span>
               </div>
             </div>

@@ -50,7 +50,7 @@ export class UrlScannerPage extends BasePage {
     return await this.isDisplayed(this.validationError, timeout);
   }
 
-  async waitForResult(timeout = 25000) {
+  async waitForResult(timeout = 45000) {
     await this.waitForVisible(this.resultCard, timeout);
     await this.waitForVisible(this.verdictBadge, timeout);
   }

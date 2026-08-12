@@ -80,7 +80,9 @@ export function mapBackendScanToFirestoreDoc(userId, input, backendResponse = {}
     riskScore: typeof backendResponse.risk_score === 'number' ? backendResponse.risk_score : 0,
     confidence: typeof backendResponse.confidence === 'number' ? backendResponse.confidence : 0.7,
     indicators: Array.isArray(backendResponse.indicators) ? backendResponse.indicators : [],
-    engine: backendResponse.engine || (scanType === 'message' ? 'linksentry-message-heuristic-v1' : 'linksentry-heuristic-v1'),
+    engine: backendResponse.engine || (scanType === 'message' ? 'linksentry-message-heuristic-v1' : 'LinkSentry V3.3 URL ML Engine'),
+    modelVersion: backendResponse.model_version || (scanType === 'message' ? 'v1.0' : 'V3.3'),
+    source: 'web',
     createdAt: serverTimestamp()
   };
 }

@@ -20,8 +20,8 @@ export default function Footer({ onSelectTab }) {
               Next-generation proactive phishing detection platform safeguarding users against deceptive URLs, malicious QR codes, and smishing attacks.
             </p>
             <div className="footer-status-tag">
-              <span className="cyber-badge-dot" style={{ backgroundColor: '#06b6d4' }} />
-              <span className="font-mono text-cyan">Stage 1 Prototype • UI Architecture Active</span>
+              <span className="cyber-badge-dot" style={{ backgroundColor: '#10b981' }} />
+              <span className="font-mono text-cyan">Threat Intelligence & Detonation Active</span>
             </div>
           </div>
 
@@ -52,21 +52,21 @@ export default function Footer({ onSelectTab }) {
             </ul>
           </div>
 
-          {/* Col 3: Roadmap & Security Specs */}
+          {/* Col 3: Security Specifications */}
           <div className="footer-links-col">
-            <h4 className="footer-heading">Engineering Roadmap</h4>
+            <h4 className="footer-heading">Security Architecture</h4>
             <ul className="footer-roadmap-list font-mono">
               <li className="roadmap-current">
-                <span className="roadmap-bullet">▶</span> Stage 1: Frontend UI & Cyber Design System
+                <span className="roadmap-bullet">🛡️</span> V3.3 ML + Rule Fusion Engine
               </li>
-              <li className="roadmap-upcoming">
-                <span className="roadmap-bullet">○</span> Stage 2: Firebase Auth & Cloud Firestore
+              <li className="roadmap-current">
+                <span className="roadmap-bullet">🔐</span> Firebase 256-Bit Auth Security
               </li>
-              <li className="roadmap-upcoming">
-                <span className="roadmap-bullet">○</span> Stage 3: ML Phishing Classifiers & NLP
+              <li className="roadmap-current">
+                <span className="roadmap-bullet">☁️</span> Cloud Firestore Audit Persistence
               </li>
-              <li className="roadmap-upcoming">
-                <span className="roadmap-bullet">○</span> Stage 4: Android App & Mobile Agent
+              <li className="roadmap-current">
+                <span className="roadmap-bullet">📱</span> Cross-Platform Android Client Ready
               </li>
             </ul>
           </div>
@@ -77,9 +77,9 @@ export default function Footer({ onSelectTab }) {
             © {new Date().getFullYear()} LinkSentry CyberDefense Technologies. All rights reserved.
           </p>
           <div className="footer-badges font-mono">
-            <span className="footer-badge">VITE + REACT 19</span>
-            <span className="footer-badge">SECURE CLIENT</span>
-            <span className="footer-badge">MOCK STATE MODE</span>
+            <span className="footer-badge">FASTAPI + V3.3 ML</span>
+            <span className="footer-badge">FIRESTORE CLUSTER</span>
+            <span className="footer-badge">ENTERPRISE SOC</span>
           </div>
         </div>
       </div>

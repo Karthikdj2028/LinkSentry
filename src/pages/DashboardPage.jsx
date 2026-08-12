@@ -184,9 +184,9 @@ export default function DashboardPage({ onNavigateToScanner }) {
         <div className="cyber-card auth-status-banner">
           <div className="status-icon-box">📊</div>
           <div className="status-text-group">
-            <strong className="status-title">Stage 3 Active: Real-Time Firestore Metrics</strong>
+            <strong className="status-title">Real-Time Security Telemetry Synchronized</strong>
             <p className="status-body">
-              Aggregating live telemetry from <strong className="font-mono text-cyan">users/{userId ? `${userId.slice(0, 12)}...` : 'uid'}/scans</strong>.
+              Aggregating live threat telemetry from your synchronized Cloud Firestore cluster.
             </p>
           </div>
           <button

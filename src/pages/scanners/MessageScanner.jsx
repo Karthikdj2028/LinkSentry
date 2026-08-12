@@ -3,9 +3,7 @@ import ScanResultCard from '../../components/ScanResultCard';
 import { PRESET_SAMPLES } from '../../data/mockData';
 import { useAuth } from '../../context';
 import { saveScan, mapBackendScanToFirestoreDoc } from '../../firebase';
-
-// Backend API configuration from environment with local development fallback
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+import { API_BASE_URL } from '../../config/api';
 
 /**
  * Message Scanner Component
@@ -146,7 +144,7 @@ export default function MessageScanner() {
               Paste suspicious SMS text messages, emails, or chat alerts to evaluate social engineering tactics, urgency levels, and deceptive links.
             </p>
           </div>
-          <span className="font-mono scanner-mode-pill">STAGE 6C: HEURISTIC HARDENED • FIRESTORE</span>
+          <span className="font-mono scanner-mode-pill">NLP THREAT ENGINE • CLOUD SYNCHRONIZED</span>
         </div>
 
         {/* Input Form */}

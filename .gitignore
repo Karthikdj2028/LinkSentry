@@ -35,6 +35,11 @@ backend/__pycache__/
 *.tmp
 docs/asw-*.env.production
 
+# ML Data (Raw large training datasets)
+backend/ml/data/*.csv
+!backend/ml/data/v3_2/trusted_domains.csv
+backend/ml/**/__pycache__/
+
 .env.production
 .firebase/
 

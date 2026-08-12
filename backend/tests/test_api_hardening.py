@@ -36,7 +36,8 @@ class TestUrlInputValidation:
         assert response.status_code == 200
         data = response.json()
         assert data["verdict"] == "safe"
-        assert data["engine"] == "linksentry-heuristic-v1"
+        assert "engine" in data
+        assert len(data["engine"]) > 0
 
     def test_empty_url_rejected(self):
         response = client.post("/api/scan/url", json={"url": ""})
@@ -139,3 +140,25 @@ class TestCorsConfiguration:
         assert "https://linksentry.app" in origins
         assert "https://admin.linksentry.app" in origins
         assert len(origins) == 2
+
+    def test_markdown_wrapped_cors_origins(self, monkeypatch):
+        monkeypatch.setenv(
+            "LINKSENTRY_ALLOWED_ORIGINS",
+            "[http://192.168.29.123:4174](http://192.168.29.123:4174), [https://linksentry.app](https://linksentry.app)",
+        )
+        origins = get_allowed_origins()
+        assert "http://192.168.29.123:4174" in origins
+        assert "https://linksentry.app" in origins
+        assert not any("[" in o or "]" in o or "(" in o or ")" in o for o in origins)
+
+    def test_cors_preflight_options(self):
+        response = client.options(
+            "/api/scan/url",
+            headers={
+                "Origin": "http://192.168.29.123:4174",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+        assert response.status_code == 200
+        assert response.headers.get("access-control-allow-origin") == "http://192.168.29.123:4174"

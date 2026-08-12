@@ -196,9 +196,9 @@ export default function HistoryPage() {
         <div className="cyber-card auth-status-banner">
           <div className="status-icon-box">🗄️</div>
           <div className="status-text-group">
-            <strong className="status-title">Stage 3 Active: Cloud Firestore Database Synchronized</strong>
+            <strong className="status-title">Cloud Firestore Audit Log Synchronized</strong>
             <p className="status-body">
-              Displaying authenticated audit logs from <strong className="font-mono text-cyan">users/{userId ? `${userId.slice(0, 12)}...` : 'uid'}/scans</strong>.
+              Displaying authenticated audit logs from your synchronized threat database.
             </p>
           </div>
           <button

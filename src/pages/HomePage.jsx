@@ -13,7 +13,7 @@ export default function HomePage({ onNavigateToScanner, onSelectTab }) {
       subTab: 'url',
       icon: '🌐',
       title: 'URL Phishing Scanner',
-      desc: 'Inspect domains, homograph typosquats, fast-flux DNS, and fake login pages with heuristic intelligence.',
+      desc: 'Analyze URLs for suspicious domains, typosquatting, redirects, and phishing indicators using LinkSentry threat detection.',
       badge: 'Most Popular',
       badgeStatus: 'Info',
       actionText: 'Scan URL Target ➔'
@@ -22,7 +22,7 @@ export default function HomePage({ onNavigateToScanner, onSelectTab }) {
       subTab: 'qr',
       icon: '📷',
       title: 'QR Code (Quishing) Scanner',
-      desc: 'Upload QR images or decode camera matrices to intercept hidden malicious redirects and rogue payment lures.',
+      desc: 'Scan QR codes from uploaded images or camera input and analyze decoded content for malicious or suspicious destinations.',
       badge: 'Zero-Day Shield',
       badgeStatus: 'Suspicious',
       actionText: 'Inspect QR Code ➔'
@@ -31,7 +31,7 @@ export default function HomePage({ onNavigateToScanner, onSelectTab }) {
       subTab: 'message',
       icon: '💬',
       title: 'SMS & Message Analyzer',
-      desc: 'Evaluate text messages, emails, and urgent notifications for social engineering triggers and deceptive bait.',
+      desc: 'Inspect SMS messages, emails, and chat text for smishing lures, urgency pressure, and fraudulent links.',
       badge: 'NLP Engine',
       badgeStatus: 'Safe',
       actionText: 'Analyze Message ➔'
@@ -68,7 +68,7 @@ export default function HomePage({ onNavigateToScanner, onSelectTab }) {
         <section className="hero-section">
           <div className="hero-badge-row">
             <span className="cyber-badge-dot pulse" style={{ backgroundColor: '#06b6d4' }} />
-            <span className="font-mono text-cyan">NEXT-GEN CYBER DEFENSE • STAGE 1 ACTIVE</span>
+            <span className="font-mono text-cyan">NEXT-GEN CYBER DEFENSE • MULTI-VECTOR THREAT SHIELD</span>
           </div>
 
           <h1 className="hero-headline">
@@ -106,7 +106,7 @@ export default function HomePage({ onNavigateToScanner, onSelectTab }) {
             <div className="hero-metric-divider" />
             <div className="hero-metric-item">
               <span className="metric-val font-mono text-green">{stats.defenseEfficiencyRate}</span>
-              <span className="metric-lbl">Detection Accuracy</span>
+              <span className="metric-lbl">Detection Efficiency</span>
             </div>
             <div className="hero-metric-divider" />
             <div className="hero-metric-item">
@@ -116,7 +116,7 @@ export default function HomePage({ onNavigateToScanner, onSelectTab }) {
             <div className="hero-metric-divider" />
             <div className="hero-metric-item">
               <span className="metric-val font-mono text-purple">{stats.activeThreatSignatures.toLocaleString()}</span>
-              <span className="metric-lbl">Heuristic Signatures</span>
+              <span className="metric-lbl">Threat Signature</span>
             </div>
           </div>
         </section>
@@ -165,7 +165,7 @@ export default function HomePage({ onNavigateToScanner, onSelectTab }) {
               <span className="font-mono text-cyan text-sm">[THREAT INTELLIGENCE DOSSIER]</span>
               <h2 className="section-title">Anatomy of Modern Phishing Attacks</h2>
               <p className="section-subtitle">
-                How cybercriminals evade traditional filters and how LinkSentry analyzes threat vectors.
+                Understand common phishing techniques and how LinkSentry evaluates their observable threat indicators.
               </p>
             </div>
 
@@ -189,7 +189,7 @@ export default function HomePage({ onNavigateToScanner, onSelectTab }) {
             <div className="ready-content">
               <h3 className="ready-title">Ready to verify a suspicious URL, QR code, or message?</h3>
               <p className="ready-desc">
-                Access LinkSentry's interactive inspection suite with simulated heuristics and preset test samples.
+                Access LinkSentry's unified inspection suite to analyze URLs, QR codes, and messages using the active threat-detection engine.
               </p>
             </div>
             <button
