@@ -51,3 +51,12 @@ e2e/logs/
 
 # Load Testing Artifacts
 loadtest/reports/
+
+# Android Build & Studio Artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/*.iml
+android/app/*.iml

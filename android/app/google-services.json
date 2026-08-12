@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "301557433381",
+    "project_id": "linksentry-7e694",
+    "storage_bucket": "linksentry-7e694.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:301557433381:android:826ac5728cf66bbf6dabcc",
+        "android_client_info": {
+          "package_name": "com.linksentry.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCA_r0daj-CmkAHK8FCgoJ5pk7GZdPFX9s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
