@@ -10,6 +10,7 @@ export default defineConfig([
     'e2e/**',
     'e2e-mobile/**',
     'loadtest/**',
+    'tests-firestore/**',
     '.venv/**',
     'backend/**',
     'android/**',

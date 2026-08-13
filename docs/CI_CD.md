@@ -42,6 +42,7 @@ flowchart LR
 | `android-unit-tests` | `ubuntu-latest` | Java 17 (Temurin) | `gradle/actions/setup-gradle@v3`, `./gradlew testDebugUnitTest` | Unit test HTML/XML reports |
 | `android-build` | `ubuntu-latest` | Java 17, Android SDK | `./gradlew assembleDebug --no-daemon` | `app-debug.apk` |
 | `security-scan` | `ubuntu-latest` | Python 3.11, Node 20 | `bandit -r backend -ll`, `npm audit --audit-level=high`, Secret scan | `bandit-report.txt` |
+| `firestore-rules-tests` | `ubuntu-latest` | Node.js 20, Java 17 | `npx firebase-tools emulators:exec "node --test tests-firestore/..."` | Emulator test results |
 | `ci-smoke` | `ubuntu-latest` | All upstream jobs | Validates complete release gate integrity | Status confirmation |
 
 ---
