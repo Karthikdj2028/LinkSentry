@@ -7,8 +7,9 @@ import { API_BASE_URL } from '../../config/api';
 
 /**
  * Message Scanner Component
- * Handles SMS / Email / Chat message analysis for smishing and social engineering attacks
- * via the FastAPI message threat detection engine, and persists results to Cloud Firestore.
+ * Handles SMS / Email / Chat message analysis for loan smishing, urgency coercion,
+ * and embedded threat link extraction via the FastAPI LinkSentry V3.3 Threat Engine,
+ * and persists audit logs to Cloud Firestore.
  */
 export default function MessageScanner() {
   const { currentUser } = useAuth();
@@ -20,7 +21,7 @@ export default function MessageScanner() {
 
   const validateMessage = (text) => {
     if (!text || !text.trim()) {
-      return 'Please enter a message to analyze.';
+      return 'Please enter a message or SMS payload to analyze.';
     }
     return '';
   };
@@ -68,10 +69,17 @@ export default function MessageScanner() {
       const formattedVerdict = rawVerdict.charAt(0).toUpperCase() + rawVerdict.slice(1);
 
       const details = {
-        detectionEngine: data.engine || 'linksentry-message-heuristic-v1',
+        detectionEngine: data.engine || 'LinkSentry Multi-Signal Message Threat Engine V3.3',
         threatIndicators: Array.isArray(data.indicators) && data.indicators.length > 0
           ? data.indicators
           : ['No threat indicators detected'],
+        messageRiskScore: typeof data.message_risk === 'number' ? `${data.message_risk} / 100` : undefined,
+        embeddedUrls: Array.isArray(data.embedded_urls) && data.embedded_urls.length > 0
+          ? data.embedded_urls
+          : undefined,
+        extractedPhoneNumbers: Array.isArray(data.extracted_phone_numbers) && data.extracted_phone_numbers.length > 0
+          ? data.extracted_phone_numbers.join(', ')
+          : undefined,
         analyzedLength: `${data.message?.length || payloadText.length} characters`,
       };
 
@@ -83,7 +91,7 @@ export default function MessageScanner() {
         ? `${payloadText.slice(0, 75)}...`
         : payloadText;
 
-      // 1. Immediately render the ScanResultCard
+      // 1. Render ScanResultCard with multi-signal evidence
       setScanResult({
         target: `Message: "${targetSnippet}"`,
         verdict: formattedVerdict,
@@ -141,10 +149,10 @@ export default function MessageScanner() {
               <span className="scanner-icon">💬</span> SMS & Message Phishing (Smishing) Scanner
             </h2>
             <p className="scanner-description">
-              Paste suspicious SMS text messages, emails, or chat alerts to evaluate social engineering tactics, urgency levels, and deceptive links.
+              Paste suspicious SMS text messages, loan offers, WhatsApp alerts, or email bodies to evaluate multi-signal social engineering tactics, urgency levels, and embedded threat links.
             </p>
           </div>
-          <span className="font-mono scanner-mode-pill">NLP THREAT ENGINE • CLOUD SYNCHRONIZED</span>
+          <span className="font-mono scanner-mode-pill">MULTI-SIGNAL FUSION • CLOUD SYNCHRONIZED</span>
         </div>
 
         {/* Input Form */}
@@ -161,7 +169,7 @@ export default function MessageScanner() {
             <textarea
               id="message-input"
               className={`form-textarea font-mono ${validationError ? 'input-error' : ''}`}
-              placeholder="Paste SMS content, WhatsApp alert, or email body here..."
+              placeholder="Paste SMS content, loan solicitation, WhatsApp alert, or email body here..."
               rows={5}
               value={messageText}
               onChange={(e) => {
@@ -187,11 +195,11 @@ export default function MessageScanner() {
                 {isScanning ? (
                   <>
                     <span className="spinner-border" />
-                    <span>Analyzing Social Engineering Intent...</span>
+                    <span>Evaluating Multi-Signal Threat Evidence...</span>
                   </>
                 ) : (
                   <>
-                    <span>⚡ Analyze Message Intent</span>
+                    <span>⚡ Analyze Message Threat</span>
                   </>
                 )}
               </button>
@@ -209,7 +217,7 @@ export default function MessageScanner() {
 
             {/* Quick Test Presets */}
             <div className="preset-quick-group">
-              <span className="preset-label">Sample Phishing Messages:</span>
+              <span className="preset-label">Sample Threat Messages:</span>
               <div className="preset-chips">
                 {PRESET_SAMPLES.messages.map((preset, idx) => (
                   <button
@@ -239,7 +247,7 @@ export default function MessageScanner() {
           <div className="scanning-status-texts font-mono">
             <p className="status-primary-text">EVALUATING MESSAGE INTENT & THREAT SIGNALS...</p>
             <p className="status-sub-text">
-              Querying FastAPI message threat engine • Detecting coercion & urgency • Inspecting embedded URLs...
+              Querying FastAPI V3.3 threat engine • Detecting smishing heuristics • Detonating embedded URLs...
             </p>
           </div>
         </div>
@@ -274,22 +282,22 @@ export default function MessageScanner() {
       {/* Smishing Education Guide */}
       {!scanResult && !isScanning && (
         <div className="cyber-card scanner-guide-card">
-          <h3 className="guide-title">How LinkSentry Detects Social Engineering & Smishing</h3>
+          <h3 className="guide-title">How LinkSentry Multi-Signal Engine Detects Threats</h3>
           <div className="guide-grid">
             <div className="guide-item">
               <div className="guide-step-num font-mono">01</div>
-              <h4>Artificial Urgency & Fear Triggers</h4>
-              <p>Flags aggressive deadlines ("Account locked in 1 hour", "Unauthorized wire transfer") designed to induce panic clicking.</p>
+              <h4>Urgency & Financial Scam Lures</h4>
+              <p>Detects pre-approved instant loan scams, unauthorized debit alerts, and aggressive deadline coercions.</p>
             </div>
             <div className="guide-item">
               <div className="guide-step-num font-mono">02</div>
               <h4>Brand Impersonation Signatures</h4>
-              <p>Compares sender claims against established bank, courier (FedEx/UPS), and government communication styles.</p>
+              <p>Flags spoofed banking, carrier, and government communication patterns paired with unverified contact points.</p>
             </div>
             <div className="guide-item">
               <div className="guide-step-num font-mono">03</div>
-              <h4>Embedded Threat Link Extraction</h4>
-              <p>Isolates shortened and obfuscated domains inside the message body for deep URL detonation and DNS evaluation.</p>
+              <h4>Embedded Threat Link Detonation</h4>
+              <p>Isolates and inspects every embedded URL through the LinkSentry V3.3 ML & rule-fusion engine.</p>
             </div>
           </div>
         </div>

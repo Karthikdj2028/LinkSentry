@@ -3,8 +3,8 @@ import { useAuth } from '../context';
 
 /**
  * Navbar Component for LinkSentry
- * Handles main tab navigation: Home, Scanner, History, Dashboard, Profile
- * Fully responsive with desktop navigation and mobile drawer menu
+ * Handles main tab navigation: Home, Scanner, History, Analytics, Dashboard, Profile
+ * Fully responsive with desktop navigation, active indicators, and mobile drawer menu.
  */
 export default function Navbar({ activeTab, onSelectTab }) {
   const { currentUser } = useAuth();
@@ -14,6 +14,7 @@ export default function Navbar({ activeTab, onSelectTab }) {
     { id: 'home', label: 'Home', icon: '🏠' },
     { id: 'scanner', label: 'Scanner', icon: '🛡️', badge: '3-in-1' },
     { id: 'history', label: 'History', icon: '📜' },
+    { id: 'analytics', label: 'Analytics', icon: '📈' },
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'profile', label: 'Profile', icon: '👤' },
   ];
@@ -64,7 +65,7 @@ export default function Navbar({ activeTab, onSelectTab }) {
         <div className="system-status-pill desktop-only">
           <span className="cyber-badge-dot pulse" style={{ backgroundColor: '#10b981' }} />
           <span className="status-text font-mono">SOC: {userSnippet.toUpperCase()}</span>
-          <span className="status-version font-mono">v0.2.0</span>
+          <span className="status-version font-mono">v3.3.0</span>
         </div>
 
         {/* Desktop Navigation Tabs */}
@@ -113,7 +114,7 @@ export default function Navbar({ activeTab, onSelectTab }) {
           <div className="mobile-drawer-status">
             <span className="cyber-badge-dot pulse" style={{ backgroundColor: '#10b981' }} />
             <span className="status-text font-mono">
-              USER: {currentUser?.email || 'ANALYST'} • AUTH ACTIVE
+              USER: {currentUser?.email || 'ANALYST'} • SOC ACTIVE
             </span>
           </div>
           <ul className="mobile-nav-list">

@@ -52,42 +52,17 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
       '',
       '--- Detection Details ---',
       `Domain: ${details.domain || 'N/A'}`,
-      `Engine: ${engine || details.detectionEngine || 'N/A'}`,
-      `ML Prediction: ${mlPrediction || 'N/A'}`,
-      `Final Model Prediction: ${modelPrediction || 'N/A'}`,
-      `Trusted Domain: ${trustedDomain === true
-        ? 'Yes'
-        : trustedDomain === false
-          ? 'No'
-          : 'N/A'
-      }`,
-      `Trust Override: ${trustOverride === true
-        ? 'Yes'
-        : trustOverride === false
-          ? 'No'
-          : 'N/A'
-      }`,
-      `Rule Override: ${ruleOverride === true
-        ? 'Yes'
-        : ruleOverride === false
-          ? 'No'
-          : 'N/A'
-      }`,
-      `Impersonated Domain: ${impersonatedDomain || 'None'}`,
-      `Typosquat Domain: ${typosquatDomain || 'None'}`,
-      `Suspicious Signals: ${Array.isArray(suspiciousSignals) && suspiciousSignals.length
-        ? suspiciousSignals.join(', ')
-        : 'None'
-      }`,
-      `Indicators: ${Array.isArray(details.threatIndicators) &&
-        details.threatIndicators.length
+      `Engine: ${engine || details.detectionEngine || 'LinkSentry V3.3'}`,
+      details.messageRiskScore ? `Message Heuristic Risk: ${details.messageRiskScore}` : '',
+      details.extractedPhoneNumbers ? `Extracted Contacts: ${details.extractedPhoneNumbers}` : '',
+      `Indicators: ${Array.isArray(details.threatIndicators) && details.threatIndicators.length
         ? details.threatIndicators.join(', ')
         : 'None'
       }`,
-      `Model Version: ${modelVersion || 'N/A'}`,
+      `Model Version: ${modelVersion || details.modelVersion || 'V3.3'}`,
       '',
       `Timestamp: ${timestamp}`,
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
     try {
       await navigator.clipboard?.writeText(report);
@@ -105,16 +80,16 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
         return 'CRITICAL THREAT: LinkSentry detected strong indicators of phishing, deceptive branding, or credential harvesting.';
 
       case 'malware':
-        return 'MALWARE THREAT: The URL shows characteristics associated with malicious payload delivery or malware activity.';
+        return 'MALWARE THREAT: Characteristics associated with malicious payload delivery or malware activity were detected.';
 
       case 'defacement':
-        return 'DEFACEMENT THREAT: The URL has characteristics associated with compromised or defaced web infrastructure.';
+        return 'DEFACEMENT THREAT: Characteristics associated with compromised or defaced infrastructure were detected.';
 
       case 'suspicious':
-        return 'WARNING: Suspicious URL characteristics were detected. Avoid entering credentials or sensitive information until verified.';
+        return 'WARNING: Suspicious characteristics or coercive lures were detected. Exercise extreme caution.';
 
       default:
-        return 'SAFE: No strong malicious indicators were detected by the LinkSentry V3.3 decision-fusion engine.';
+        return 'SAFE: No malicious indicators were detected by the LinkSentry decision-fusion engine.';
     }
   };
 
@@ -125,74 +100,38 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
       .replace(/^./, (str) => str.toUpperCase());
   };
 
-  const formatValue = (value) => {
-    if (value === null || value === undefined || value === '') {
-      return 'None';
-    }
-
-    if (typeof value === 'boolean') {
-      return value ? '✓ Yes' : '✗ No';
-    }
-
-    if (Array.isArray(value)) {
-      return value.length > 0
-        ? value.join(', ')
-        : 'None detected';
-    }
-
-    if (typeof value === 'object') {
-      return Object.entries(value)
-        .map(([key, val]) => `${key}: ${val}`)
-        .join(' | ');
-    }
-
-    return String(value);
-  };
-
   const renderBoolean = (value) => {
     if (value === true) {
       return <span className="text-green">✓ Yes</span>;
     }
-
     if (value === false) {
       return <span className="text-red">✗ No</span>;
     }
-
     return <span className="font-mono">N/A</span>;
   };
 
-  const hasBackendAnalysis =
-    Object.keys(backendAnalysis).length > 0;
+  const hasBackendAnalysis = Object.keys(backendAnalysis).length > 0;
 
   return (
     <div className="cyber-card scan-result-card animate-fade-in">
-
-      {/* =========================================================
-          HEADER
-      ========================================================== */}
+      {/* HEADER */}
       <div className="scan-result-header">
         <div className="scan-result-title-group">
-
           <div className="scan-type-badge">
             <span className="font-mono text-cyan">
-              [{scanType} SCAN RESULT]
+              [{scanType.toUpperCase()} SCAN RESULT]
             </span>
-
             <span className="scan-timestamp">
               Timestamp: {timestamp}
             </span>
           </div>
 
-          <h3
-            className="scan-target-text font-mono"
-            title={target}
-          >
+          <h3 className="scan-target-text font-mono" title={target}>
             {target}
           </h3>
         </div>
 
         <div className="scan-result-actions">
-
           <button
             type="button"
             className="btn btn-secondary btn-sm"
@@ -210,28 +149,19 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
               🔄 New Scan
             </button>
           )}
-
         </div>
       </div>
 
-      {/* =========================================================
-          MAIN RESULT GRID
-      ========================================================== */}
+      {/* MAIN RESULT GRID */}
       <div className="scan-result-grid">
-
-        {/* =======================================================
-            LEFT COLUMN
-        ======================================================== */}
+        {/* LEFT COLUMN */}
         <div className="scan-verdict-pane">
-
           <div className="verdict-banner-box">
-
             <span className="verdict-label-sub">
               Security Verdict
             </span>
 
             <div className="verdict-main-row">
-
               <Badge
                 status={verdict}
                 size="lg"
@@ -241,360 +171,237 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
               </Badge>
 
               <span className="verdict-confidence">
-                Confidence:{' '}
-                <strong>{confidence}</strong>
+                Confidence: <strong>{confidence}</strong>
               </span>
-
             </div>
 
             <p className="verdict-description-text">
               {getVerdictDescription()}
             </p>
-
           </div>
 
           <RiskScoreMeter score={riskScore} />
 
-          {/* =====================================================
-              V3.3 ENGINE SUMMARY
-          ====================================================== */}
-          {hasBackendAnalysis && (
-            <div
-              className="cyber-card"
-              style={{ marginTop: '1rem' }}
-            >
-
-              <h4 className="heuristics-title">
-                LinkSentry V3.3 Engine
-              </h4>
-
-              <div className="heuristics-list">
-
-                {/* Model Version */}
-                <div className="heuristic-item">
-                  <span className="heuristic-key">
-                    Model Version
-                  </span>
-
-                  <span className="heuristic-val font-mono">
-                    {modelVersion || 'N/A'}
-                  </span>
-                </div>
-
-                {/* ML Prediction */}
-                <div className="heuristic-item">
-                  <span className="heuristic-key">
-                    ML Prediction
-                  </span>
-
-                  <span className="heuristic-val font-mono">
-                    {mlPrediction || 'N/A'}
-                  </span>
-                </div>
-
-                {/* Final Model Prediction */}
-                <div className="heuristic-item">
-                  <span className="heuristic-key">
-                    Final Prediction
-                  </span>
-
-                  <span className="heuristic-val font-mono">
-                    {modelPrediction || verdict}
-                  </span>
-                </div>
-
-                {/* Trusted Domain */}
-                <div className="heuristic-item">
-                  <span className="heuristic-key">
-                    Trusted Domain
-                  </span>
-
-                  <span className="heuristic-val font-mono">
-                    {renderBoolean(trustedDomain)}
-                  </span>
-                </div>
-
-              </div>
-
-            </div>
-          )}
-
-        </div>
-
-        {/* =======================================================
-            RIGHT COLUMN
-        ======================================================== */}
-        <div className="scan-heuristics-pane">
-
-          <h4 className="heuristics-title">
-            Detection Analysis & Threat Signals
-          </h4>
-
-          {/* =====================================================
-              DOMAIN
-          ====================================================== */}
-          <div className="heuristics-list">
-
-            <div className="heuristic-item">
-              <span className="heuristic-key">
-                Domain
-              </span>
-
-              <span className="heuristic-val font-mono">
-                {details.domain || 'N/A'}
-              </span>
-            </div>
-
-            <div className="heuristic-item">
-              <span className="heuristic-key">
-                Detection Engine
-              </span>
-
-              <span className="heuristic-val font-mono">
-                {engine ||
-                  details.detectionEngine ||
-                  'LinkSentry V3.3'}
-              </span>
-            </div>
-
-            <div className="heuristic-item">
-              <span className="heuristic-key">
-                HTTPS Status
-              </span>
-
-              <span className="heuristic-val font-mono">
-                {details.sslStatus || 'N/A'}
-              </span>
-            </div>
-
-            {/* =================================================
-                TRUST / OVERRIDE INFORMATION
-            ================================================== */}
-
-            {hasBackendAnalysis && (
-              <>
-                <div className="heuristic-item">
-                  <span className="heuristic-key">
-                    Trusted Domain
-                  </span>
-
-                  <span className="heuristic-val font-mono">
-                    {renderBoolean(trustedDomain)}
-                  </span>
-                </div>
-
-                <div className="heuristic-item">
-                  <span className="heuristic-key">
-                    Trust Override
-                  </span>
-
-                  <span className="heuristic-val font-mono">
-                    {renderBoolean(trustOverride)}
-                  </span>
-                </div>
-
-                <div className="heuristic-item">
-                  <span className="heuristic-key">
-                    Rule Override
-                  </span>
-
-                  <span className="heuristic-val font-mono">
-                    {renderBoolean(ruleOverride)}
-                  </span>
-                </div>
-
-                <div className="heuristic-item">
-                  <span className="heuristic-key">
-                    Impersonated Domain
-                  </span>
-
-                  <span className="heuristic-val font-mono">
-                    {impersonatedDomain || 'None'}
-                  </span>
-                </div>
-
-                <div className="heuristic-item">
-                  <span className="heuristic-key">
-                    Typosquat Domain
-                  </span>
-
-                  <span className="heuristic-val font-mono">
-                    {typosquatDomain || 'None'}
-                  </span>
-                </div>
-              </>
-            )}
-
-          </div>
-
-          {/* =====================================================
-              THREAT INDICATORS
-          ====================================================== */}
-          <div style={{ marginTop: '1.25rem' }}>
-
+          {/* ENGINE SUMMARY */}
+          <div className="cyber-card" style={{ marginTop: '1rem' }}>
             <h4 className="heuristics-title">
-              Threat Indicators
+              Detection Engine Specifications
             </h4>
 
             <div className="heuristics-list">
+              <div className="heuristic-item">
+                <span className="heuristic-key">Engine Architecture</span>
+                <span className="heuristic-val font-mono">
+                  {engine || details.detectionEngine || 'LinkSentry V3.3 Fusion'}
+                </span>
+              </div>
 
-              {Array.isArray(details.threatIndicators) &&
-                details.threatIndicators.length > 0 ? (
+              {details.messageRiskScore && (
+                <div className="heuristic-item">
+                  <span className="heuristic-key">Message Heuristics</span>
+                  <span className="heuristic-val font-mono text-amber">
+                    {details.messageRiskScore}
+                  </span>
+                </div>
+              )}
 
-                details.threatIndicators.map((indicator, index) => (
-                  <div
-                    key={`${indicator}-${index}`}
-                    className="heuristic-item"
-                  >
-                    <span className="heuristic-key">
-                      Signal {String(index + 1).padStart(2, '0')}
-                    </span>
+              {details.extractedPhoneNumbers && (
+                <div className="heuristic-item">
+                  <span className="heuristic-key">Extracted Contacts</span>
+                  <span className="heuristic-val font-mono text-cyan">
+                    {details.extractedPhoneNumbers}
+                  </span>
+                </div>
+              )}
 
-                    <span className="heuristic-val font-mono text-red">
-                      ⚠ {indicator}
+              {details.qrPayloadCategory && (
+                <div className="heuristic-item">
+                  <span className="heuristic-key">QR Format Category</span>
+                  <span className="heuristic-val font-mono">
+                    {details.qrPayloadCategory}
+                  </span>
+                </div>
+              )}
+
+              {hasBackendAnalysis && (
+                <>
+                  <div className="heuristic-item">
+                    <span className="heuristic-key">ML Model Prediction</span>
+                    <span className="heuristic-val font-mono">
+                      {mlPrediction || 'N/A'}
                     </span>
                   </div>
-                ))
 
-              ) : (
-
-                <div className="heuristic-item">
-                  <span className="heuristic-key">
-                    Status
-                  </span>
-
-                  <span className="heuristic-val font-mono text-green">
-                    ✓ No threat indicators detected
-                  </span>
-                </div>
-
+                  <div className="heuristic-item">
+                    <span className="heuristic-key">Trusted Domain Check</span>
+                    <span className="heuristic-val font-mono">
+                      {renderBoolean(trustedDomain)}
+                    </span>
+                  </div>
+                </>
               )}
-
             </div>
-
           </div>
+        </div>
 
-          {/* =====================================================
-              V3.3 SUSPICIOUS SIGNALS
-          ====================================================== */}
-          {Array.isArray(suspiciousSignals) &&
-            suspiciousSignals.length > 0 && (
+        {/* RIGHT COLUMN */}
+        <div className="scan-heuristics-pane">
+          <h4 className="heuristics-title">
+            Detection Analysis & Threat Evidence
+          </h4>
 
-              <div style={{ marginTop: '1.25rem' }}>
-
-                <h4 className="heuristics-title">
-                  V3.3 Suspicious Signals
-                </h4>
-
-                <div className="heuristics-list">
-
-                  {suspiciousSignals.map((signal, index) => (
-                    <div
-                      key={`${signal}-${index}`}
-                      className="heuristic-item"
-                    >
-                      <span className="heuristic-key">
-                        Detection {String(index + 1).padStart(2, '0')}
-                      </span>
-
-                      <span className="heuristic-val font-mono text-red">
-                        {formatKey(signal)}
-                      </span>
-                    </div>
-                  ))}
-
-                </div>
-
+          {/* DOMAIN & NETWORK INFO */}
+          <div className="heuristics-list">
+            {details.domain && (
+              <div className="heuristic-item">
+                <span className="heuristic-key">Registrable Domain</span>
+                <span className="heuristic-val font-mono">{details.domain}</span>
               </div>
             )}
 
-          {/* =====================================================
-              DECISION SCORES
-          ====================================================== */}
-          {decisionScores &&
-            typeof decisionScores === 'object' && (
+            {details.sslStatus && (
+              <div className="heuristic-item">
+                <span className="heuristic-key">SSL / Transport Layer</span>
+                <span className="heuristic-val font-mono">{details.sslStatus}</span>
+              </div>
+            )}
 
-              <div style={{ marginTop: '1.25rem' }}>
+            {hasBackendAnalysis && (
+              <>
+                {impersonatedDomain && impersonatedDomain !== 'None' && (
+                  <div className="heuristic-item">
+                    <span className="heuristic-key">Target Brand Impersonated</span>
+                    <span className="heuristic-val font-mono text-red">⚠ {impersonatedDomain}</span>
+                  </div>
+                )}
 
-                <h4 className="heuristics-title">
-                  Decision Scores
-                </h4>
+                {typosquatDomain && typosquatDomain !== 'None' && (
+                  <div className="heuristic-item">
+                    <span className="heuristic-key">Typosquatting Signature</span>
+                    <span className="heuristic-val font-mono text-red">⚠ {typosquatDomain}</span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
 
-                <div className="heuristics-list">
-
-                  {Object.entries(decisionScores).map(
-                    ([key, value]) => (
-                      <div
-                        key={key}
-                        className="heuristic-item"
-                      >
-                        <span className="heuristic-key">
-                          {formatKey(key)}
+          {/* MULTI-SIGNAL: EMBEDDED URLS BREAKDOWN */}
+          {Array.isArray(details.embeddedUrls) && details.embeddedUrls.length > 0 && (
+            <div style={{ marginTop: '1.25rem' }}>
+              <h4 className="heuristics-title">
+                Embedded Link Risk Breakdown
+              </h4>
+              <div className="heuristics-list">
+                {details.embeddedUrls.map((emb, idx) => {
+                  const embVerdict = emb.verdict || 'Safe';
+                  const embScore = typeof emb.risk_score === 'number' ? emb.risk_score : (emb.riskScore || 0);
+                  return (
+                    <div key={idx} className="heuristic-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.4rem' }}>
+                      <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span className="heuristic-val font-mono" style={{ fontSize: '0.85rem', color: '#00f2fe' }}>
+                          🔗 {emb.domain || emb.url}
                         </span>
-
-                        <span className="heuristic-val font-mono">
-                          {typeof value === 'number'
-                            ? value.toFixed(4)
-                            : String(value)}
-                        </span>
+                        <Badge status={embVerdict}>
+                          {embVerdict.toUpperCase()} ({embScore})
+                        </Badge>
                       </div>
-                    )
-                  )}
-
-                </div>
-
+                      {emb.impersonated_domain && (
+                        <span style={{ fontSize: '0.75rem', color: '#f87171' }}>
+                          Target Brand: {emb.impersonated_domain}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            )}
+            </div>
+          )}
 
-          {/* =====================================================
-              SECURITY RECOMMENDATION
-          ====================================================== */}
-          <div
-            className={`recommendation-box rec-${normalizedVerdict}`}
-          >
-
-            <strong>
-              Security Recommendation:
-            </strong>
-
-            <p>
-
-              {normalizedVerdict === 'phishing' ? (
-                '🚫 Do not open, authenticate, download files, or enter credentials. Block or report the URL if it is confirmed malicious.'
-              ) : normalizedVerdict === 'malware' ? (
-                '🚫 Do not access the URL or download content from it. Isolate affected systems and investigate the source.'
-              ) : normalizedVerdict === 'defacement' ? (
-                '⚠ Avoid interacting with the site until its integrity and ownership have been verified.'
-              ) : normalizedVerdict === 'suspicious' ? (
-                '⚠ Do not enter passwords, MFA codes, or financial information. Verify the destination through an independent trusted source.'
+          {/* THREAT INDICATORS */}
+          <div style={{ marginTop: '1.25rem' }}>
+            <h4 className="heuristics-title">
+              Observed Risk Indicators
+            </h4>
+            <div className="heuristics-list">
+              {Array.isArray(details.threatIndicators) && details.threatIndicators.length > 0 ? (
+                details.threatIndicators.map((indicator, index) => (
+                  <div key={`${indicator}-${index}`} className="heuristic-item">
+                    <span className="heuristic-key">Signal {String(index + 1).padStart(2, '0')}</span>
+                    <span className="heuristic-val font-mono text-red">⚠ {indicator}</span>
+                  </div>
+                ))
               ) : (
-                '✅ No strong malicious indicators were detected. Continue to follow normal security precautions.'
+                <div className="heuristic-item">
+                  <span className="heuristic-key">Status</span>
+                  <span className="heuristic-val font-mono text-green">✓ No threat indicators detected</span>
+                </div>
               )}
-
-            </p>
-
+            </div>
           </div>
 
+          {/* V3.3 SUSPICIOUS SIGNALS */}
+          {Array.isArray(suspiciousSignals) && suspiciousSignals.length > 0 && (
+            <div style={{ marginTop: '1.25rem' }}>
+              <h4 className="heuristics-title">
+                V3.3 Rule Decision Signals
+              </h4>
+              <div className="heuristics-list">
+                {suspiciousSignals.map((signal, index) => (
+                  <div key={`${signal}-${index}`} className="heuristic-item">
+                    <span className="heuristic-key">Detection {String(index + 1).padStart(2, '0')}</span>
+                    <span className="heuristic-val font-mono text-red">{formatKey(signal)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* DECISION SCORES */}
+          {decisionScores && typeof decisionScores === 'object' && (
+            <div style={{ marginTop: '1.25rem' }}>
+              <h4 className="heuristics-title">
+                Decision Scores
+              </h4>
+              <div className="heuristics-list">
+                {Object.entries(decisionScores).map(([key, value]) => (
+                  <div key={key} className="heuristic-item">
+                    <span className="heuristic-key">{formatKey(key)}</span>
+                    <span className="heuristic-val font-mono">
+                      {typeof value === 'number' ? value.toFixed(4) : String(value)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* SECURITY RECOMMENDATION */}
+          <div className={`recommendation-box rec-${normalizedVerdict}`}>
+            <strong>Security Recommendation:</strong>
+            <p>
+              {normalizedVerdict === 'phishing' || normalizedVerdict === 'critical' ? (
+                '🚫 Do not open, authenticate, download attachments, or disburse funds. Block or report this communication.'
+              ) : normalizedVerdict === 'malware' ? (
+                '🚫 Do not access the payload or download content from it. Isolate affected devices immediately.'
+              ) : normalizedVerdict === 'defacement' ? (
+                '⚠ Avoid interacting with the destination until its integrity and ownership have been verified.'
+              ) : normalizedVerdict === 'suspicious' ? (
+                '⚠ Do not enter credentials, OTP codes, or financial information. Verify the identity through independent channels.'
+              ) : (
+                '✅ No malicious indicators were detected. Continue to follow standard security protocols.'
+              )}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* =========================================================
-          ENGINE FOOTER
-      ========================================================== */}
+      {/* ENGINE NOTICE FOOTER */}
       <div className="engine-notice-footer">
-
-        <span className="font-mono text-cyan">
-          ℹ LinkSentry V3.3:
-        </span>
-
+        <span className="font-mono text-cyan">ℹ LinkSentry V3.3:</span>
         <span>
-          LinearSVC classification + hard-negative training +
-          trusted-domain analysis + typosquatting detection +
-          brand impersonation + decision-fusion layer.
+          LinearSVC classification + hard-negative training + brand impersonation detection + multi-signal smishing heuristics + decision-fusion layer.
         </span>
-
       </div>
-
     </div>
   );
 }
