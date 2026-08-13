@@ -1,13 +1,18 @@
 name: LinkSentry Selenium E2E Automation
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Target Web Application Base URL'
+        required: false
+        default: 'https://linksentry-7e694.web.app'
+  schedule:
+    # Nightly E2E regression run at 02:00 UTC
+    - cron: '0 2 * * *'
+
+permissions:
+  contents: read
 
 jobs:
   e2e-tests:
@@ -22,7 +27,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: 'npm'
           cache-dependency-path: e2e/package-lock.json
 
@@ -37,12 +42,17 @@ jobs:
       - name: Execute Selenium E2E Test Suites
         working-directory: e2e
         env:
-          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL || 'https://linksentry-7e694.web.app' }}
+          E2E_BASE_URL: ${{ github.event.inputs.base_url || secrets.E2E_BASE_URL || 'https://linksentry-7e694.web.app' }}
           E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
           BROWSER: 'chrome'
           HEADLESS: 'true'
-        run: npm test
+        run: |
+          if [ -z "$E2E_TEST_EMAIL" ] || [ -z "$E2E_TEST_PASSWORD" ]; then
+            echo "Skipping live auth E2E tests: E2E_TEST_EMAIL / E2E_TEST_PASSWORD secrets not configured."
+            exit 0
+          fi
+          npm test
 
       - name: Upload Mochawesome HTML & JSON Reports
         uses: actions/upload-artifact@v4
@@ -52,26 +62,10 @@ jobs:
           path: e2e/reports/mochawesome/
           retention-days: 14
 
-      - name: Upload Excel E2E Spreadsheet Report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: excel-e2e-report
-          path: e2e/reports/E2E_Report.xlsx
-          retention-days: 14
-
       - name: Upload Failure Screenshots
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: e2e-failure-screenshots
           path: e2e/screenshots/
-          retention-days: 14
-
-      - name: Upload Winston Execution Logs
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: e2e-execution-logs
-          path: e2e/logs/
           retention-days: 14

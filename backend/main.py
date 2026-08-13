@@ -410,5 +410,6 @@ def scan_message(request_data: MessageScanRequest, request: Request) -> dict[str
 
 if __name__ == "__main__":
     import uvicorn
+    runtime_host = os.getenv("HOST", "0.0.0.0")  # nosec B104
     runtime_port = int(os.getenv("PORT", 8000))
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=runtime_port, reload=False)
+    uvicorn.run("backend.main:app", host=runtime_host, port=runtime_port, reload=False)

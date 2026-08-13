@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Badge from '../components/Badge';
 import { useAuth } from '../context';
-import { getUserScans, subscribeToUserScans, deleteScan } from '../firebase';
+import { subscribeToUserScans, deleteScan } from '../firebase';
 
 /**
  * Format Firestore timestamp safely.
@@ -75,7 +75,6 @@ export default function HistoryPage() {
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL'); // 'ALL' | 'URL' | 'QR' | 'MESSAGE'
   const [resultFilter, setResultFilter] = useState('ALL'); // 'ALL' | 'Safe' | 'Suspicious' | 'Phishing'
@@ -87,12 +86,14 @@ export default function HistoryPage() {
   // Real-time bidirectional synchronization with Cloud Firestore
   useEffect(() => {
     if (!userId) {
-      setLoading(false);
-      setScans([]);
-      return;
+      const timer = setTimeout(() => {
+        setLoading(false);
+        setScans([]);
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
-    setLoading(true);
+    const timer = setTimeout(() => setLoading(true), 0);
     const unsubscribe = subscribeToUserScans(
       userId,
       (liveScans) => {
@@ -101,14 +102,17 @@ export default function HistoryPage() {
         setLoading(false);
       },
       (err) => {
-        console.error('Failed to stream user scan history:', err);
-        setError('Failed to retrieve security scan history from Cloud Firestore. Please check your connection.');
+        console.error('Failed to stream history from Firestore:', err);
+        setError('Real-time database sync error. Unable to load scan history.');
         setLoading(false);
       },
       100
     );
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
   }, [userId]);
 
   const handleRefresh = () => {

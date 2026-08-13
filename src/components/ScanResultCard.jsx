@@ -27,10 +27,7 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
 
   const {
     mlPrediction,
-    modelPrediction,
     trustedDomain,
-    trustOverride,
-    ruleOverride,
     impersonatedDomain,
     typosquatDomain,
     suspiciousSignals,

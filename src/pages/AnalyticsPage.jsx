@@ -68,12 +68,14 @@ export default function AnalyticsPage() {
   // Real-time bidirectional telemetry streaming with Cloud Firestore
   useEffect(() => {
     if (!userId) {
-      setLoading(false);
-      setScans([]);
-      return;
+      const timer = setTimeout(() => {
+        setLoading(false);
+        setScans([]);
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
-    setLoading(true);
+    const timer = setTimeout(() => setLoading(true), 0);
     const unsubscribe = subscribeToUserScans(
       userId,
       (liveScans) => {
@@ -89,7 +91,10 @@ export default function AnalyticsPage() {
       100
     );
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
   }, [userId]);
 
   // Telemetry Calculations
@@ -233,14 +238,20 @@ export default function AnalyticsPage() {
       {exportNotice && (
         <div className="auth-error-alert animate-fade-in" style={{ borderColor: 'rgba(16, 185, 129, 0.4)', background: 'rgba(16, 185, 129, 0.1)', color: '#6ee7b7', marginBottom: '1.5rem' }}>
           <span className="error-icon">✓</span>
-          <span className="error-text">{exportNotice}</span>
+          <span>{exportNotice}</span>
         </div>
       )}
 
       {error && (
-        <div className="auth-error-alert animate-fade-in" style={{ marginBottom: '1.5rem' }}>
-          <span className="error-icon">⚠️</span>
-          <span className="error-text">{error}</span>
+        <div className="auth-error-alert" style={{ marginBottom: '1.5rem' }}>
+          <span className="error-icon">⚠</span>
+          <span>{error}</span>
+        </div>
+      )}
+
+      {loading && scans.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '2rem 1rem', color: '#94a3b8' }}>
+          <p className="font-mono" style={{ fontSize: '0.9rem' }}>Streaming telemetry from Cloud Firestore...</p>
         </div>
       )}
 

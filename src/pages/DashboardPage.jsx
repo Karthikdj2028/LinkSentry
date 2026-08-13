@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import StatCard from '../components/StatCard';
 import Badge from '../components/Badge';
 import { useAuth } from '../context';
-import { getUserScans, subscribeToUserScans } from '../firebase';
+import { subscribeToUserScans } from '../firebase';
 
 /**
  * Format Firestore timestamp safely.
@@ -67,19 +67,20 @@ export default function DashboardPage({ onNavigateToScanner }) {
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const userId = currentUser?.uid;
 
   // Real-time bidirectional telemetry streaming with Cloud Firestore
   useEffect(() => {
     if (!userId) {
-      setLoading(false);
-      setScans([]);
-      return;
+      const timer = setTimeout(() => {
+        setLoading(false);
+        setScans([]);
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
-    setLoading(true);
+    const timer = setTimeout(() => setLoading(true), 0);
     const unsubscribe = subscribeToUserScans(
       userId,
       (liveScans) => {
@@ -95,7 +96,10 @@ export default function DashboardPage({ onNavigateToScanner }) {
       100
     );
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
   }, [userId]);
 
   const handleRefresh = () => {
