@@ -226,11 +226,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Set up Java 17 (Required for Firebase Emulator)
+      - name: Set up Java 21 (Required for Firebase Emulator)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Run Firestore Security Rules Tests
         run: |
