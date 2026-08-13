@@ -285,24 +285,56 @@ def detect_trusted_brand_impersonation(
                 continue
 
             # Legitimate subdomain:
-            #
-            # accounts.google.com
-            # registrable = google.com
-            #
+            # accounts.google.com -> candidate = google.com, registrable = google.com
             # Therefore this is NOT impersonation.
-
             if registrable_domain == candidate:
                 return None
 
-            # Trusted brand appears inside a different
-            # registrable domain.
-            #
-            # google.com.evil.xyz
-            # registrable = evil.xyz
-            #
-            # Therefore this is impersonation.
-
+            # Trusted brand appears inside a different registrable domain:
+            # google.com.evil.xyz -> candidate = google.com, registrable = evil.xyz
+            # Therefore this IS impersonation.
             return candidate
+
+    # Check for brand deceptive domain compositions
+    # e.g. google-security-alert.com, paypal-update-account.com
+    brand_keywords = {
+        "security", "alert", "login", "verify", "account", "support",
+        "update", "auth", "portal", "service", "signin", "banking", "help"
+    }
+    
+    protected_brands = {
+        "google": "google.com",
+        "microsoft": "microsoft.com",
+        "apple": "apple.com",
+        "paypal": "paypal.com",
+        "amazon": "amazon.com",
+        "netflix": "netflix.com",
+        "chase": "chase.com",
+        "wellsfargo": "wellsfargo.com",
+        "bankofamerica": "bankofamerica.com",
+        "meta": "meta.com",
+        "facebook": "facebook.com",
+        "instagram": "instagram.com",
+        "whatsapp": "whatsapp.com",
+        "binance": "binance.com",
+        "coinbase": "coinbase.com",
+        "github": "github.com",
+    }
+
+    first_label = labels[0] if labels else ""
+    for brand, canonical_domain in protected_brands.items():
+        if registrable_domain == canonical_domain:
+            continue
+        if brand in first_label:
+            # If label has brand name and a hyphen or keyword
+            has_brand_split = (
+                first_label.startswith(f"{brand}-") or
+                first_label.endswith(f"-{brand}") or
+                f"-{brand}-" in first_label or
+                any(kw in first_label for kw in brand_keywords)
+            )
+            if has_brand_split:
+                return canonical_domain
 
     return None
 
@@ -478,12 +510,12 @@ class URLMLModel:
             )
         )
 
-        self.model_version = "V3.2"
+        self.model_version = "V3.3"
 
         self.model_type = (
-            "V3.1 LinearSVC + "
+            "LinkSentry V3.3 LinearSVC + "
             "hard-negative training + "
-            "trusted-domain layer"
+            "decision-fusion layer"
         )
 
         self.trusted_domains = (
