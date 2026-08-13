@@ -29,10 +29,15 @@ dist-ssr
 *.sln
 *.sw?
 # Python
+.venv/
 backend/.venv/
 backend/__pycache__/
 *.pyc
 *.tmp
+.coverage
+.coverage.*
+.pytest_cache/
+htmlcov/
 docs/asw-*.env.production
 
 # ML Data (Raw large training datasets)
