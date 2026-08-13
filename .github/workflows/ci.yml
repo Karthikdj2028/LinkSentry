@@ -200,9 +200,9 @@ jobs:
 
       - name: Scan for accidental private keys / credential patterns
         run: |
-          echo "Verifying no accidental service account private keys committed..."
-          ! grep -rn "BEGIN PRIVATE KEY" --exclude-dir={.git,.venv,node_modules,dist,build} . || exit 1
-          echo "Secret scan clean."
+          echo "Scanning for accidental committed private keys and PEM credentials..."
+          ! grep -rEn "BEGIN [A-Z ]*PRIVATE KEY" --exclude-dir={.git,.github,.venv,node_modules,dist,build,coverage} . || exit 1
+          echo "Secret scan clean: No unencrypted private key material detected."
 
   # ============================================================================
   # 6. CI Smoke Gate
