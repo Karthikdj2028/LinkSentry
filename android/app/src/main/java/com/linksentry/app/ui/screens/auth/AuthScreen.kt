@@ -4,9 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -14,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
@@ -46,6 +49,7 @@ fun AuthScreen(
     val focusManager = LocalFocusManager.current
 
     val submitAuth = {
+        focusManager.clearFocus()
         errorMessage = null
         if (email.isBlank() || password.isBlank()) {
             errorMessage = "Please provide both email and password."
@@ -76,12 +80,16 @@ fun AuthScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(CyberDarkBg)
-            .padding(24.dp),
+            .imePadding(),
         contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             // Brand Logo
             Box(
@@ -193,6 +201,9 @@ fun AuthScreen(
                         keyboardType = KeyboardType.Email,
                         imeAction = ImeAction.Next
                     ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                    ),
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = CyberCyan,
@@ -228,10 +239,8 @@ fun AuthScreen(
                         imeAction = if (isRegisterMode) ImeAction.Next else ImeAction.Done
                     ),
                     keyboardActions = KeyboardActions(
-                        onDone = {
-                            focusManager.clearFocus()
-                            submitAuth()
-                        }
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                        onDone = { submitAuth() }
                     ),
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -258,10 +267,7 @@ fun AuthScreen(
                             imeAction = ImeAction.Done
                         ),
                         keyboardActions = KeyboardActions(
-                            onDone = {
-                                focusManager.clearFocus()
-                                submitAuth()
-                            }
+                            onDone = { submitAuth() }
                         ),
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -273,9 +279,9 @@ fun AuthScreen(
                     )
                 }
 
-                // Error Message
+                // Error Message Banner
                 if (errorMessage != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -284,11 +290,17 @@ fun AuthScreen(
                             .border(1.dp, CyberRed.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
                             .padding(10.dp)
                     ) {
-                        Text(
-                            text = errorMessage ?: "",
-                            color = CyberRedLight,
-                            fontSize = 12.sp
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Filled.Error, contentDescription = "Error", tint = CyberRed, modifier = Modifier.size(16.dp))
+                            Text(
+                                text = errorMessage ?: "",
+                                color = CyberRedLight,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
                 }
 
@@ -296,10 +308,7 @@ fun AuthScreen(
 
                 // Submit Button
                 Button(
-                    onClick = {
-                        focusManager.clearFocus()
-                        submitAuth()
-                    },
+                    onClick = { submitAuth() },
                     enabled = !isLoading,
                     modifier = Modifier
                         .fillMaxWidth()

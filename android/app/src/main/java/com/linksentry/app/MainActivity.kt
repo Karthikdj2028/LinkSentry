@@ -21,6 +21,7 @@ import com.linksentry.app.ui.screens.dashboard.DashboardScreen
 import com.linksentry.app.ui.screens.history.HistoryScreen
 import com.linksentry.app.ui.screens.profile.ProfileScreen
 import com.linksentry.app.ui.screens.scanner.ScannerScreen
+import com.linksentry.app.ui.screens.splash.SplashScreen
 import com.linksentry.app.ui.theme.CyberDarkBg
 import com.linksentry.app.ui.theme.LinkSentryTheme
 
@@ -37,7 +38,7 @@ class MainActivity : ComponentActivity() {
                 val currentUser by authRepository.authStateFlow.collectAsState(initial = authRepository.currentUser)
 
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentRoute = navBackStackEntry?.destination?.route ?: "dashboard"
+                val currentRoute = navBackStackEntry?.destination?.route ?: "splash"
 
                 val isAuthenticated = currentUser != null
 
@@ -65,8 +66,19 @@ class MainActivity : ComponentActivity() {
                     ) {
                         NavHost(
                             navController = navController,
-                            startDestination = if (isAuthenticated) "dashboard" else "auth"
+                            startDestination = "splash"
                         ) {
+                            composable("splash") {
+                                SplashScreen(
+                                    onSplashComplete = {
+                                        val dest = if (isAuthenticated) "dashboard" else "auth"
+                                        navController.navigate(dest) {
+                                            popUpTo("splash") { inclusive = true }
+                                        }
+                                    }
+                                )
+                            }
+
                             composable("auth") {
                                 AuthScreen(
                                     authRepository = authRepository,

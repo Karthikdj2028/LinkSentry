@@ -71,11 +71,27 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.play.services.mlkit.barcode.scanning)
+    implementation(libs.guava)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
 
+    // Unit Testing
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+
     // Debugging
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+
+tasks.register<Copy>("copyDebugApkToOutputs") {
+    from(layout.buildDirectory.dir("intermediates/apk/debug/packageDebug"))
+    into(layout.buildDirectory.dir("outputs/apk/debug"))
+    include("*.apk")
+}
+
+tasks.matching { it.name == "assembleDebug" }.configureEach {
+    finalizedBy("copyDebugApkToOutputs")
+}
+

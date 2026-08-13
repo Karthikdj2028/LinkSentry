@@ -1,13 +1,15 @@
 /**
  * LinkSentry Central API Configuration
  *
- * Resolves the backend API base URL from the Vite environment:
- * - VITE_API_BASE_URL (from .env.local, .env.production, or environment variables)
- * - Fallback to local development FastAPI server (http://127.0.0.1:8000)
+ * Priority:
+ * 1. VITE_API_BASE_URL
+ * 2. LAN FastAPI backend for local development
  */
 
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+
 export const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+  configuredBaseUrl || 'http://192.168.29.123:8000'
 ).replace(/\/+$/, '');
 
 export const API_ENDPOINTS = {

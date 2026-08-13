@@ -36,11 +36,23 @@ data class MessageScanRequest(
     @SerializedName("message") val message: String
 )
 
+data class EmbeddedUrlResult(
+    @SerializedName("url") val url: String,
+    @SerializedName("domain") val domain: String?,
+    @SerializedName("verdict") val verdict: String,
+    @SerializedName("risk_score") val riskScore: Int,
+    @SerializedName("confidence") val confidence: Double,
+    @SerializedName("indicators") val indicators: List<String>?,
+    @SerializedName("engine") val engine: String?
+)
+
 data class MessageScanResponse(
     @SerializedName("verdict") val verdict: String,
     @SerializedName("risk_score") val riskScore: Int,
     @SerializedName("confidence") val confidence: Double,
     @SerializedName("message") val message: String,
     @SerializedName("indicators") val indicators: List<String>?,
+    @SerializedName("message_risk") val messageRisk: Int? = null,
+    @SerializedName("embedded_urls") val embeddedUrls: List<EmbeddedUrlResult>? = null,
     @SerializedName("engine") val engine: String?
 )

@@ -1,5 +1,5 @@
 """
-LinkSentry V3.3 URL ML Inference Engine
+LinkSentry V3.2 URL ML Inference Engine
 
 V3.1:
     Character TF-IDF
@@ -10,23 +10,20 @@ V3.1:
 V3.2:
     V3.1 ML model
     + Tranco trusted-domain layer
-    + trusted-brand impersonation detection
+    + suspicious-domain safety checks
 
-V3.3:
-    V3.2
-    + typo-squatting detection
-    + IP phishing protection
-    + suspicious-TLD phishing protection
-    + URL-shortener protection
-    + suspicious keyword/path fusion
-    + improved brand impersonation protection
-    + trusted-subdomain protection
-    + leetspeak / digit typosquat detection
+Important:
+    Trusted domains are only used for exact registrable-domain matches.
+    A trusted domain does NOT trust deceptive subdomains such as:
+
+        google.com.evil.xyz
+        github.com.security-check.xyz
+
+The ML model remains responsible for unknown domains.
 """
 
 from pathlib import Path
 from urllib.parse import urlparse
-
 import math
 import re
 
@@ -161,31 +158,10 @@ SHORTENERS = {
 
 
 # ============================================================
-# PROTECTED BRANDS
-# ============================================================
-
-PROTECTED_BRANDS = {
-    "google.com": "google",
-    "amazon.com": "amazon",
-    "microsoft.com": "microsoft",
-    "apple.com": "apple",
-    "facebook.com": "facebook",
-    "github.com": "github",
-    "linkedin.com": "linkedin",
-    "paypal.com": "paypal",
-    "instagram.com": "instagram",
-    "youtube.com": "youtube",
-    "twitter.com": "twitter",
-}
-
-
-# ============================================================
 # URL HELPERS
 # ============================================================
 
 def calculate_entropy(text: str) -> float:
-    """Calculate Shannon entropy."""
-
     if not text:
         return 0.0
 
@@ -204,17 +180,15 @@ def calculate_entropy(text: str) -> float:
 
 def normalize_domain(domain: str) -> str:
     """
-    Normalize hostname/domain for comparison.
-
-    Removes:
-        - whitespace
-        - trailing dot
-        - leading www.
+    Normalize a hostname for exact trusted-domain comparison.
     """
 
     domain = str(domain).strip().lower()
+
+    # Remove trailing dot.
     domain = domain.rstrip(".")
 
+    # Remove leading www.
     if domain.startswith("www."):
         domain = domain[4:]
 
@@ -230,14 +204,13 @@ def get_registrable_domain(hostname: str) -> str:
         www.google.com
             -> google.com
 
-        accounts.google.com
-            -> google.com
-
-        status.cloud.google.com
+        login.accounts.google.com
             -> google.com
 
         google.com.evil.xyz
             -> evil.xyz
+
+    This intentionally avoids trusting arbitrary subdomains.
     """
 
     hostname = normalize_domain(hostname)
@@ -252,315 +225,31 @@ def get_registrable_domain(hostname: str) -> str:
 
     return ".".join(parts[-2:])
 
-
-def levenshtein_distance(a: str, b: str) -> int:
-    """Calculate Levenshtein edit distance."""
-
-    if a == b:
-        return 0
-
-    if not a:
-        return len(b)
-
-    if not b:
-        return len(a)
-
-    previous = list(range(len(b) + 1))
-
-    for i, char_a in enumerate(a, start=1):
-        current = [i]
-
-        for j, char_b in enumerate(b, start=1):
-            insertion = current[j - 1] + 1
-            deletion = previous[j] + 1
-
-            substitution = previous[j - 1] + (
-                0 if char_a == char_b else 1
-            )
-
-            current.append(
-                min(
-                    insertion,
-                    deletion,
-                    substitution,
-                )
-            )
-
-        previous = current
-
-    return previous[-1]
-
-
-def normalized_similarity(a: str, b: str) -> float:
-    """Return normalized string similarity."""
-
-    if not a or not b:
-        return 0.0
-
-    distance = levenshtein_distance(a, b)
-
-    maximum = max(
-        len(a),
-        len(b),
-    )
-
-    if maximum == 0:
-        return 1.0
-
-    return 1.0 - (
-        distance / maximum
-    )
-
-
-# ============================================================
-# LEETSPEAK / TYPOSQUAT NORMALIZATION
-# ============================================================
-
-LEET_REPLACEMENTS = {
-    "0": "o",
-    "1": "l",
-    "3": "e",
-    "4": "a",
-    "5": "s",
-    "7": "t",
-    "8": "b",
-}
-
-
-def normalize_typosquat_name(name: str) -> str:
-    """
-    Normalize common digit substitutions used in typosquatting.
-
-    Examples:
-
-        g00gle -> google
-        goog1e -> google
-        amaz0n -> amazon
-        paypa1 -> paypal
-        micros0ft -> microsoft
-    """
-
-    name = str(name).lower()
-
-    double_replacements = {
-        "00": "oo",
-        "11": "ll",
-        "33": "ee",
-        "44": "aa",
-        "55": "ss",
-        "77": "tt",
-        "88": "bb",
-    }
-
-    for old, new in double_replacements.items():
-        name = name.replace(old, new)
-
-    name = name.translate(
-        str.maketrans(LEET_REPLACEMENTS)
-    )
-
-    return name
-
-
-# ============================================================
-# TYPOSQUATTING DETECTION
-# ============================================================
-
-def looks_like_typosquat(
-    hostname: str,
-    registrable_domain: str,
-    trusted_domains: set,
-):
-    """
-    Detect likely typosquatting.
-
-    A legitimate trusted domain is NEVER considered
-    a typosquat.
-    """
-
-    hostname = normalize_domain(hostname)
-
-    registrable_domain = normalize_domain(
-        registrable_domain
-    )
-
-    if not registrable_domain:
-        return None
-
-    if registrable_domain in trusted_domains:
-        return None
-
-    candidate = registrable_domain
-
-    if "." in candidate:
-        candidate_name = candidate.rsplit(
-            ".",
-            1,
-        )[0]
-    else:
-        candidate_name = candidate
-
-    candidate_name = candidate_name.lower()
-
-    if not candidate_name:
-        return None
-
-    best_brand = None
-    best_similarity = 0.0
-
-    # --------------------------------------------------------
-    # 1. Explicit protected brands
-    # --------------------------------------------------------
-
-    for domain, brand in PROTECTED_BRANDS.items():
-
-        trusted_name = domain.rsplit(
-            ".",
-            1,
-        )[0]
-
-        normalized_candidate = (
-            normalize_typosquat_name(
-                candidate_name
-            )
-        )
-
-        normalized_trusted = (
-            normalize_typosquat_name(
-                trusted_name
-            )
-        )
-
-        # Direct leetspeak match
-        if (
-            normalized_candidate
-            == normalized_trusted
-            and candidate_name
-            != trusted_name
-        ):
-            return domain
-
-        # Standard edit distance
-        similarity = normalized_similarity(
-            candidate_name,
-            trusted_name,
-        )
-
-        distance = levenshtein_distance(
-            candidate_name,
-            trusted_name,
-        )
-
-        if (
-            distance <= 2
-            and similarity >= 0.72
-            and candidate_name != trusted_name
-        ):
-            if similarity > best_similarity:
-                best_similarity = similarity
-                best_brand = domain
-
-    # --------------------------------------------------------
-    # 2. Additional trusted-domain comparison
-    # --------------------------------------------------------
-
-    if best_brand is None:
-
-        if 4 <= len(candidate_name) <= 20:
-
-            normalized_candidate = (
-                normalize_typosquat_name(
-                    candidate_name
-                )
-            )
-
-            for trusted_domain in trusted_domains:
-
-                if "." not in trusted_domain:
-                    continue
-
-                trusted_name = trusted_domain.rsplit(
-                    ".",
-                    1,
-                )[0]
-
-                if not (
-                    4
-                    <= len(trusted_name)
-                    <= 20
-                ):
-                    continue
-
-                normalized_trusted = (
-                    normalize_typosquat_name(
-                        trusted_name
-                    )
-                )
-
-                if (
-                    normalized_candidate
-                    == normalized_trusted
-                    and candidate_name
-                    != trusted_name
-                ):
-                    return trusted_domain
-
-                if abs(
-                    len(candidate_name)
-                    - len(trusted_name)
-                ) > 2:
-                    continue
-
-                distance = levenshtein_distance(
-                    candidate_name,
-                    trusted_name,
-                )
-
-                similarity = normalized_similarity(
-                    candidate_name,
-                    trusted_name,
-                )
-
-                if (
-                    distance <= 1
-                    and similarity >= 0.80
-                    and candidate_name != trusted_name
-                ):
-                    if similarity > best_similarity:
-                        best_similarity = similarity
-                        best_brand = trusted_domain
-
-    return best_brand
-
-
-# ============================================================
-# TRUSTED BRAND IMPERSONATION
-# ============================================================
-
 def detect_trusted_brand_impersonation(
     hostname: str,
     registrable_domain: str,
     trusted_domains: set,
 ):
     """
-    Detect trusted-brand impersonation.
+    Detect trusted-brand impersonation in the hostname.
 
     Legitimate:
-
         accounts.google.com
         login.microsoft.com
-        status.cloud.google.com
+        github.com
 
     Suspicious:
-
         google.com.evil.xyz
         amazon.com.evil.xyz
         github.com.evil.xyz
         facebook.com.security.xyz
+
+    The trusted domain must appear as complete hostname
+    labels, and the actual registrable domain must be
+    different.
     """
 
     hostname = normalize_domain(hostname)
-
     registrable_domain = normalize_domain(
         registrable_domain
     )
@@ -568,25 +257,26 @@ def detect_trusted_brand_impersonation(
     if not hostname or not registrable_domain:
         return None
 
-    # CRITICAL SAFETY RULE:
-    # A real trusted registrable domain is legitimate.
-
-    if registrable_domain in trusted_domains:
-        return None
-
     labels = hostname.split(".")
 
-    # --------------------------------------------------------
-    # Search hostname for trusted domain strings
-    # --------------------------------------------------------
+    # Check every possible multi-label hostname component.
+    #
+    # Example:
+    # google.com.evil.xyz
+    #
+    # candidates:
+    # google.com
+    # google.com.evil
+    # com.evil
+    # evil.xyz
+    #
+    # We only care about candidates that are trusted domains.
 
     for start in range(len(labels)):
-
         for end in range(
             start + 2,
             len(labels) + 1,
         ):
-
             candidate = ".".join(
                 labels[start:end]
             )
@@ -594,139 +284,44 @@ def detect_trusted_brand_impersonation(
             if candidate not in trusted_domains:
                 continue
 
+            # Legitimate subdomain:
+            #
+            # accounts.google.com
+            # registrable = google.com
+            #
+            # Therefore this is NOT impersonation.
+
+            if registrable_domain == candidate:
+                return None
+
+            # Trusted brand appears inside a different
+            # registrable domain.
+            #
+            # google.com.evil.xyz
+            # registrable = evil.xyz
+            #
+            # Therefore this is impersonation.
+
             return candidate
 
-    # --------------------------------------------------------
-    # Explicit protected-brand detection
-    # --------------------------------------------------------
-
-    for domain, brand in PROTECTED_BRANDS.items():
-
-        brand_lower = brand.lower()
-
-        if brand_lower in labels:
-            return domain
-
     return None
-
-
-# ============================================================
-# BRAND DECEPTION IN REGISTRABLE DOMAIN
-# ============================================================
-
-def detect_brand_domain_deception(
-    registrable_domain: str,
-    trusted_domains: set,
-):
-    """
-    Detect protected brands being used directly inside
-    a non-trusted registrable domain.
-
-    Examples:
-
-        google-security-alert.com
-        google-account-security.com
-        google-login-verify.com
-        amazon-account-security.com
-        microsoft-security-alert.com
-        apple-security-verification.com
-        paypal-security-alert.com
-
-    Legitimate:
-
-        google.com
-        accounts.google.com
-        developers.google.com
-        status.cloud.google.com
-    """
-
-    registrable_domain = normalize_domain(
-        registrable_domain
-    )
-
-    if not registrable_domain:
-        return None
-
-    # Never flag an actual trusted domain.
-    if registrable_domain in trusted_domains:
-        return None
-
-    # Remove TLD.
-    domain_name = registrable_domain.rsplit(
-        ".",
-        1,
-    )[0]
-
-    if not domain_name:
-        return None
-
-    # Split domain into tokens.
-    tokens = [
-        token
-        for token in re.split(
-            r"[-_.]+",
-            domain_name,
-        )
-        if token
-    ]
-
-    for domain, brand in PROTECTED_BRANDS.items():
-
-        brand_lower = brand.lower()
-
-        # Example:
-        # google-security-alert
-        # amazon-account-security
-
-        if brand_lower in tokens:
-            return domain
-
-        # Example:
-        # googlelogin
-        # amazonverify
-
-        if (
-            domain_name.startswith(brand_lower)
-            and len(domain_name)
-            > len(brand_lower)
-        ):
-            return domain
-
-    return None
-
 
 # ============================================================
 # STRUCTURAL FEATURES
 # ============================================================
 
 def extract_url_features(url: str) -> list:
-    """
-    Reproduce the V3.1 structural feature pipeline.
-    """
 
     url = str(url).strip()
 
     try:
         parsed = urlparse(
-            url
-            if "://" in url
-            else "//" + url
+            url if "://" in url else "//" + url
         )
 
-        hostname = (
-            parsed.hostname
-            or ""
-        )
-
-        path = (
-            parsed.path
-            or ""
-        )
-
-        query = (
-            parsed.query
-            or ""
-        )
+        hostname = parsed.hostname or ""
+        path = parsed.path or ""
+        query = parsed.query or ""
 
     except Exception:
         hostname = ""
@@ -737,10 +332,7 @@ def extract_url_features(url: str) -> list:
     hostname_lower = hostname.lower()
 
     if "." in hostname_lower:
-        tld = hostname_lower.rsplit(
-            ".",
-            1,
-        )[-1]
+        tld = hostname_lower.rsplit(".", 1)[-1]
     else:
         tld = ""
 
@@ -752,9 +344,7 @@ def extract_url_features(url: str) -> list:
     has_shortener = int(
         hostname_lower in SHORTENERS
         or any(
-            hostname_lower.endswith(
-                "." + domain
-            )
+            hostname_lower.endswith("." + domain)
             for domain in SHORTENERS
         )
     )
@@ -764,15 +354,13 @@ def extract_url_features(url: str) -> list:
         len(hostname),
         len(path),
         len(query),
+
         url.count("."),
         url.count("-"),
         url.count("_"),
         url.count("/"),
 
-        sum(
-            c.isdigit()
-            for c in url
-        ),
+        sum(c.isdigit() for c in url),
 
         sum(
             not c.isalnum()
@@ -781,18 +369,12 @@ def extract_url_features(url: str) -> list:
         ),
 
         hostname.count("."),
-
         len([
-            x
-            for x in path.split("/")
+            x for x in path.split("/")
             if x
         ]),
 
-        int(
-            lower.startswith(
-                "https://"
-            )
-        ),
+        int(lower.startswith("https://")),
 
         int(
             bool(
@@ -803,31 +385,17 @@ def extract_url_features(url: str) -> list:
             )
         ),
 
-        int(
-            "@" in url
-        ),
+        int("@" in url),
+        int("%" in url),
+        int("xn--" in hostname_lower),
 
-        int(
-            "%" in url
-        ),
-
-        int(
-            "xn--"
-            in hostname_lower
-        ),
-
-        int(
-            tld in SUSPICIOUS_TLDS
-        ),
+        int(tld in SUSPICIOUS_TLDS),
 
         keyword_count,
-
         has_shortener,
 
         calculate_entropy(url),
-
         calculate_entropy(hostname),
-
         calculate_entropy(path),
     ]
 
@@ -863,15 +431,14 @@ def load_trusted_domains():
     }
 
     print(
-        "Trusted domains loaded: "
-        f"{len(domains):,}"
+        f"Trusted domains loaded: {len(domains):,}"
     )
 
     return domains
 
 
 # ============================================================
-# MODEL
+# V3.2 MODEL
 # ============================================================
 
 class URLMLModel:
@@ -885,7 +452,7 @@ class URLMLModel:
             )
 
         print(
-            "Loading LinkSentry V3.3 model: "
+            f"Loading LinkSentry V3.2 model: "
             f"{MODEL_PATH}"
         )
 
@@ -893,9 +460,7 @@ class URLMLModel:
             MODEL_PATH
         )
 
-        self.classifier = package[
-            "classifier"
-        ]
+        self.classifier = package["classifier"]
 
         self.vectorizer = package[
             "vectorizer"
@@ -913,14 +478,12 @@ class URLMLModel:
             )
         )
 
-        self.model_version = "V3.3"
+        self.model_version = "V3.2"
 
         self.model_type = (
             "V3.1 LinearSVC + "
             "hard-negative training + "
-            "trusted-domain + "
-            "typosquatting + "
-            "decision-fusion layer"
+            "trusted-domain layer"
         )
 
         self.trusted_domains = (
@@ -944,7 +507,7 @@ class URLMLModel:
         )
 
         print(
-            "V3.3 model loaded successfully."
+            "V3.2 model loaded successfully."
         )
 
         print(
@@ -952,42 +515,36 @@ class URLMLModel:
         )
 
         print(
-            "TF-IDF features: "
+            f"TF-IDF features: "
             f"{len(self.vectorizer.vocabulary_)}"
         )
 
         print(
-            "Structural features: "
+            f"Structural features: "
             f"{len(self.feature_names)}"
         )
 
         if self.training_rows is not None:
             print(
-                "Training rows: "
+                f"Training rows: "
                 f"{self.training_rows}"
             )
 
-        if (
-            self.real_benchmark_accuracy
-            is not None
-        ):
+        if self.real_benchmark_accuracy is not None:
             print(
                 "Real benchmark accuracy: "
                 f"{self.real_benchmark_accuracy:.2%}"
             )
 
-        if (
-            self.real_benchmark_false_positive_rate
-            is not None
-        ):
+        if self.real_benchmark_false_positive_rate is not None:
             print(
                 "Real benchmark false-positive rate: "
                 f"{self.real_benchmark_false_positive_rate:.2%}"
             )
 
-    # ========================================================
+    # --------------------------------------------------------
     # FEATURES
-    # ========================================================
+    # --------------------------------------------------------
 
     def _build_features(
         self,
@@ -996,17 +553,13 @@ class URLMLModel:
 
         structural = np.asarray(
             [
-                extract_url_features(
-                    url
-                )
+                extract_url_features(url)
             ],
             dtype=np.float32,
         )
 
-        tfidf = (
-            self.vectorizer.transform(
-                [url]
-            )
+        tfidf = self.vectorizer.transform(
+            [url]
         )
 
         structural_sparse = csr_matrix(
@@ -1021,9 +574,9 @@ class URLMLModel:
             format="csr",
         )
 
-    # ========================================================
-    # DOMAIN INFO
-    # ========================================================
+    # --------------------------------------------------------
+    # TRUSTED DOMAIN CHECK
+    # --------------------------------------------------------
 
     def _trusted_domain_info(
         self,
@@ -1032,14 +585,11 @@ class URLMLModel:
 
         try:
             parsed = urlparse(
-                url
-                if "://" in url
-                else "//" + url
+                url if "://" in url else "//" + url
             )
 
             hostname = (
-                parsed.hostname
-                or ""
+                parsed.hostname or ""
             ).lower()
 
         except Exception:
@@ -1049,10 +599,8 @@ class URLMLModel:
             hostname
         )
 
-        registrable = (
-            get_registrable_domain(
-                hostname
-            )
+        registrable = get_registrable_domain(
+            hostname
         )
 
         trusted = (
@@ -1066,9 +614,9 @@ class URLMLModel:
             "trusted": trusted,
         }
 
-    # ========================================================
+    # --------------------------------------------------------
     # SUSPICIOUS SIGNALS
-    # ========================================================
+    # --------------------------------------------------------
 
     def _suspicious_signals(
         self,
@@ -1088,12 +636,16 @@ class URLMLModel:
 
         signals = []
 
-        if feature_map["has_ip"]:
+        if feature_map[
+            "has_ip"
+        ]:
             signals.append(
                 "ip_address"
             )
 
-        if feature_map["has_at_symbol"]:
+        if feature_map[
+            "has_at_symbol"
+        ]:
             signals.append(
                 "at_symbol"
             )
@@ -1135,9 +687,9 @@ class URLMLModel:
 
         return signals
 
-    # ========================================================
+    # --------------------------------------------------------
     # PREDICTION
-    # ========================================================
+    # --------------------------------------------------------
 
     def predict(
         self,
@@ -1151,19 +703,13 @@ class URLMLModel:
                 "URL cannot be empty."
             )
 
-        # ====================================================
-        # ML PREDICTION
-        # ====================================================
-
         features = self._build_features(
             url
         )
 
-        prediction = (
-            self.classifier.predict(
-                features
-            )[0]
-        )
+        prediction = self.classifier.predict(
+            features
+        )[0]
 
         decision_scores = (
             self.classifier.decision_function(
@@ -1189,9 +735,9 @@ class URLMLModel:
             )
         }
 
-        # ====================================================
-        # ML CONFIDENCE
-        # ====================================================
+        # ----------------------------------------------------
+        # Confidence-like score
+        # ----------------------------------------------------
 
         max_score = float(
             np.max(scores)
@@ -1218,41 +764,19 @@ class URLMLModel:
             )
         }
 
-        ml_prediction = str(
-            prediction
+        confidence = confidence_map.get(
+            prediction,
+            0.0,
         )
 
-        ml_confidence = (
-            confidence_map.get(
-                ml_prediction,
-                0.0,
-            )
-        )
-
-        # ====================================================
-        # DOMAIN INFORMATION
-        # ====================================================
+        # ----------------------------------------------------
+        # Trusted domain layer
+        # ----------------------------------------------------
 
         domain_info = (
             self._trusted_domain_info(
                 url
             )
-        )
-
-        hostname = domain_info[
-            "hostname"
-        ]
-
-        registrable_domain = (
-            domain_info[
-                "registrable_domain"
-            ]
-        )
-
-        trusted_domain = (
-            domain_info[
-                "trusted"
-            ]
         )
 
         suspicious_signals = (
@@ -1261,438 +785,111 @@ class URLMLModel:
             )
         )
 
-        # ====================================================
-        # TRUSTED-BRAND IMPERSONATION
-        # ====================================================
+        # ----------------------------------------------------
+        # Trusted-brand impersonation detection
+        # ----------------------------------------------------
 
-        impersonated_domain = None
-
-        # Never run impersonation detection
-        # against an actually trusted domain.
-
-        if not trusted_domain:
-
-            impersonated_domain = (
-                detect_trusted_brand_impersonation(
-                    hostname,
-                    registrable_domain,
-                    self.trusted_domains,
-                )
+        impersonated_domain = (
+            detect_trusted_brand_impersonation(
+                domain_info["hostname"],
+                domain_info["registrable_domain"],
+                self.trusted_domains,
             )
+        )
 
         if impersonated_domain:
-
-            if (
+            suspicious_signals.append(
                 "trusted_brand_impersonation"
-                not in suspicious_signals
-            ):
-                suspicious_signals.append(
-                    "trusted_brand_impersonation"
-                )
-
-        # ====================================================
-        # TYPOSQUATTING
-        # ====================================================
-
-        typosquat_domain = None
-
-        if not trusted_domain:
-
-            typosquat_domain = (
-                looks_like_typosquat(
-                    hostname,
-                    registrable_domain,
-                    self.trusted_domains,
-                )
             )
 
-        if typosquat_domain:
+        # ----------------------------------------------------
+        # Final prediction
+        # ----------------------------------------------------
 
-            if (
-                "typosquatting"
-                not in suspicious_signals
-            ):
-                suspicious_signals.append(
-                    "typosquatting"
-                )
-
-        # ====================================================
-        # BRAND DOMAIN DECEPTION
-        # ====================================================
-
-        brand_domain_deception = None
-
-        if not trusted_domain:
-
-            brand_domain_deception = (
-                detect_brand_domain_deception(
-                    registrable_domain,
-                    self.trusted_domains,
-                )
-            )
-
-        if brand_domain_deception:
-
-            if (
-                "brand_domain_deception"
-                not in suspicious_signals
-            ):
-                suspicious_signals.append(
-                    "brand_domain_deception"
-                )
-
-        # ====================================================
-        # URL FEATURE MAP
-        # ====================================================
-
-        url_lower = url.lower()
-
-        feature_values = (
-            extract_url_features(
-                url
-            )
+        ml_prediction = str(
+            prediction
         )
-
-        feature_map = dict(
-            zip(
-                FEATURE_NAMES,
-                feature_values,
-            )
-        )
-
-        keyword_count = feature_map[
-            "keyword_count"
-        ]
-
-        suspicious_tld = bool(
-            feature_map[
-                "suspicious_tld"
-            ]
-        )
-
-        has_ip = bool(
-            feature_map[
-                "has_ip"
-            ]
-        )
-
-        has_shortener = bool(
-            feature_map[
-                "has_shortener"
-            ]
-        )
-
-        has_punycode = bool(
-            feature_map[
-                "has_punycode"
-            ]
-        )
-
-        # ====================================================
-        # PHISHING KEYWORDS
-        # ====================================================
-
-        phishing_keywords = {
-            "login",
-            "signin",
-            "verify",
-            "verification",
-            "account",
-            "secure",
-            "security",
-            "password",
-            "credential",
-            "bank",
-            "banking",
-            "wallet",
-            "payment",
-            "billing",
-            "authenticate",
-            "authorization",
-            "otp",
-            "kyc",
-            "recover",
-            "suspended",
-            "alert",
-        }
-
-        has_phishing_keyword = any(
-            keyword in url_lower
-            for keyword in phishing_keywords
-        )
-
-        # ====================================================
-        # DECISION FUSION
-        # ====================================================
 
         final_prediction = ml_prediction
 
         trust_override = False
-        rule_override = False
 
-        # ====================================================
-        # RULE 1
-        # TRUSTED BRAND IMPERSONATION
-        # ====================================================
+        # A trusted brand appearing inside a different
+        # registrable domain is a phishing indicator.
+        #
+        # Example:
+        # google.com.evil.xyz
+        # paypal.com.security-check.xyz
+
+        if impersonated_domain:
+            final_prediction = "phishing"
+
+        # ----------------------------------------------------
+        # Strong suspicion detection
+        # ----------------------------------------------------
+
+        strong_suspicion = (
+            "ip_address"
+            in suspicious_signals
+
+            or "at_symbol"
+            in suspicious_signals
+
+            or "punycode"
+            in suspicious_signals
+
+            or "url_shortener"
+            in suspicious_signals
+
+            or "multiple_suspicious_keywords"
+            in suspicious_signals
+
+            or "trusted_brand_impersonation"
+            in suspicious_signals
+        )
+
+        # ----------------------------------------------------
+        # Trusted-domain benign override
+        # ----------------------------------------------------
+
+        if (
+            domain_info["trusted"]
+            and not strong_suspicion
+        ):
+
+            final_prediction = (
+                "benign"
+            )
+
+            trust_override = True
+
+        # ----------------------------------------------------
+        # Final confidence
+        # ----------------------------------------------------
 
         if impersonated_domain:
 
-            final_prediction = "phishing"
-            rule_override = True
-
-        # ====================================================
-        # RULE 2
-        # TYPOSQUATTING
-        # ====================================================
-
-        elif typosquat_domain:
-
-            final_prediction = "phishing"
-            rule_override = True
-
-        # ====================================================
-        # RULE 3
-        # IP + PHISHING KEYWORD
-        # ====================================================
-
-        elif (
-            has_ip
-            and has_phishing_keyword
-        ):
-
-            final_prediction = "phishing"
-            rule_override = True
-
-            if "ip_address" not in suspicious_signals:
-                suspicious_signals.append(
-                    "ip_address"
-                )
-
-            if (
-                "ip_with_phishing_keyword"
-                not in suspicious_signals
-            ):
-                suspicious_signals.append(
-                    "ip_with_phishing_keyword"
-                )
-
-        # ====================================================
-        # RULE 4
-        # SUSPICIOUS TLD + PHISHING KEYWORD
-        # ====================================================
-
-        elif (
-            suspicious_tld
-            and has_phishing_keyword
-        ):
-
-            final_prediction = "phishing"
-            rule_override = True
-
-            if (
-                "suspicious_tld_phishing_pattern"
-                not in suspicious_signals
-            ):
-                suspicious_signals.append(
-                    "suspicious_tld_phishing_pattern"
-                )
-
-        # ====================================================
-        # RULE 5
-        # SUSPICIOUS TLD + MULTIPLE KEYWORDS
-        # ====================================================
-
-        elif (
-            suspicious_tld
-            and keyword_count >= 2
-        ):
-
-            final_prediction = "phishing"
-            rule_override = True
-
-        # ====================================================
-        # RULE 6
-        # URL SHORTENER + PHISHING KEYWORD
-        # ====================================================
-
-        elif (
-            has_shortener
-            and has_phishing_keyword
-        ):
-
-            final_prediction = "phishing"
-            rule_override = True
-
-            if (
-                "shortener_with_phishing_keyword"
-                not in suspicious_signals
-            ):
-                suspicious_signals.append(
-                    "shortener_with_phishing_keyword"
-                )
-
-        # ====================================================
-        # RULE 7
-        # PUNYCODE + PHISHING KEYWORD
-        # ====================================================
-
-        elif (
-            has_punycode
-            and has_phishing_keyword
-        ):
-
-            final_prediction = "phishing"
-            rule_override = True
-
-            if (
-                "punycode_phishing_pattern"
-                not in suspicious_signals
-            ):
-                suspicious_signals.append(
-                    "punycode_phishing_pattern"
-                )
-
-        # ====================================================
-        # RULE 8
-        # PROTECTED BRAND + PHISHING LANGUAGE
-        #
-        # This is the important fix.
-        #
-        # Examples:
-        #
-        # google-security-alert.com
-        # google-account-security.com
-        # google-login-verify.com
-        # microsoft-security-alert.com
-        #
-        # These are NOT legitimate Google/Microsoft
-        # subdomains because their registrable domain is
-        # not google.com/microsoft.com.
-        # ====================================================
-
-        elif (
-            brand_domain_deception
-            and has_phishing_keyword
-        ):
-
-            final_prediction = "phishing"
-            rule_override = True
-
-            if (
-                "brand_domain_deception"
-                not in suspicious_signals
-            ):
-                suspicious_signals.append(
-                    "brand_domain_deception"
-                )
-
-        # ====================================================
-        # RULE 9
-        # TRUSTED DOMAIN BENIGN OVERRIDE
-        # ====================================================
-
-        elif trusted_domain:
-
-            final_prediction = "benign"
-            trust_override = True
-
-        # ====================================================
-        # STRONG DECEPTION CHECK
-        #
-        # IMPORTANT:
-        # Keep this at the same indentation level as the
-        # decision-fusion rules above.
-        # ====================================================
-
-        strong_deception = (
-            bool(impersonated_domain)
-            or bool(typosquat_domain)
-            or (
-                bool(brand_domain_deception)
-                and has_phishing_keyword
-            )
-            or (
-                has_ip
-                and has_phishing_keyword
-            )
-            or (
-                suspicious_tld
-                and has_phishing_keyword
-            )
-            or (
-                has_shortener
-                and has_phishing_keyword
-            )
-            or (
-                has_punycode
-                and has_phishing_keyword
-            )
-        )
-
-        # ====================================================
-        # STRONG DECEPTION FINAL OVERRIDE
-        # ====================================================
-
-        if strong_deception:
-
-            final_prediction = "phishing"
-
-            trust_override = False
-            rule_override = True
-
-        # ====================================================
-        # TRUSTED-DOMAIN SAFETY
-        #
-        # If the registrable domain is trusted and there is
-        # no strong deception signal, force benign.
-        #
-        # Examples:
-        #
-        # status.cloud.google.com
-        # developers.google.com
-        # accounts.google.com
-        # support.google.com
-        #
-        # These remain benign.
-        # ====================================================
-
-        elif trusted_domain:
-
-            final_prediction = "benign"
-
-            trust_override = True
-            rule_override = False
-
-        # ====================================================
-        # FINAL CONFIDENCE
-        # ====================================================
-
-        if strong_deception:
-
             final_confidence = max(
-                ml_confidence,
+                confidence,
                 0.98,
             )
 
         elif trust_override:
 
             final_confidence = max(
-                ml_confidence,
+                confidence,
                 0.90,
             )
 
         else:
 
-            final_confidence = (
-                ml_confidence
-            )
+            final_confidence = confidence
 
-        # ====================================================
-        # RESULT
-        # ====================================================
+        # ----------------------------------------------------
+        # Result
+        # ----------------------------------------------------
 
         return {
-
             "prediction": str(
                 final_prediction
             ),
@@ -1707,40 +904,30 @@ class URLMLModel:
             ),
 
             "ml_confidence": round(
-                ml_confidence,
+                confidence,
                 4,
             ),
 
             "trusted_domain": (
-                trusted_domain
+                domain_info["trusted"]
             ),
 
             "hostname": (
-                hostname
+                domain_info["hostname"]
             ),
 
             "registrable_domain": (
-                registrable_domain
+                domain_info[
+                    "registrable_domain"
+                ]
             ),
 
             "trust_override": (
                 trust_override
             ),
 
-            "rule_override": (
-                rule_override
-            ),
-
             "impersonated_domain": (
                 impersonated_domain
-            ),
-
-            "typosquat_domain": (
-                typosquat_domain
-            ),
-
-            "brand_domain_deception": (
-                brand_domain_deception
             ),
 
             "suspicious_signals": (
