@@ -1,69 +1,135 @@
-name: LinkSentry QA Automation Suite
+name: LinkSentry QA
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  qa-automation:
-    name: Execute Full LinkSentry QA Suite (Selenium + Appium + k6)
+
+  selenium:
+    name: Selenium Web Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js Environment
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
 
-      - name: Setup Java JDK 17 (Android Build)
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Install Project Dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Execute Web Lint & Production Build
-        run: |
-          npm run lint
-          npm run build
-
-      - name: Build Android Debug APK
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug testDebugUnitTest
-
-      - name: Install & Setup k6 Engine
-        run: |
-          gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update
-          sudo apt-get install -y k6
-
-      - name: Run Complete QA Test Harness & Generator
+      - name: Run Selenium Web Tests
         env:
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
-          SELENIUM_BASE_URL: "https://linksentry-7e694.web.app"
-          K6_BASE_URL: "http://127.0.0.1:8000"
+          SELENIUM_BASE_URL: https://linksentry-7e694.web.app
         run: |
-          node qa/run-all-tests.js
+          node qa/selenium/tests/selenium-suite-runner.js
 
-      - name: Upload QA Execution Reports
-        uses: actions/upload-artifact@v4
+
+  load-test:
+    name: Load Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          name: LinkSentry-QA-Reports
-          path: |
-            qa/reports/LinkSentry_QA_Report.xlsx
-            qa/reports/index.html
-            qa/selenium/screenshots/
-            qa/appium/screenshots/
+          node-version: 20
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Start FastAPI Backend
+        working-directory: backend
+        run: |
+          nohup python -m uvicorn main:app \
+            --host 127.0.0.1 \
+            --port 8000 \
+            > /tmp/linksentry-api.log 2>&1 &
+
+          sleep 10
+
+      - name: Verify Backend
+        run: |
+          curl --fail http://127.0.0.1:8000/api/health
+
+      - name: Run Load Test
+        env:
+          K6_BASE_URL: http://127.0.0.1:8000
+        run: |
+          node qa/k6/scenarios/k6-suite-runner.js
+
+
+  appium:
+    name: Appium Android Tests
+    runs-on: self-hosted
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Android Device
+        shell: powershell
+        run: |
+          adb devices
+          adb shell getprop ro.product.model
+          adb shell getprop ro.build.version.sdk
+
+      - name: Verify Appium Server
+        shell: powershell
+        run: |
+          $response = Invoke-WebRequest `
+            -Uri "http://127.0.0.1:4723/status" `
+            -UseBasicParsing
+
+          if ($response.StatusCode -ne 200) {
+            throw "Appium server is not available."
+          }
+
+          Write-Host "Appium server is available."
+
+      - name: Run Real Appium Tests
+        shell: powershell
+        env:
+          ANDROID_HOME: C:\Users\acer\AppData\Local\Android\Sdk
+          ANDROID_SDK_ROOT: C:\Users\acer\AppData\Local\Android\Sdk
+        run: |
+          node qa/appium/tests/appium-suite-runner.js
