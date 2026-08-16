@@ -8,8 +8,6 @@ export default defineConfig([
   globalIgnores([
     'dist/**',
     'e2e/**',
-    'e2e-mobile/**',
-    'loadtest/**',
     'tests-firestore/**',
     '.venv/**',
     'backend/**',
