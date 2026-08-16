@@ -1,0 +1,69 @@
+name: LinkSentry QA Automation Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  qa-automation:
+    name: Execute Full LinkSentry QA Suite (Selenium + Appium + k6)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Java JDK 17 (Android Build)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Project Dependencies
+        run: npm ci
+
+      - name: Execute Web Lint & Production Build
+        run: |
+          npm run lint
+          npm run build
+
+      - name: Build Android Debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug testDebugUnitTest
+
+      - name: Install & Setup k6 Engine
+        run: |
+          gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Run Complete QA Test Harness & Generator
+        env:
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+          SELENIUM_BASE_URL: "https://linksentry-7e694.web.app"
+          K6_BASE_URL: "http://127.0.0.1:8000"
+        run: |
+          node qa/run-all-tests.js
+
+      - name: Upload QA Execution Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: LinkSentry-QA-Reports
+          path: |
+            qa/reports/LinkSentry_QA_Report.xlsx
+            qa/reports/index.html
+            qa/selenium/screenshots/
+            qa/appium/screenshots/

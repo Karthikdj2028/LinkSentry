@@ -67,3 +67,5 @@ android/local.properties
 android/.idea/
 android/*.iml
 android/app/*.iml
+# Temporary Android QA screenshots
+/android_*.png
