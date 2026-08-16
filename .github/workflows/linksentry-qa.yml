@@ -86,8 +86,7 @@ jobs:
           K6_BASE_URL: http://127.0.0.1:8000
         run: |
           node qa/k6/scenarios/k6-suite-runner.js
-
-
+          
   appium:
     name: Appium Android Tests
     runs-on: self-hosted
@@ -135,19 +134,23 @@ jobs:
           Write-Host "Connected devices:"
           adb devices
 
-          $devices = adb devices
+          $deviceId = "R9ZY105SN5M"
+          $deviceState = (& adb devices) |
+            Select-String -Pattern "^\s*$deviceId\s+device\s*$"
 
-          if ($devices -notmatch "R9ZY105SN5M\s+device") {
-            throw "Samsung device R9ZY105SN5M is not connected or authorized."
+          if (-not $deviceState) {
+            Write-Host "ADB device list:"
+            adb devices
+            throw "Samsung device $deviceId is not connected or authorized."
           }
 
-          Write-Host "Samsung device detected successfully."
+          Write-Host "Samsung device $deviceId detected successfully."
 
           Write-Host "Device model:"
-          adb shell getprop ro.product.model
+          adb -s $deviceId shell getprop ro.product.model
 
           Write-Host "Android API:"
-          adb shell getprop ro.build.version.sdk
+          adb -s $deviceId shell getprop ro.build.version.sdk
 
       - name: Verify Appium Server
         shell: powershell
