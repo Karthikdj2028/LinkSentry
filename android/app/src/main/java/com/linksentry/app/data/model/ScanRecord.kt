@@ -54,8 +54,10 @@ data class ScanRecord(
     @PropertyName("createdAt")
     var createdAt: Timestamp? = null
 ) {
-    val formattedDate: String
+    @PropertyName("formattedDate")
+    var formattedDate: String = ""
         get() {
+            if (field.isNotBlank()) return field
             val date = createdAt?.toDate() ?: Date()
             val format = java.text.SimpleDateFormat("MMM dd, yyyy HH:mm", java.util.Locale.US)
             return format.format(date)

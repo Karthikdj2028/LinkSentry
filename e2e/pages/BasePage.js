@@ -45,6 +45,34 @@ export class BasePage {
 
   async click(locator, timeout = this.defaultTimeout) {
     const element = await this.waitForClickable(locator, timeout);
+    // Scroll the element into the center of the viewport so fixed-position
+    // overlays (navbar, footers) cannot intercept the click coordinate.
+    await this.driver.executeScript(
+      'arguments[0].scrollIntoView({ behavior: "instant", block: "center", inline: "center" });',
+      element
+    );
+    // Allow the browser a short layout settle time after the scroll.
+    await this.driver.sleep(80);
+    // Re-verify the element is still visible and enabled after scroll.
+    await this.driver.wait(until.elementIsVisible(element), timeout);
+    await this.driver.wait(until.elementIsEnabled(element), timeout);
+    await element.click();
+  }
+
+  /**
+   * Scroll a raw WebElement (already resolved) into center view, then click it.
+   * Use this when a page object resolves the element directly rather than via BasePage.click(locator).
+   * @param {import('selenium-webdriver').WebElement} element
+   * @param {number} timeout
+   */
+  async scrollAndClickElement(element, timeout = this.defaultTimeout) {
+    await this.driver.executeScript(
+      'arguments[0].scrollIntoView({ behavior: "instant", block: "center", inline: "center" });',
+      element
+    );
+    await this.driver.sleep(80);
+    await this.driver.wait(until.elementIsVisible(element), timeout);
+    await this.driver.wait(until.elementIsEnabled(element), timeout);
     await element.click();
   }
 
@@ -106,6 +134,22 @@ export class BasePage {
 
   async getPageTitle() {
     return await this.driver.getTitle();
+  }
+
+  async setSession(user = { uid: 'e2e-analyst-test-uid', email: 'analyst.qa@linksentry.io', role: 'Senior SOC Analyst' }) {
+    await this.driver.executeScript((u) => {
+      localStorage.setItem('linksentry_e2e_session', JSON.stringify(u));
+    }, user);
+  }
+
+  async clearSession() {
+    await this.driver.executeScript(() => {
+      localStorage.removeItem('linksentry_e2e_session');
+    });
+  }
+
+  async setViewport(width, height) {
+    await this.driver.manage().window().setRect({ width, height });
   }
 
   async takeScreenshot(testName = 'screenshot') {

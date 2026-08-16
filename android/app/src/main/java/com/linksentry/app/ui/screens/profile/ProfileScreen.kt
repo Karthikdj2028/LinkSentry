@@ -2,8 +2,8 @@ package com.linksentry.app.ui.screens.profile
 
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,10 +17,12 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -33,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.linksentry.app.data.api.ApiClient
+import com.linksentry.app.data.preferences.AppPreferences
 import com.linksentry.app.data.repository.AuthRepository
 import com.linksentry.app.ui.components.CyberBadge
 import com.linksentry.app.ui.components.CyberCard
@@ -45,30 +48,37 @@ fun ProfileScreen(
     authRepository: AuthRepository,
     onSignOut: () -> Unit
 ) {
+    val colors = LocalAppColors.current
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
 
     val user = authRepository.currentUser
-    val isPhysical = !ApiClient.isEmulator()
+
+    // Preferences state
+    val themeMode by AppPreferences.themeModeFlow.collectAsState()
+    val realtimeProtection by AppPreferences.realtimeProtectionFlow.collectAsState()
+    val cloudSync by AppPreferences.cloudSyncFlow.collectAsState()
+    val clipboardDetection by AppPreferences.clipboardDetectionFlow.collectAsState()
 
     var apiUrlInput by remember { mutableStateOf(ApiClient.getBaseUrl()) }
     var isProbing by remember { mutableStateOf(false) }
     var probeStatus by remember { mutableStateOf<String?>(null) }
     var probeSuccess by remember { mutableStateOf<Boolean?>(null) }
-    var showAccountDetails by remember { mutableStateOf(false) }
-    var showDevDiagnostics by remember { mutableStateOf(false) }
+    var showDevDiagnostics by rememberSaveable { mutableStateOf(false) }
+    var showAccountDetails by rememberSaveable { mutableStateOf(false) }
+    var showHelpAndSupport by rememberSaveable { mutableStateOf(false) }
+    var showFeedbackSheet by rememberSaveable { mutableStateOf(false) }
 
-    // Probe initial connectivity on load
     LaunchedEffect(Unit) {
         isProbing = true
         val result = ApiClient.probeHealth()
         probeSuccess = result.isSuccess
         probeStatus = if (result.isSuccess) {
-            "ONLINE – ${result.getOrNull()}"
+            "Connected • ${result.getOrNull()?.service ?: "LinkSentry API"} v${result.getOrNull()?.version ?: "0.5.0"}"
         } else {
-            result.exceptionOrNull()?.localizedMessage ?: "Unreachable"
+            result.exceptionOrNull()?.localizedMessage ?: "Server unreachable"
         }
         isProbing = false
     }
@@ -86,14 +96,14 @@ fun ProfileScreen(
             val result = ApiClient.probeHealth()
             probeSuccess = result.isSuccess
             probeStatus = if (result.isSuccess) {
-                "ONLINE – ${result.getOrNull()}"
+                "Connected • ${result.getOrNull()?.service ?: "LinkSentry API"} v${result.getOrNull()?.version ?: "0.5.0"}"
             } else {
-                result.exceptionOrNull()?.localizedMessage ?: "Unreachable"
+                result.exceptionOrNull()?.localizedMessage ?: "Server unreachable"
             }
             isProbing = false
             Toast.makeText(
                 context,
-                if (result.isSuccess) "Endpoint Verified & Saved" else "Saved, but backend unreachable",
+                if (result.isSuccess) "Backend URL updated and verified" else "Saved, but backend unreachable",
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -102,141 +112,469 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             CyberTopBar(
-                title = "LinkSentry Profile",
-                subtitle = "IDENTITY & ENGINE CONFIGURATION"
+                title = "Profile",
+                subtitle = "Account & settings"
             )
         },
-        containerColor = CyberDarkBg
+        containerColor = colors.background
     ) { padding ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .imePadding()
-                .padding(horizontal = 14.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Spacer(modifier = Modifier.height(6.dp))
+            val isNarrow = maxWidth < 360.dp
+            val horizontalPadding = if (isNarrow) 12.dp else 16.dp
 
-            // 1. PRIMARY USER ACCOUNT SECTION
-            CyberCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .align(Alignment.TopCenter)
+                    .widthIn(max = 640.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = horizontalPadding),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Spacer(modifier = Modifier.height(2.dp))
+
+                // 1. User Profile Header Card
+                CyberCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(colors.brandAccent.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = user?.email?.take(2)?.uppercase() ?: "LS",
+                                color = colors.brandAccent,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = user?.email ?: "User Account",
+                                color = colors.textPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                CyberBadge(verdict = "safe")
+                                Text(
+                                    text = "v0.5.0",
+                                    color = colors.textMuted,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
                         modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(CyberCyan.copy(alpha = 0.15f))
-                            .border(2.dp, CyberCyan, CircleShape),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showAccountDetails = !showAccountDetails }
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = user?.email?.take(2)?.uppercase() ?: "LS",
-                            color = CyberCyan,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
+                            text = if (showAccountDetails) "Hide Account UID" else "View Account UID",
+                            color = colors.brandAccent,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Icon(
+                            imageVector = if (showAccountDetails) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                            contentDescription = null,
+                            tint = colors.brandAccent,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = user?.email ?: "Security Operator",
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+
+                    AnimatedVisibility(visible = showAccountDetails) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
                         ) {
-                            CyberBadge(text = "ACTIVE / SECURED", color = CyberEmerald)
-                            Text(
-                                text = "v0.5.0",
-                                color = TextMuted,
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "User ID: ${user?.uid ?: "N/A"}",
+                                    color = colors.textSecondary,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "Copy",
+                                    color = colors.brandAccent,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.clickable {
+                                        clipboardManager.setText(AnnotatedString(user?.uid ?: ""))
+                                        Toast.makeText(context, "User ID copied", Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                            }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Expandable Advanced Account Details (Account ID / UID)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(6.dp))
-                        .clickable { showAccountDetails = !showAccountDetails }
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                // 2. Appearance / Theme Selector
+                CyberCard {
                     Text(
-                        text = if (showAccountDetails) "Hide Account Details" else "View Advanced Account Details",
-                        color = CyberCyan,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
+                        text = "Appearance",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.textPrimary
                     )
-                    Icon(
-                        imageVector = if (showAccountDetails) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                        contentDescription = null,
-                        tint = CyberCyan,
-                        modifier = Modifier.size(18.dp)
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ThemeOptionButton(
+                            label = "System",
+                            icon = Icons.Filled.SettingsBrightness,
+                            isSelected = themeMode == "system",
+                            onClick = { AppPreferences.setThemeMode("system") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ThemeOptionButton(
+                            label = "Light",
+                            icon = Icons.Filled.LightMode,
+                            isSelected = themeMode == "light",
+                            onClick = { AppPreferences.setThemeMode("light") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ThemeOptionButton(
+                            label = "Dark",
+                            icon = Icons.Filled.DarkMode,
+                            isSelected = themeMode == "dark",
+                            onClick = { AppPreferences.setThemeMode("dark") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                // 3. Security Preferences (Real Interactive Switches)
+                CyberCard {
+                    Text(
+                        text = "Security preferences",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.textPrimary
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    PreferenceSwitchRow(
+                        icon = Icons.Filled.Shield,
+                        title = "Real-time threat detection",
+                        subtitle = "Active AI multi-vector scanner",
+                        isChecked = realtimeProtection,
+                        onCheckedChange = { AppPreferences.setRealtimeProtection(it) }
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    PreferenceSwitchRow(
+                        icon = Icons.Filled.CloudDone,
+                        title = "Cloud synchronization",
+                        subtitle = "Save scan records to Cloud Firestore",
+                        isChecked = cloudSync,
+                        onCheckedChange = { AppPreferences.setCloudSync(it) }
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    PreferenceSwitchRow(
+                        icon = Icons.Filled.ContentPaste,
+                        title = "Clipboard link detection",
+                        subtitle = "Alert on copied links & text",
+                        isChecked = clipboardDetection,
+                        onCheckedChange = { AppPreferences.setClipboardDetection(it) }
+                    )
+
+                    val pushNotifications by AppPreferences.pushNotificationsFlow.collectAsState()
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    PreferenceSwitchRow(
+                        icon = Icons.Filled.NotificationsActive,
+                        title = "Push notifications",
+                        subtitle = "Threat alerts & security digests",
+                        isChecked = pushNotifications,
+                        onCheckedChange = { AppPreferences.setPushNotifications(it) }
                     )
                 }
 
-                AnimatedVisibility(visible = showAccountDetails) {
-                    Column {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Box(
+                // 4. Help & Support Section
+                CyberCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showHelpAndSupport = !showHelpAndSupport }
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Filled.Info, contentDescription = null, tint = colors.brandAccent, modifier = Modifier.size(18.dp))
+                            Text(
+                                text = "Help & Support",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colors.textPrimary
+                            )
+                        }
+                        Icon(
+                            imageVector = if (showHelpAndSupport) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                            contentDescription = null,
+                            tint = colors.brandAccent,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    AnimatedVisibility(visible = showHelpAndSupport) {
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(CyberSurfaceLight)
-                                .padding(10.dp)
+                                .padding(top = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Column {
-                                Text(
-                                    text = "FIREBASE USER ID (UID)",
-                                    fontSize = 9.sp,
-                                    color = TextSecondary,
-                                    fontFamily = FontFamily.Monospace
+                            HelpTopicItem(
+                                title = "How LinkSentry Works",
+                                description = "LinkSentry uses a dual-engine architecture combining rule heuristics and a LinearSVC machine learning model to detect phishing URLs, malicious QR codes, and smishing texts in milliseconds."
+                            )
+
+                            HelpTopicItem(
+                                title = "QR Code Scanning",
+                                description = "The optical scanner decodes QR payloads locally on-device. Standard URLs are analyzed for phishing risks, while Wi-Fi, vCard, and text payloads are inspected without sending personal data externally."
+                            )
+
+                            HelpTopicItem(
+                                title = "URL & Link Analysis",
+                                description = "LinkSentry checks domain reputations, punycode spoofing, IP-based URLs, suspicious subdomains, and deceptive brand impersonation."
+                            )
+
+                            HelpTopicItem(
+                                title = "Threat Verdicts",
+                                description = "• Safe (0–29): Low risk, legitimate destination.\n• Suspicious (30–69): Caution advised, unusual patterns found.\n• Phishing (70–100): High risk, malicious indicators detected."
+                            )
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            // Contact Support Button (Full-width responsive)
+                            OutlinedButton(
+                                onClick = {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+                                        data = android.net.Uri.parse("mailto:support@linksentry.security")
+                                        putExtra(android.content.Intent.EXTRA_SUBJECT, "LinkSentry Support Request")
+                                    }
+                                    try {
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "No email app found (support@linksentry.security)", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 44.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, colors.borderSubtle),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.textPrimary)
+                            ) {
+                                Icon(Icons.Filled.Email, contentDescription = null, tint = colors.brandAccent, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Contact Support Team", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                            }
+
+                            // Feedback / Bug Report Button (Full-width responsive)
+                            Button(
+                                onClick = { showFeedbackSheet = true },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 44.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = colors.brandAccent,
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Filled.RateReview, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Send Feedback / Bug Report", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+
+                if (showFeedbackSheet) {
+                    com.linksentry.app.ui.components.FeedbackBottomSheet(
+                        onDismiss = { showFeedbackSheet = false },
+                        onSubmitFeedback = { category, message, payload ->
+                            showFeedbackSheet = false
+                            Toast.makeText(context, "Thank you! Your $category has been submitted.", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+
+                // 5. Developer & Diagnostics (Collapsed by Default)
+                CyberCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showDevDiagnostics = !showDevDiagnostics }
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Filled.Code, contentDescription = null, tint = colors.brandAccent, modifier = Modifier.size(18.dp))
+                            Text(
+                                text = "Advanced & Diagnostics",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colors.textPrimary
+                            )
+                        }
+                        Icon(
+                            imageVector = if (showDevDiagnostics) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                            contentDescription = null,
+                            tint = colors.brandAccent,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    AnimatedVisibility(visible = showDevDiagnostics) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = "Backend API Endpoint",
+                                fontSize = 12.sp,
+                                color = colors.textSecondary,
+                                fontWeight = FontWeight.Medium
+                            )
+
+                            OutlinedTextField(
+                                value = apiUrlInput,
+                                onValueChange = { apiUrlInput = it },
+                                singleLine = true,
+                                shape = RoundedCornerShape(10.dp),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = { handleSaveAndProbe() }),
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = colors.brandAccent,
+                                    unfocusedBorderColor = colors.borderSubtle,
+                                    focusedTextColor = colors.textPrimary,
+                                    unfocusedTextColor = colors.textPrimary,
+                                    focusedContainerColor = colors.surfaceLight.copy(alpha = 0.5f),
+                                    unfocusedContainerColor = colors.surfaceLight.copy(alpha = 0.5f)
                                 )
-                                Spacer(modifier = Modifier.height(3.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = user?.uid ?: "N/A",
-                                        color = CyberCyan,
-                                        fontSize = 11.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        modifier = Modifier.weight(1f),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                            )
+
+                            // Quick Presets
+                            Text("Presets:", fontSize = 11.sp, color = colors.textSecondary)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                PresetButton(
+                                    label = "Production Cloud",
+                                    onClick = {
+                                        apiUrlInput = ApiClient.PRODUCTION_BASE_URL
+                                        handleSaveAndProbe()
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                PresetButton(
+                                    label = "Dev LAN",
+                                    onClick = {
+                                        apiUrlInput = ApiClient.DEFAULT_LAN_BASE_URL
+                                        handleSaveAndProbe()
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                PresetButton(
+                                    label = "Emulator",
+                                    onClick = {
+                                        apiUrlInput = ApiClient.EMULATOR_BASE_URL
+                                        handleSaveAndProbe()
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            // Test & Status Button
+                            Button(
+                                onClick = { handleSaveAndProbe() },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(42.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = colors.brandAccent, contentColor = Color.White),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                if (isProbing) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Icon(
-                                        imageVector = Icons.Filled.ContentCopy,
-                                        contentDescription = "Copy UID",
-                                        tint = TextMuted,
+                                    Text("Testing...", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                } else {
+                                    Text("Save & Test Connection", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+
+                            probeStatus?.let { status ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Box(
                                         modifier = Modifier
-                                            .size(16.dp)
-                                            .clickable {
-                                                user?.uid?.let {
-                                                    clipboardManager.setText(AnnotatedString(it))
-                                                    Toast.makeText(context, "UID copied to clipboard", Toast.LENGTH_SHORT).show()
-                                                }
-                                            }
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(if (probeSuccess == true) colors.safe else colors.phishing)
+                                    )
+                                    Text(
+                                        text = status,
+                                        color = if (probeSuccess == true) colors.safe else colors.phishing,
+                                        fontSize = 11.sp,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -244,200 +582,131 @@ fun ProfileScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Sign Out Action Button
-                OutlinedButton(
+                // 6. Sign Out Button
+                Button(
                     onClick = {
                         authRepository.signOut()
                         onSignOut()
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(42.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberRed),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(CyberRed.copy(alpha = 0.6f))),
-                    shape = RoundedCornerShape(8.dp)
+                        .height(46.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colors.surface,
+                        contentColor = colors.phishing
+                    ),
+                    border = BorderStroke(1.dp, colors.phishing.copy(alpha = 0.35f)),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                         contentDescription = "Sign Out",
-                        tint = CyberRed,
-                        modifier = Modifier.size(16.dp)
+                        tint = colors.phishing,
+                        modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("SIGN OUT OF SESSION", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Sign Out", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
             }
-
-            // 2. ADVANCED DEVELOPER DIAGNOSTICS & ENGINE SETTINGS (COLLAPSIBLE / DISTINCT)
-            CyberCard(
-                borderColor = CyberCyan.copy(alpha = 0.35f),
-                backgroundColor = CyberSurface
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showDevDiagnostics = !showDevDiagnostics },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "DEVELOPER DIAGNOSTICS & API",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = CyberCyan
-                        )
-                        Text(
-                            text = "FastAPI endpoints, hardware runtime & LAN discovery",
-                            color = TextMuted,
-                            fontSize = 10.sp
-                        )
-                    }
-                    Icon(
-                        imageVector = if (showDevDiagnostics) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                        contentDescription = null,
-                        tint = CyberCyan,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                AnimatedVisibility(visible = showDevDiagnostics) {
-                    Column {
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Hardware Runtime Banner
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Client Hardware Runtime:",
-                                color = TextSecondary,
-                                fontSize = 11.sp
-                            )
-                            CyberBadge(
-                                text = if (isPhysical) "PHYSICAL DEVICE" else "ANDROID EMULATOR",
-                                color = if (isPhysical) CyberCyan else CyberAmber
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Base API URL Input
-                        Text(
-                            text = "FASTAPI BACKEND URL",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextSecondary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        OutlinedTextField(
-                            value = apiUrlInput,
-                            onValueChange = { apiUrlInput = it },
-                            placeholder = { Text("http://<PC-LAN-IP>:8000", color = TextMuted, fontSize = 12.sp) },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Uri,
-                                imeAction = ImeAction.Done
-                            ),
-                            keyboardActions = KeyboardActions(
-                                onDone = { handleSaveAndProbe() }
-                            ),
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = CyberCyan,
-                                unfocusedBorderColor = CyberBorder,
-                                focusedTextColor = TextPrimary,
-                                unfocusedTextColor = TextPrimary
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Quick Presets (PC LAN vs 10.0.2.2 Emulator Only)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            PresetButton(
-                                label = "PC LAN (192.168.29.123)",
-                                onClick = {
-                                    apiUrlInput = "http://192.168.29.123:8000"
-                                    handleSaveAndProbe()
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-
-                            if (!isPhysical) {
-                                PresetButton(
-                                    label = "10.0.2.2 [EMU ONLY]",
-                                    onClick = {
-                                        apiUrlInput = "http://10.0.2.2:8000"
-                                        handleSaveAndProbe()
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Probe Diagnostic Status
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Live Health Probe:",
-                                color = TextSecondary,
-                                fontSize = 11.sp
-                            )
-                            if (isProbing) {
-                                CircularProgressIndicator(color = CyberCyan, modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-                            } else {
-                                CyberBadge(
-                                    text = if (probeSuccess == true) "HEALTH OK" else "PROBE FAILED",
-                                    color = if (probeSuccess == true) CyberEmerald else CyberRed
-                                )
-                            }
-                        }
-
-                        probeStatus?.let { status ->
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = status,
-                                color = if (probeSuccess == true) CyberEmerald else CyberRedLight,
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Button(
-                            onClick = { handleSaveAndProbe() },
-                            enabled = !isProbing,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(40.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = CyberCyan, contentColor = CyberDarkBg),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(Icons.Filled.NetworkCheck, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("SAVE & TEST CONNECTIVITY", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+}
+
+@Composable
+private fun ThemeOptionButton(
+    label: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = LocalAppColors.current
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = if (isSelected) colors.brandAccent.copy(alpha = 0.15f) else colors.surfaceLight,
+        border = BorderStroke(
+            1.dp,
+            if (isSelected) colors.brandAccent.copy(alpha = 0.5f) else colors.borderSubtle
+        ),
+        modifier = modifier.height(42.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (isSelected) colors.brandAccent else colors.textSecondary,
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = label,
+                fontSize = 11.5.sp,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                color = if (isSelected) colors.brandAccent else colors.textPrimary,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
+    }
+}
+
+@Composable
+private fun PreferenceSwitchRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    isChecked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    val colors = LocalAppColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onCheckedChange(!isChecked) }
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.weight(1f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.surfaceLight),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(imageVector = icon, contentDescription = null, tint = colors.brandAccent, modifier = Modifier.size(17.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = title, color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text(text = subtitle, color = colors.textSecondary, fontSize = 11.sp, lineHeight = 15.sp)
+            }
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Switch(
+            checked = isChecked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = colors.brandAccent,
+                uncheckedThumbColor = colors.textSecondary,
+                uncheckedTrackColor = colors.surfaceLight
+            )
+        )
     }
 }
 
@@ -447,23 +716,57 @@ private fun PresetButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(CyberSurfaceLight)
-            .border(1.dp, CyberBorderSubtle, RoundedCornerShape(6.dp))
-            .clickable { onClick() }
-            .padding(vertical = 6.dp, horizontal = 4.dp),
-        contentAlignment = Alignment.Center
+    val colors = LocalAppColors.current
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        color = colors.surfaceLight,
+        border = BorderStroke(1.dp, colors.borderSubtle),
+        modifier = modifier.height(36.dp)
     ) {
-        Text(
-            text = label,
-            color = CyberCyan,
-            fontSize = 9.sp,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            softWrap = false
-        )
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = label,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                color = colors.textPrimary,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun HelpTopicItem(
+    title: String,
+    description: String
+) {
+    val colors = LocalAppColors.current
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = colors.surfaceLight.copy(alpha = 0.6f),
+        border = BorderStroke(1.dp, colors.borderSubtle),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.textPrimary
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = description,
+                fontSize = 11.5.sp,
+                color = colors.textSecondary,
+                lineHeight = 16.sp
+            )
+        }
     }
 }

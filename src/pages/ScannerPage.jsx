@@ -5,15 +5,15 @@ import MessageScanner from './scanners/MessageScanner';
 
 /**
  * ScannerPage Container Component
- * Houses the 3 sub-scanners: URL Scanner, QR Scanner, Message Scanner
+ * Multi-vector scanner hub: Link / URL, Optical QR Barcode, Message / SMS
  */
 export default function ScannerPage({ initialSubTab = 'url' }) {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab);
 
   const subTabs = [
-    { id: 'url', label: 'URL Scanner', icon: '🌐', desc: 'Links, Domains & Typosquats' },
-    { id: 'qr', label: 'QR Scanner', icon: '📷', desc: 'Quishing & Matrix Codes' },
-    { id: 'message', label: 'Message Scanner', icon: '💬', desc: 'SMS, Emails & Smishing' }
+    { id: 'url', label: 'Link', icon: '🌐', subtitle: 'URLs & Domains' },
+    { id: 'qr', label: 'QR Code', icon: '📷', subtitle: 'Quishing & Codes' },
+    { id: 'message', label: 'Message', icon: '💬', subtitle: 'SMS & Smishing' }
   ];
 
   return (
@@ -22,32 +22,32 @@ export default function ScannerPage({ initialSubTab = 'url' }) {
         {/* Scanner Hub Header */}
         <div className="page-hero-header">
           <div className="hero-tagline-badge">
-            <span className="cyber-badge-dot pulse" style={{ backgroundColor: '#06b6d4' }} />
-            <span className="font-mono text-cyan">UNIFIED PHISHING DETONATION CHAMBER</span>
+            <span className="cyber-badge-dot pulse" style={{ backgroundColor: 'var(--brand-cyan)' }} />
+            <span className="font-mono">THREAT DETECTION & ANALYSIS</span>
           </div>
           <h1 className="page-main-heading">Multi-Vector Security Scanner</h1>
           <p className="page-subheading">
-            Analyze suspicious artifacts across web URLs, optical QR barcodes, and SMS/chat messages in a single unified defense hub.
+            Analyze suspicious web links, optical QR barcodes, and SMS/chat messages with real-time heuristic & ML intelligence.
           </p>
         </div>
 
         {/* Sub-Tabs Navigation */}
-        <div className="scanner-subtabs-nav">
+        <div className="scanner-tabs-bar">
           {subTabs.map((tab) => {
             const isActive = activeSubTab === tab.id;
             return (
               <button
                 key={tab.id}
                 type="button"
-                className={`scanner-subtab-btn ${isActive ? 'active' : ''}`}
+                className={`scanner-tab-pill ${isActive ? 'active' : ''}`}
                 onClick={() => setActiveSubTab(tab.id)}
+                data-testid={`subtab-${tab.id}`}
               >
-                <span className="subtab-icon">{tab.icon}</span>
-                <div className="subtab-text-group">
-                  <span className="subtab-label">{tab.label}</span>
-                  <span className="subtab-desc">{tab.desc}</span>
+                <span className="tab-pill-icon">{tab.icon}</span>
+                <div className="tab-pill-text">
+                  <span className="tab-pill-label">{tab.label}</span>
+                  <span className="tab-pill-sub desktop-only">{tab.subtitle}</span>
                 </div>
-                {isActive && <div className="subtab-active-indicator" />}
               </button>
             );
           })}

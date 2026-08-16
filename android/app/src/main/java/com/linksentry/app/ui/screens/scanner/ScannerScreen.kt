@@ -1,5 +1,4 @@
 @file:OptIn(
-    androidx.camera.core.ExperimentalGetImage::class,
     androidx.compose.material3.ExperimentalMaterial3Api::class
 )
 
@@ -10,16 +9,21 @@ import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraControl
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -32,10 +36,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -52,10 +57,12 @@ import com.linksentry.app.data.model.EmbeddedUrlResult
 import com.linksentry.app.data.model.MessageScanRequest
 import com.linksentry.app.data.model.ScanRecord
 import com.linksentry.app.data.model.UrlScanRequest
+import com.linksentry.app.data.preferences.AppPreferences
 import com.linksentry.app.data.repository.ScanRepository
 import com.linksentry.app.ui.components.CyberBadge
 import com.linksentry.app.ui.components.CyberCard
 import com.linksentry.app.ui.components.CyberTopBar
+import com.linksentry.app.ui.components.ScanDetailBottomSheet
 import com.linksentry.app.ui.components.ThreatMeter
 import com.linksentry.app.ui.theme.*
 import kotlinx.coroutines.launch
@@ -78,28 +85,49 @@ data class ScannerResultUi(
 fun ScannerScreen(
     userId: String,
     scanRepository: ScanRepository,
-    initialVector: String = "url"
+    initialVector: String = "url",
+    initialInput: String = ""
 ) {
+    val colors = LocalAppColors.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+
+    val clipboardEnabled by AppPreferences.clipboardDetectionFlow.collectAsState()
+    val cloudSyncEnabled by AppPreferences.cloudSyncFlow.collectAsState()
 
     var selectedVector by remember { mutableStateOf(initialVector) }
-    var inputPayload by remember { mutableStateOf("") }
+    var inputPayload by remember { mutableStateOf(initialInput) }
     var isScanning by remember { mutableStateOf(false) }
     var threatResult by remember { mutableStateOf<ScannerResultUi?>(null) }
     var scanError by remember { mutableStateOf<String?>(null) }
 
+    // Clipboard Detection
+    var clipboardContent by remember { mutableStateOf<String?>(null) }
+    var dismissedClipboardContent by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(clipboardEnabled) {
+        if (clipboardEnabled) {
+            val clipText = clipboardManager.getText()?.text?.trim()
+            if (!clipText.isNullOrBlank() && clipText != dismissedClipboardContent) {
+                clipboardContent = clipText
+            }
+        } else {
+            clipboardContent = null
+        }
+    }
+
     // QR Camera & State Controls
     var isCameraArmed by remember { mutableStateOf(true) }
-    var lastScannedTimestamp by remember { mutableLongStateOf(0L) }
+    var isTorchOn by remember { mutableStateOf(false) }
     var selectedScanRecordForDetail by remember { mutableStateOf<ScanRecord?>(null) }
 
     // Real-time recent scans from Firestore
     val userScans: List<ScanRecord> by scanRepository.getScansFlow(userId).collectAsState(initial = emptyList())
     val recentScans: List<ScanRecord> = userScans.take(5)
 
-    // Camera Permission for QR Vector
+    // Camera Permission
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -114,11 +142,11 @@ fun ScannerScreen(
     ) { isGranted ->
         hasCameraPermission = isGranted
         if (!isGranted) {
-            Toast.makeText(context, "Camera permission needed for live optical scanning", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Camera permission needed for QR code scanning", Toast.LENGTH_SHORT).show()
         }
     }
 
-    // Modern Photo/Document Picker for QR gallery decoding
+    // Gallery picker
     val qrGalleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -138,8 +166,8 @@ fun ScannerScreen(
                                 if (rawValue.isNotBlank()) {
                                     inputPayload = rawValue
                                     isCameraArmed = false
-                                    // Process decoded barcode
-                                    processBarcodePayload(firstBarcode, rawValue, "qr", userId, scanRepository,
+                                    processBarcodePayload(
+                                        firstBarcode, rawValue, "qr", userId, scanRepository, cloudSyncEnabled,
                                         onSuccess = { res ->
                                             threatResult = res
                                             isScanning = false
@@ -151,11 +179,11 @@ fun ScannerScreen(
                                     )
                                 } else {
                                     isScanning = false
-                                    scanError = "QR code contained empty or unreadable content."
+                                    scanError = "QR code contained empty content."
                                 }
                             } else {
                                 isScanning = false
-                                scanError = "No QR code detected in the selected image. Please try another image."
+                                scanError = "No QR code detected in the selected image."
                             }
                         }
                         .addOnFailureListener { e ->
@@ -180,11 +208,20 @@ fun ScannerScreen(
 
             coroutineScope.launch {
                 try {
+                    val activeUid = userId.ifBlank {
+                        com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                    }
+                    val uidPresent = activeUid.isNotBlank()
+
                     when (vector) {
                         "url", "qr" -> {
+                            android.util.Log.d("LinkSentryTrace", "SCAN_API_REQUEST endpoint=/api/scan/url baseUrl=${ApiClient.getBaseUrl()} uidPresent=$uidPresent")
                             val response = ApiClient.service.scanUrl(UrlScanRequest(url = payload.trim()))
+
                             if (response.isSuccessful && response.body() != null) {
                                 val body = response.body()!!
+                                android.util.Log.d("LinkSentryTrace", "SCAN_API_RESPONSE endpoint=/api/scan/url status=${response.code()} success=true uidPresent=$uidPresent")
+
                                 val result = ScannerResultUi(
                                     verdict = body.verdict,
                                     riskScore = body.riskScore,
@@ -195,30 +232,38 @@ fun ScannerScreen(
                                 )
                                 threatResult = result
 
-                                // Sync to Cloud Firestore
-                                val record = ScanRecord(
-                                    id = "",
-                                    userId = userId,
-                                    input = payload.trim(),
-                                    type = vector,
-                                    verdict = body.verdict,
-                                    riskScore = body.riskScore,
-                                    domain = body.domain ?: "",
-                                    confidence = body.confidence,
-                                    indicators = body.indicators ?: emptyList(),
-                                    engine = body.engine ?: "LinkSentry V3.3 URL ML Engine",
-                                    modelVersion = body.modelVersion ?: "V3.3",
-                                    source = "android"
-                                )
-                                scanRepository.saveScan(userId, record)
+                                if (cloudSyncEnabled) {
+                                    val record = ScanRecord(
+                                        id = "",
+                                        userId = activeUid,
+                                        input = payload.trim(),
+                                        url = payload.trim(),
+                                        type = vector,
+                                        verdict = body.verdict,
+                                        riskScore = body.riskScore,
+                                        domain = body.domain ?: "",
+                                        confidence = body.confidence,
+                                        indicators = body.indicators ?: emptyList(),
+                                        engine = body.engine ?: "LinkSentry V3.3 URL ML Engine",
+                                        modelVersion = body.modelVersion ?: "V3.3",
+                                        source = "android"
+                                    )
+                                    scanRepository.saveScan(activeUid, record)
+                                }
                             } else {
-                                scanError = "API Error ${response.code()}: ${response.message()}"
+                                android.util.Log.e("LinkSentryTrace", "SCAN_API_FAILURE endpoint=/api/scan/url status=${response.code()} success=false uidPresent=$uidPresent")
+                                scanError = "Analysis server error (${response.code()}). Please verify server status."
                             }
                         }
+
                         "message" -> {
+                            android.util.Log.d("LinkSentryTrace", "SCAN_API_REQUEST endpoint=/api/scan/message baseUrl=${ApiClient.getBaseUrl()} uidPresent=$uidPresent")
                             val response = ApiClient.service.scanMessage(MessageScanRequest(message = payload.trim()))
+
                             if (response.isSuccessful && response.body() != null) {
                                 val body = response.body()!!
+                                android.util.Log.d("LinkSentryTrace", "SCAN_API_RESPONSE endpoint=/api/scan/message status=${response.code()} success=true uidPresent=$uidPresent")
+
                                 val result = ScannerResultUi(
                                     verdict = body.verdict,
                                     riskScore = body.riskScore,
@@ -231,29 +276,33 @@ fun ScannerScreen(
                                 )
                                 threatResult = result
 
-                                // Sync to Cloud Firestore
-                                val record = ScanRecord(
-                                    id = "",
-                                    userId = userId,
-                                    input = payload.trim(),
-                                    type = "message",
-                                    verdict = body.verdict,
-                                    riskScore = body.riskScore,
-                                    domain = "",
-                                    confidence = body.confidence,
-                                    indicators = body.indicators ?: emptyList(),
-                                    engine = body.engine ?: "LinkSentry Multi-Signal Message Threat Engine V3.3",
-                                    modelVersion = "V3.3",
-                                    source = "android"
-                                )
-                                scanRepository.saveScan(userId, record)
+                                if (cloudSyncEnabled) {
+                                    val record = ScanRecord(
+                                        id = "",
+                                        userId = activeUid,
+                                        input = payload.trim(),
+                                        url = "",
+                                        type = "message",
+                                        verdict = body.verdict,
+                                        riskScore = body.riskScore,
+                                        domain = "",
+                                        confidence = body.confidence,
+                                        indicators = body.indicators ?: emptyList(),
+                                        engine = body.engine ?: "LinkSentry Multi-Signal Message Threat Engine V3.3",
+                                        modelVersion = "V3.3",
+                                        source = "android"
+                                    )
+                                    scanRepository.saveScan(activeUid, record)
+                                }
                             } else {
-                                scanError = "API Error ${response.code()}: ${response.message()}"
+                                android.util.Log.e("LinkSentryTrace", "SCAN_API_FAILURE endpoint=/api/scan/message status=${response.code()} success=false uidPresent=$uidPresent")
+                                scanError = "Analysis server error (${response.code()})"
                             }
                         }
                     }
                 } catch (e: Exception) {
-                    scanError = "Network Connection Failed: ${e.localizedMessage ?: "Unknown"}"
+                    android.util.Log.e("LinkSentryTrace", "SCAN_API_FAILURE endpoint=/api/scan Exception=${e.localizedMessage}")
+                    scanError = "Cannot connect to analysis server: ${e.localizedMessage ?: "Network failed"}"
                 } finally {
                     isScanning = false
                 }
@@ -264,144 +313,514 @@ fun ScannerScreen(
     Scaffold(
         topBar = {
             CyberTopBar(
-                title = "LinkSentry Multi-Vector",
-                subtitle = "DETECTION RADAR"
+                title = "Scan",
+                subtitle = "Threat protection"
             )
         },
-        containerColor = CyberDarkBg
+        containerColor = colors.background
     ) { padding ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 14.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Spacer(modifier = Modifier.height(4.dp))
+            val isNarrow = maxWidth < 360.dp
+            val horizontalPadding = if (isNarrow) 12.dp else 16.dp
 
-            // Subtab Switcher
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .align(Alignment.TopCenter)
+                    .widthIn(max = 640.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = horizontalPadding),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                VectorTabButton(
-                    title = "URL",
-                    icon = Icons.Filled.Language,
-                    isSelected = selectedVector == "url",
-                    onClick = {
-                        selectedVector = "url"
-                        threatResult = null
-                        scanError = null
-                        inputPayload = ""
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-                VectorTabButton(
-                    title = "QR Code",
-                    icon = Icons.Filled.QrCodeScanner,
-                    isSelected = selectedVector == "qr",
-                    onClick = {
-                        selectedVector = "qr"
-                        threatResult = null
-                        scanError = null
-                        inputPayload = ""
-                        isCameraArmed = true
-                        if (!hasCameraPermission) {
-                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                        }
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-                VectorTabButton(
-                    title = "SMS",
-                    icon = Icons.AutoMirrored.Filled.Chat,
-                    isSelected = selectedVector == "message",
-                    onClick = {
-                        selectedVector = "message"
-                        threatResult = null
-                        scanError = null
-                        inputPayload = ""
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
+                Spacer(modifier = Modifier.height(2.dp))
 
-            // Vector Scanner Card
-            when (selectedVector) {
-                "url" -> {
-                    CyberCard {
-                        Text(
-                            text = "URL THREAT DETONATION",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = CyberCyan
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Analyze URLs for typosquatting, deceptive login portals, and phishing kits.",
-                            color = TextSecondary,
-                            fontSize = 11.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        OutlinedTextField(
-                            value = inputPayload,
-                            onValueChange = { inputPayload = it },
-                            placeholder = { Text("https://suspicious-domain.com/login", color = TextMuted, fontSize = 12.sp) },
-                            singleLine = true,
-                            leadingIcon = {
-                                Icon(Icons.Filled.Language, contentDescription = "URL", tint = CyberCyan, modifier = Modifier.size(18.dp))
-                            },
-                            trailingIcon = {
-                                if (inputPayload.isNotEmpty()) {
-                                    IconButton(onClick = { inputPayload = "" }) {
-                                        Icon(Icons.Filled.Close, contentDescription = "Clear", tint = TextMuted, modifier = Modifier.size(18.dp))
-                                    }
-                                }
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Uri,
-                                imeAction = ImeAction.Done
-                            ),
-                            keyboardActions = KeyboardActions(
-                                onDone = { executeScan(inputPayload, "url") }
-                            ),
+                // Clipboard Detected Banner
+                if (!clipboardContent.isNullOrBlank() && clipboardContent != dismissedClipboardContent) {
+                    CyberCard(
+                        borderColor = colors.brandAccent.copy(alpha = 0.35f),
+                        backgroundColor = colors.surfaceLight
+                    ) {
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = CyberCyan,
-                                unfocusedBorderColor = CyberBorder,
-                                focusedTextColor = TextPrimary,
-                                unfocusedTextColor = TextPrimary
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Button(
-                            onClick = { executeScan(inputPayload, "url") },
-                            enabled = !isScanning && inputPayload.isNotBlank(),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = CyberCyan,
-                                contentColor = CyberDarkBg
-                            ),
-                            shape = RoundedCornerShape(8.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (isScanning) {
-                                CircularProgressIndicator(color = CyberDarkBg, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                            } else {
-                                Icon(Icons.Filled.Shield, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("DETONATE & SCAN", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.ContentPaste,
+                                    contentDescription = null,
+                                    tint = colors.brandAccent,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Copied text detected",
+                                        color = colors.textPrimary,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "Check with LinkSentry",
+                                        color = colors.textSecondary,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Button(
+                                    onClick = {
+                                        val payload = clipboardContent ?: ""
+                                        inputPayload = payload
+                                        val isUrl = payload.startsWith("http://", ignoreCase = true) ||
+                                                payload.startsWith("https://", ignoreCase = true) ||
+                                                (payload.contains(".") && !payload.contains(" "))
+                                        selectedVector = if (isUrl) "url" else "message"
+                                        dismissedClipboardContent = payload
+                                        clipboardContent = null
+                                        executeScan(payload, selectedVector)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = colors.brandAccent, contentColor = Color.White),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Text("Analyze", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                                IconButton(
+                                    onClick = {
+                                        dismissedClipboardContent = clipboardContent
+                                        clipboardContent = null
+                                    },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(Icons.Filled.Close, contentDescription = "Dismiss", tint = colors.textMuted, modifier = Modifier.size(16.dp))
+                                }
                             }
                         }
                     }
                 }
 
-                "qr" -> {
+                // Vector Selector Tabs
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    VectorTabButton(
+                        title = "Link",
+                        icon = Icons.Filled.Language,
+                        isSelected = selectedVector == "url",
+                        onClick = {
+                            selectedVector = "url"
+                            threatResult = null
+                            scanError = null
+                            inputPayload = ""
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    VectorTabButton(
+                        title = "QR Code",
+                        icon = Icons.Filled.QrCodeScanner,
+                        isSelected = selectedVector == "qr",
+                        onClick = {
+                            selectedVector = "qr"
+                            threatResult = null
+                            scanError = null
+                            inputPayload = ""
+                            isCameraArmed = true
+                            if (!hasCameraPermission) {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    VectorTabButton(
+                        title = "Message",
+                        icon = Icons.AutoMirrored.Filled.Chat,
+                        isSelected = selectedVector == "message",
+                        onClick = {
+                            selectedVector = "message"
+                            threatResult = null
+                            scanError = null
+                            inputPayload = ""
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // Scanner Input Area
+                when (selectedVector) {
+                    "url" -> {
+                        CyberCard {
+                            Text(
+                                text = "Scan web link",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colors.textPrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Enter any link or domain to detect phishing and deceptive websites.",
+                                color = colors.textSecondary,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = inputPayload,
+                                onValueChange = { inputPayload = it },
+                                placeholder = { Text("https://example.com/login", color = colors.textMuted, fontSize = 13.sp) },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                leadingIcon = {
+                                    Icon(Icons.Filled.Language, contentDescription = null, tint = colors.brandAccent, modifier = Modifier.size(18.dp))
+                                },
+                                trailingIcon = {
+                                    if (inputPayload.isNotEmpty()) {
+                                        IconButton(onClick = { inputPayload = "" }) {
+                                            Icon(Icons.Filled.Close, contentDescription = "Clear", tint = colors.textMuted, modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Uri,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = { executeScan(inputPayload, "url") }
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = colors.brandAccent,
+                                    unfocusedBorderColor = colors.borderSubtle,
+                                    focusedTextColor = colors.textPrimary,
+                                    unfocusedTextColor = colors.textPrimary,
+                                    focusedContainerColor = colors.surfaceLight.copy(alpha = 0.5f),
+                                    unfocusedContainerColor = colors.surfaceLight.copy(alpha = 0.5f)
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            Button(
+                                onClick = { executeScan(inputPayload, "url") },
+                                enabled = !isScanning && inputPayload.isNotBlank(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 46.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = colors.brandAccent,
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                if (isScanning) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Analyzing...", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                } else {
+                                    Text("Analyze Link", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    "qr" -> {
+                        CyberCard {
+                            Text(
+                                text = "Scan QR code",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colors.textPrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Point camera at a QR code or upload an image from your gallery.",
+                                color = colors.textSecondary,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            if (hasCameraPermission) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(260.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(Color.Black)
+                                        .border(1.dp, colors.borderSubtle, RoundedCornerShape(14.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CameraQrScannerView(
+                                        isArmed = isCameraArmed && !isScanning,
+                                        isTorchOn = isTorchOn,
+                                        onBarcodeDetected = { barcode ->
+                                            if (isCameraArmed && !isScanning) {
+                                                val raw = barcode.rawValue ?: ""
+                                                if (raw.isNotBlank()) {
+                                                    isCameraArmed = false
+                                                    inputPayload = raw
+                                                    isScanning = true
+                                                    scanError = null
+                                                    threatResult = null
+
+                                                    processBarcodePayload(
+                                                        barcode = barcode,
+                                                        rawValue = raw,
+                                                        vector = "qr",
+                                                        userId = userId,
+                                                        scanRepository = scanRepository,
+                                                        cloudSyncEnabled = cloudSyncEnabled,
+                                                        onSuccess = { res ->
+                                                            threatResult = res
+                                                            isScanning = false
+                                                        },
+                                                        onError = { err ->
+                                                            scanError = err
+                                                            isScanning = false
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    )
+
+                                    // Commercial QR Scanner Overlay (Corner brackets, scanning line, and guidance pill)
+                                    if (isCameraArmed && !isScanning) {
+                                        QrScannerOverlay(accentColor = colors.brandAccent)
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.BottomCenter)
+                                                .padding(bottom = 16.dp)
+                                        ) {
+                                            Surface(
+                                                shape = RoundedCornerShape(12.dp),
+                                                color = Color.Black.copy(alpha = 0.65f),
+                                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+                                            ) {
+                                                Text(
+                                                    text = "Align QR code inside frame",
+                                                    color = Color.White,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Top Controls (Flashlight)
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(12.dp)
+                                    ) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = Color.Black.copy(alpha = 0.5f),
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clickable { isTorchOn = !isTorchOn }
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    imageVector = if (isTorchOn) Icons.Filled.FlashOn else Icons.Filled.FlashOff,
+                                                    contentDescription = "Flashlight",
+                                                    tint = if (isTorchOn) colors.brandAccent else Color.White,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Re-arm state once scanned
+                                    if (!isCameraArmed && threatResult != null) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(Color.Black.copy(alpha = 0.7f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Button(
+                                                onClick = {
+                                                    isCameraArmed = true
+                                                    threatResult = null
+                                                    scanError = null
+                                                    inputPayload = ""
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = colors.brandAccent, contentColor = Color.White),
+                                                shape = RoundedCornerShape(8.dp)
+                                            ) {
+                                                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Scan another QR", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(160.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(colors.surfaceLight),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(Icons.Filled.CameraAlt, contentDescription = null, tint = colors.textMuted, modifier = Modifier.size(32.dp))
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("Camera permission required", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Button(
+                                            onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+                                            colors = ButtonDefaults.buttonColors(containerColor = colors.brandAccent, contentColor = Color.White),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text("Grant Permission", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedButton(
+                                onClick = { qrGalleryLauncher.launch("image/*") },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 46.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, colors.borderSubtle),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.textPrimary)
+                            ) {
+                                Icon(Icons.Filled.PhotoLibrary, contentDescription = null, tint = colors.brandAccent, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Scan from gallery", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+
+                    "message" -> {
+                        CyberCard {
+                            Text(
+                                text = "Scan text message",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colors.textPrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Paste suspicious SMS or chat messages to analyze social engineering and phishing links.",
+                                color = colors.textSecondary,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = inputPayload,
+                                onValueChange = { inputPayload = it },
+                                placeholder = { Text("Paste message content here...", color = colors.textMuted, fontSize = 13.sp) },
+                                minLines = 3,
+                                maxLines = 6,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = colors.brandAccent,
+                                    unfocusedBorderColor = colors.borderSubtle,
+                                    focusedTextColor = colors.textPrimary,
+                                    unfocusedTextColor = colors.textPrimary,
+                                    focusedContainerColor = colors.surfaceLight.copy(alpha = 0.5f),
+                                    unfocusedContainerColor = colors.surfaceLight.copy(alpha = 0.5f)
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            Button(
+                                onClick = { executeScan(inputPayload, "message") },
+                                enabled = !isScanning && inputPayload.isNotBlank(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 46.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = colors.brandAccent,
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                if (isScanning) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Analyzing message...", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                } else {
+                                    Text("Analyze Message", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Scan Error Message with Retry
+                if (scanError != null) {
+                    CyberCard(
+                        borderColor = colors.phishing.copy(alpha = 0.4f),
+                        backgroundColor = colors.phishing.copy(alpha = 0.08f)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Filled.ErrorOutline, contentDescription = null, tint = colors.phishing, modifier = Modifier.size(18.dp))
+                                Text(text = scanError ?: "", color = colors.phishing, fontSize = 12.sp)
+                            }
+                            if (inputPayload.isNotBlank()) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                TextButton(
+                                    onClick = { executeScan(inputPayload, selectedVector) },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = colors.brandAccent)
+                                ) {
+                                    Text("Retry", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Threat Result Card
+                threatResult?.let { result ->
                     CyberCard {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -409,430 +828,149 @@ fun ScannerScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "OPTICAL QR RADAR",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = CyberCyan
+                                text = "Analysis results",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = colors.textPrimary
                             )
-                            if (isScanning) {
-                                CyberBadge(text = "ANALYZING", color = CyberCyan)
-                            } else if (!isCameraArmed) {
-                                CyberBadge(text = "SCANNED", color = CyberAmber)
-                            } else {
-                                CyberBadge(text = "READY", color = CyberEmerald)
-                            }
+                            CyberBadge(verdict = result.verdict)
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Point camera or upload a QR image to extract payload and evaluate threat risk.",
-                            color = TextSecondary,
-                            fontSize = 11.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Camera Viewfinder or Permission Request
-                        if (hasCameraPermission && isCameraArmed) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .border(1.dp, CyberCyan.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                            ) {
-                                CameraQrScannerView(
-                                    isArmed = isCameraArmed,
-                                    onBarcodeDetected = { barcode ->
-                                        val now = System.currentTimeMillis()
-                                        if (isCameraArmed && now - lastScannedTimestamp > 1500L) {
-                                            lastScannedTimestamp = now
-                                            isCameraArmed = false
-                                            val raw = barcode.rawValue ?: ""
-                                            inputPayload = raw
-                                            isScanning = true
-                                            scanError = null
-                                            threatResult = null
-
-                                            processBarcodePayload(barcode, raw, "qr", userId, scanRepository,
-                                                onSuccess = { res ->
-                                                    threatResult = res
-                                                    isScanning = false
-                                                },
-                                                onError = { err ->
-                                                    scanError = err
-                                                    isScanning = false
-                                                }
-                                            )
-                                        }
-                                    }
-                                )
-                            }
-                        } else if (!hasCameraPermission) {
-                            CyberCard(borderColor = CyberAmber.copy(alpha = 0.3f)) {
-                                Text(
-                                    text = "Camera access is needed for live scanning.",
-                                    color = TextSecondary,
-                                    fontSize = 11.sp
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Button(
-                                    onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = ButtonDefaults.buttonColors(containerColor = CyberCyan, contentColor = CyberDarkBg),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Icon(Icons.Filled.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Grant Camera Permission", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Action Buttons: Scan Again / Upload from Gallery
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            if (!isCameraArmed || threatResult != null) {
-                                Button(
-                                    onClick = {
-                                        isCameraArmed = true
-                                        threatResult = null
-                                        scanError = null
-                                        inputPayload = ""
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(42.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = CyberCyan, contentColor = CyberDarkBg),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("SCAN AGAIN", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                }
-                            }
-
-                            OutlinedButton(
-                                onClick = { qrGalleryLauncher.launch("image/*") },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(42.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberCyan),
-                                border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(CyberCyan)),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Icon(Icons.Filled.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("UPLOAD IMAGE", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                            }
-                        }
-
-                        if (inputPayload.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Payload: $inputPayload",
-                                color = TextSecondary,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-
-                "message" -> {
-                    CyberCard {
-                        Text(
-                            text = "SMS / SMISHING DETECTOR",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = CyberCyan
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Analyze SMS alerts for loan smishing, urgency pressure, and embedded link threats.",
-                            color = TextSecondary,
-                            fontSize = 11.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        OutlinedTextField(
-                            value = inputPayload,
-                            onValueChange = { inputPayload = it },
-                            placeholder = { Text("Paste SMS or message content...", color = TextMuted, fontSize = 12.sp) },
-                            minLines = 3,
-                            maxLines = 5,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = { executeScan(inputPayload, "message") }),
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = CyberCyan,
-                                unfocusedBorderColor = CyberBorder,
-                                focusedTextColor = TextPrimary,
-                                unfocusedTextColor = TextPrimary
-                            )
-                        )
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        Button(
-                            onClick = { executeScan(inputPayload, "message") },
-                            enabled = !isScanning && inputPayload.isNotBlank(),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = CyberCyan, contentColor = CyberDarkBg),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            if (isScanning) {
-                                CircularProgressIndicator(color = CyberDarkBg, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                            } else {
-                                Icon(Icons.Filled.Shield, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("ANALYZE SMS PAYLOAD", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
-            }
+                        ThreatMeter(riskScore = result.riskScore)
 
-            // Error Display
-            scanError?.let { error ->
-                CyberCard(borderColor = CyberRed.copy(alpha = 0.5f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.Filled.ErrorOutline, contentDescription = "Error", tint = CyberRed, modifier = Modifier.size(20.dp))
-                        Text(
-                            text = error,
-                            color = CyberRedLight,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                }
-            }
-
-            // Threat Result Card
-            threatResult?.let { result ->
-                val verdictColor = when (result.verdict.lowercase()) {
-                    "safe" -> CyberEmerald
-                    "suspicious" -> CyberAmber
-                    else -> CyberRed
-                }
-
-                CyberCard(borderColor = verdictColor.copy(alpha = 0.6f)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "THREAT EVALUATION RESULT",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = TextMuted
-                            )
-                            Text(
-                                text = result.verdict.uppercase(),
-                                color = verdictColor,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                        CyberBadge(
-                            text = "${(result.confidence * 100).toInt()}% CONFIDENCE",
-                            color = verdictColor
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    ThreatMeter(
-                        riskScore = result.riskScore,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Multi-Signal Breakdown if available
-                    if (result.messageRisk != null || (result.embeddedUrls != null && result.embeddedUrls.isNotEmpty())) {
-                        Text(
-                            text = "MULTI-SIGNAL EVIDENCE BREAKDOWN",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = CyberCyan
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        result.messageRisk?.let { msgRisk ->
+                        if (result.domain != null) {
+                            Spacer(modifier = Modifier.height(10.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("Message Heuristic Risk:", color = TextSecondary, fontSize = 11.sp)
-                                Text("$msgRisk / 100", color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("Domain:", color = colors.textSecondary, fontSize = 12.sp)
+                                Text(result.domain, color = colors.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                             }
                         }
 
-                        result.embeddedUrls?.forEach { emb ->
+                        if (!result.embeddedUrls.isNullOrEmpty()) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text("Embedded links:", color = colors.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                             Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Embedded: ${emb.domain ?: emb.url}",
-                                    color = TextSecondary,
-                                    fontSize = 11.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                val embColor = if (emb.verdict.lowercase() == "safe") CyberEmerald else if (emb.verdict.lowercase() == "suspicious") CyberAmber else CyberRed
-                                CyberBadge(text = "${emb.verdict.uppercase()} (${emb.riskScore})", color = embColor)
+                            result.embeddedUrls.forEach { emb ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = emb.domain ?: emb.url,
+                                        color = colors.textPrimary,
+                                        fontSize = 11.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    CyberBadge(verdict = emb.verdict)
+                                }
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
 
-                    // Indicators
-                    if (result.indicators.isNotEmpty()) {
-                        Text(
-                            text = "OBSERVED RISK INDICATORS",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        result.indicators.forEach { indicator ->
-                            Row(
-                                verticalAlignment = Alignment.Top,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier.padding(vertical = 2.dp)
-                            ) {
-                                Text("•", color = verdictColor, fontSize = 12.sp)
-                                Text(
-                                    text = indicator,
-                                    color = TextPrimary,
-                                    fontSize = 11.sp
-                                )
+                        if (result.indicators.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text("Indicators:", color = colors.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            result.indicators.forEach { ind ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(Icons.Filled.Warning, contentDescription = null, tint = colors.suspicious, modifier = Modifier.size(13.dp))
+                                    Text(ind, color = colors.textPrimary, fontSize = 11.sp)
+                                }
                             }
                         }
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Engine: LinkSentry V3.3",
-                            color = TextMuted,
-                            fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                        Text(
-                            text = "Synced to Cloud",
-                            color = CyberEmerald,
-                            fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace
+                // Recent Scans List
+                if (recentScans.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Recent scans",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.textPrimary
+                    )
+                    recentScans.forEach { scan ->
+                        RecentScanMiniCard(
+                            scan = scan,
+                            onClick = { selectedScanRecordForDetail = scan }
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(20.dp))
             }
-
-            // Recent Scans Section
-            if (recentScans.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "RECENT SCANS (REAL-TIME)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = CyberCyan
-                    )
-                    Text(
-                        text = "${userScans.size} TOTAL",
-                        color = TextMuted,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-
-                recentScans.forEach { scan ->
-                    RecentScanMiniCard(
-                        scan = scan,
-                        onClick = { selectedScanRecordForDetail = scan }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 
-    // Detail Modal Sheet for Recent Scan Record
     selectedScanRecordForDetail?.let { record ->
-        ModalBottomSheet(
-            onDismissRequest = { selectedScanRecordForDetail = null },
-            containerColor = CyberSurface
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "SCAN AUDIT DETAIL",
-                        color = CyberCyan,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                    CyberBadge(verdict = record.verdict)
-                }
+        ScanDetailBottomSheet(
+            scan = record,
+            onDismiss = { selectedScanRecordForDetail = null }
+        )
+    }
+}
 
-                Text(
-                    text = "Payload: ${record.input.ifEmpty { record.url }}",
-                    color = TextPrimary,
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace
-                )
+@Composable
+private fun QrScannerOverlay(accentColor: Color) {
+    val infiniteTransition = rememberInfiniteTransition(label = "LaserTransition")
+    val laserFraction by infiniteTransition.animateFloat(
+        initialValue = 0.1f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "LaserPosition"
+    )
 
-                ThreatMeter(riskScore = record.riskScore, modifier = Modifier.fillMaxWidth())
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val width = size.width
+        val height = size.height
+        val boxSize = minOf(width, height) * 0.65f
+        val left = (width - boxSize) / 2f
+        val top = (height - boxSize) / 2f
+        val right = left + boxSize
+        val bottom = top + boxSize
+        val cornerLen = 28f
 
-                if (record.indicators.isNotEmpty()) {
-                    Text("Risk Indicators:", color = TextMuted, fontSize = 11.sp)
-                    record.indicators.forEach { ind ->
-                        Text("• $ind", color = TextSecondary, fontSize = 11.sp)
-                    }
-                }
+        // 4 Corner Brackets
+        val strokeWidth = 3.5f
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Vector: ${record.type.uppercase()}", color = TextMuted, fontSize = 10.sp)
-                    Text(record.formattedDate, color = TextMuted, fontSize = 10.sp)
-                }
+        // Top-Left
+        drawLine(accentColor, Offset(left, top), Offset(left + cornerLen, top), strokeWidth)
+        drawLine(accentColor, Offset(left, top), Offset(left, top + cornerLen), strokeWidth)
 
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-        }
+        // Top-Right
+        drawLine(accentColor, Offset(right, top), Offset(right - cornerLen, top), strokeWidth)
+        drawLine(accentColor, Offset(right, top), Offset(right, top + cornerLen), strokeWidth)
+
+        // Bottom-Left
+        drawLine(accentColor, Offset(left, bottom), Offset(left + cornerLen, bottom), strokeWidth)
+        drawLine(accentColor, Offset(left, bottom), Offset(left, bottom - cornerLen), strokeWidth)
+
+        // Bottom-Right
+        drawLine(accentColor, Offset(right, bottom), Offset(right - cornerLen, bottom), strokeWidth)
+        drawLine(accentColor, Offset(right, bottom), Offset(right, bottom - cornerLen), strokeWidth)
+
+        // Laser scan line
+        val laserY = top + boxSize * laserFraction
+        drawLine(
+            color = accentColor.copy(alpha = 0.85f),
+            start = Offset(left + 10f, laserY),
+            end = Offset(right - 10f, laserY),
+            strokeWidth = 2f
+        )
     }
 }
 
@@ -842,20 +980,37 @@ private fun processBarcodePayload(
     vector: String,
     userId: String,
     scanRepository: ScanRepository,
+    cloudSyncEnabled: Boolean,
     onSuccess: (ScannerResultUi) -> Unit,
     onError: (String) -> Unit
 ) {
+    val trimmed = rawValue.trim()
     val isUrl = barcode.valueType == Barcode.TYPE_URL ||
-            rawValue.startsWith("http://", ignoreCase = true) ||
-            rawValue.startsWith("https://", ignoreCase = true)
+            trimmed.startsWith("http://", ignoreCase = true) ||
+            trimmed.startsWith("https://", ignoreCase = true) ||
+            (trimmed.contains(".") && !trimmed.contains(" ") && !trimmed.startsWith("wifi:", ignoreCase = true) && !trimmed.startsWith("mailto:", ignoreCase = true) && !trimmed.startsWith("tel:", ignoreCase = true))
+
+    val activeUid = userId.ifBlank {
+        com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    }
+    val uidPresent = activeUid.isNotBlank()
 
     if (isUrl) {
-        // Send to FastAPI V3.3 Threat Engine
+        val targetUrl = if (!trimmed.startsWith("http://", ignoreCase = true) && !trimmed.startsWith("https://", ignoreCase = true)) {
+            "https://$trimmed"
+        } else {
+            trimmed
+        }
+
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             try {
-                val response = ApiClient.service.scanUrl(UrlScanRequest(url = rawValue.trim()))
+                android.util.Log.d("LinkSentryTrace", "SCAN_API_REQUEST endpoint=/api/scan/url baseUrl=${ApiClient.getBaseUrl()} uidPresent=$uidPresent")
+                val response = ApiClient.service.scanUrl(UrlScanRequest(url = targetUrl))
+
                 if (response.isSuccessful && response.body() != null) {
                     val body = response.body()!!
+                    android.util.Log.d("LinkSentryTrace", "SCAN_API_RESPONSE endpoint=/api/scan/url status=${response.code()} success=true uidPresent=$uidPresent")
+
                     val result = ScannerResultUi(
                         verdict = body.verdict,
                         riskScore = body.riskScore,
@@ -865,38 +1020,42 @@ private fun processBarcodePayload(
                         indicators = body.indicators ?: emptyList()
                     )
 
-                    // Sync to Cloud Firestore
-                    val record = ScanRecord(
-                        id = "",
-                        userId = userId,
-                        input = rawValue.trim(),
-                        type = vector,
-                        verdict = body.verdict,
-                        riskScore = body.riskScore,
-                        domain = body.domain ?: "",
-                        confidence = body.confidence,
-                        indicators = body.indicators ?: emptyList(),
-                        engine = body.engine ?: "LinkSentry V3.3 URL ML Engine",
-                        modelVersion = body.modelVersion ?: "V3.3",
-                        source = "android"
-                    )
-                    scanRepository.saveScan(userId, record)
+                    if (cloudSyncEnabled) {
+                        val record = ScanRecord(
+                            id = "",
+                            userId = activeUid,
+                            input = trimmed,
+                            url = targetUrl,
+                            type = vector,
+                            verdict = body.verdict,
+                            riskScore = body.riskScore,
+                            domain = body.domain ?: "",
+                            confidence = body.confidence,
+                            indicators = body.indicators ?: emptyList(),
+                            engine = body.engine ?: "LinkSentry V3.3 URL ML Engine",
+                            modelVersion = body.modelVersion ?: "V3.3",
+                            source = "android"
+                        )
+                        scanRepository.saveScan(activeUid, record)
+                    }
+
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         onSuccess(result)
                     }
                 } else {
+                    android.util.Log.e("LinkSentryTrace", "SCAN_API_FAILURE endpoint=/api/scan/url status=${response.code()} success=false uidPresent=$uidPresent")
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        onError("API Error ${response.code()}: ${response.message()}")
+                        onError("Threat engine error (Code ${response.code()}).")
                     }
                 }
             } catch (e: Exception) {
+                android.util.Log.e("LinkSentryTrace", "SCAN_API_FAILURE endpoint=/api/scan/url Exception=${e.localizedMessage}")
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    onError("Network Connection Failed: ${e.localizedMessage ?: "Unknown"}")
+                    onError("Can't reach server: ${e.localizedMessage ?: "Network connection failed"}")
                 }
             }
         }
     } else {
-        // Non-URL QR Format Handling (Wi-Fi, vCard, SMS, Plain Text)
         val qrTypeLabel = when (barcode.valueType) {
             Barcode.TYPE_WIFI -> "Wi-Fi Network Configuration"
             Barcode.TYPE_CONTACT_INFO -> "vCard Contact Card"
@@ -916,35 +1075,37 @@ private fun processBarcodePayload(
             qrType = qrTypeLabel
         )
 
-        // Save Non-URL scan record to Firestore
-        val record = ScanRecord(
-            id = "",
-            userId = userId,
-            input = rawValue.trim(),
-            type = "qr",
-            verdict = "safe",
-            riskScore = 0,
-            domain = "",
-            confidence = 1.0,
-            indicators = listOf("Non-URL optical payload recognized ($qrTypeLabel)."),
-            engine = "LinkSentry Non-URL Barcode Classifier",
-            modelVersion = "V3.3",
-            source = "android"
-        )
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-            scanRepository.saveScan(userId, record)
+        if (cloudSyncEnabled) {
+            val record = ScanRecord(
+                id = "",
+                userId = activeUid,
+                input = rawValue.trim(),
+                url = rawValue.trim(),
+                type = "qr",
+                verdict = "safe",
+                riskScore = 0,
+                domain = "",
+                confidence = 1.0,
+                indicators = listOf("Non-URL optical payload recognized ($qrTypeLabel)."),
+                engine = "LinkSentry Non-URL Barcode Classifier",
+                modelVersion = "V3.3",
+                source = "android"
+            )
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                scanRepository.saveScan(activeUid, record)
+            }
         }
         onSuccess(result)
     }
 }
 
 @Composable
-fun RecentScanMiniCard(
+private fun RecentScanMiniCard(
     scan: ScanRecord,
     onClick: () -> Unit
 ) {
+    val colors = LocalAppColors.current
     CyberCard(
-        borderColor = CyberBorderSubtle,
         modifier = Modifier.clickable { onClick() }
     ) {
         Row(
@@ -954,33 +1115,41 @@ fun RecentScanMiniCard(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                val icon = when (scan.type) {
-                    "qr" -> Icons.Filled.QrCode
+                val icon = when (scan.type.lowercase()) {
+                    "qr" -> Icons.Filled.QrCodeScanner
                     "message" -> Icons.AutoMirrored.Filled.Chat
                     else -> Icons.Filled.Language
                 }
-                Icon(
-                    imageVector = icon,
-                    contentDescription = scan.type,
-                    tint = CyberCyan,
-                    modifier = Modifier.size(16.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(colors.surfaceLight),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = scan.type,
+                        tint = colors.brandAccent,
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
                 Column {
                     Text(
                         text = if (scan.domain.isNotBlank()) scan.domain else scan.input.take(30),
-                        color = TextPrimary,
-                        fontSize = 11.sp,
+                        color = colors.textPrimary,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = scan.formattedDate,
-                        color = TextMuted,
-                        fontSize = 9.sp
+                        color = colors.textMuted,
+                        fontSize = 10.sp
                     )
                 }
             }
@@ -1000,32 +1169,39 @@ private fun VectorTabButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    val colors = LocalAppColors.current
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = if (isSelected) colors.brandAccent.copy(alpha = 0.15f) else colors.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isSelected) colors.brandAccent.copy(alpha = 0.4f) else colors.borderSubtle
+        ),
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isSelected) CyberCyan else CyberSurface)
-            .border(1.dp, if (isSelected) CyberCyan else CyberBorderSubtle, RoundedCornerShape(8.dp))
-            .clickable { onClick() }
-            .padding(vertical = 8.dp, horizontal = 4.dp),
-        contentAlignment = Alignment.Center
+            .defaultMinSize(minHeight = 42.dp)
+            .heightIn(min = 42.dp)
     ) {
         Row(
+            modifier = Modifier.padding(horizontal = 2.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = title,
-                tint = if (isSelected) CyberDarkBg else TextSecondary,
-                modifier = Modifier.size(14.dp)
+                tint = if (isSelected) colors.brandAccent else colors.textSecondary,
+                modifier = Modifier.size(13.dp)
             )
+            Spacer(modifier = Modifier.width(3.dp))
             Text(
                 text = title,
-                color = if (isSelected) CyberDarkBg else TextSecondary,
+                color = if (isSelected) colors.brandAccent else colors.textSecondary,
                 fontSize = 11.sp,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 1,
-                softWrap = false
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -1034,11 +1210,19 @@ private fun VectorTabButton(
 @Composable
 fun CameraQrScannerView(
     isArmed: Boolean,
+    isTorchOn: Boolean,
     onBarcodeDetected: (Barcode) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+    var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
+
+    LaunchedEffect(isTorchOn) {
+        try {
+            cameraControl?.enableTorch(isTorchOn)
+        } catch (_: Exception) {}
+    }
 
     AndroidView(
         factory = { ctx ->
@@ -1082,12 +1266,14 @@ fun CameraQrScannerView(
 
                 try {
                     cameraProvider.unbindAll()
-                    cameraProvider.bindToLifecycle(
+                    val camera = cameraProvider.bindToLifecycle(
                         lifecycleOwner,
                         CameraSelector.DEFAULT_BACK_CAMERA,
                         preview,
                         imageAnalysis
                     )
+                    cameraControl = camera.cameraControl
+                    camera.cameraControl.enableTorch(isTorchOn)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }

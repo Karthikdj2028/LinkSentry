@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { AuthProvider, useAuth } from './context';
+import { AuthProvider, ThemeProvider, ScanProvider, useAuth } from './context';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import HomePage from './pages/HomePage';
+import OverviewPage from './pages/OverviewPage';
 import ScannerPage from './pages/ScannerPage';
 import HistoryPage from './pages/HistoryPage';
 import AnalyticsPage from './pages/AnalyticsPage';
-import DashboardPage from './pages/DashboardPage';
+import SecurityCenterPage from './pages/SecurityCenterPage';
 import ProfilePage from './pages/ProfilePage';
 import AuthPage from './pages/auth/AuthPage';
 import './App.css';
@@ -16,13 +16,15 @@ import './App.css';
  */
 function getTabFromPath(pathname) {
   const cleanPath = (pathname || window.location.pathname || '/').toLowerCase().replace(/\/+$/, '') || '/';
-  if (cleanPath === '' || cleanPath === '/') return 'home';
+  if (cleanPath === '' || cleanPath === '/' || cleanPath === '/overview' || cleanPath === '/home' || cleanPath === '/dashboard') {
+    return 'overview';
+  }
   if (cleanPath.startsWith('/scanner')) return 'scanner';
   if (cleanPath.startsWith('/history')) return 'history';
   if (cleanPath.startsWith('/analytics')) return 'analytics';
-  if (cleanPath.startsWith('/dashboard')) return 'dashboard';
+  if (cleanPath.startsWith('/security-center') || cleanPath.startsWith('/security')) return 'security-center';
   if (cleanPath.startsWith('/profile')) return 'profile';
-  return 'home';
+  return 'overview';
 }
 
 /**
@@ -30,13 +32,22 @@ function getTabFromPath(pathname) {
  */
 function getPathFromTab(tabId, subTab = 'url') {
   switch (tabId) {
-    case 'home': return '/';
-    case 'scanner': return subTab && subTab !== 'url' ? `/scanner?type=${subTab}` : '/scanner';
-    case 'history': return '/history';
-    case 'analytics': return '/analytics';
-    case 'dashboard': return '/dashboard';
-    case 'profile': return '/profile';
-    default: return '/';
+    case 'overview':
+    case 'home':
+    case 'dashboard':
+      return '/';
+    case 'scanner':
+      return subTab && subTab !== 'url' ? `/scanner?type=${subTab}` : '/scanner';
+    case 'history':
+      return '/history';
+    case 'analytics':
+      return '/analytics';
+    case 'security-center':
+      return '/security-center';
+    case 'profile':
+      return '/profile';
+    default:
+      return '/';
   }
 }
 
@@ -105,8 +116,8 @@ function MainContent() {
           </div>
           <div className="splash-text-group">
             <h2 className="splash-title font-mono">LINK<span className="brand-highlight">SENTRY</span></h2>
-            <p className="splash-status font-mono text-cyan">INITIALIZING SECURITY SUBSYSTEMS & AUTH SESSION...</p>
-            <span className="splash-sub">Verifying client token persistence with Firebase</span>
+            <p className="splash-status font-mono text-cyan">INITIALIZING SECURITY SUBSYSTEMS...</p>
+            <span className="splash-sub">Verifying client token persistence</span>
           </div>
         </div>
       </div>
@@ -129,8 +140,8 @@ function MainContent() {
 
       {/* Main Content Area */}
       <main className="main-content-viewport">
-        {activeTab === 'home' && (
-          <HomePage 
+        {(activeTab === 'overview' || activeTab === 'home' || activeTab === 'dashboard') && (
+          <OverviewPage 
             onNavigateToScanner={handleNavigateToScanner} 
             onSelectTab={handleSelectTab} 
           />
@@ -151,10 +162,8 @@ function MainContent() {
           <AnalyticsPage />
         )}
 
-        {activeTab === 'dashboard' && (
-          <DashboardPage 
-            onNavigateToScanner={handleNavigateToScanner} 
-          />
+        {activeTab === 'security-center' && (
+          <SecurityCenterPage />
         )}
 
         {activeTab === 'profile' && (
@@ -172,12 +181,17 @@ function MainContent() {
 
 /**
  * LinkSentry Root Application
- * Provides Firebase Authentication context across the entire tree
+ * Provides Firebase Authentication, Theme, and Shared Scan contexts across the entire tree
  */
 export default function App() {
   return (
     <AuthProvider>
-      <MainContent />
+      <ThemeProvider>
+        <ScanProvider>
+          <MainContent />
+        </ScanProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 }
+

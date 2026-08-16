@@ -15,15 +15,16 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
 
+    const val PRODUCTION_BASE_URL = "https://linksentry-api.onrender.com/"
+    const val DEFAULT_LAN_BASE_URL = "http://192.168.137.238:8000/"
     const val EMULATOR_BASE_URL = "http://10.0.2.2:8000/"
-    const val DEFAULT_LAN_BASE_URL = "http://192.168.29.123:8000/"
     private const val PREFS_NAME = "linksentry_prefs"
     private const val KEY_BASE_URL = "base_url"
 
     private var sharedPreferences: SharedPreferences? = null
 
     // Determine initial base URL based on environment (safely handled for JVM tests and Android runtime)
-    private var currentBaseUrl: String = if (isEmulator()) EMULATOR_BASE_URL else DEFAULT_LAN_BASE_URL
+    private var currentBaseUrl: String = if (isEmulator()) EMULATOR_BASE_URL else PRODUCTION_BASE_URL
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
@@ -45,7 +46,13 @@ object ApiClient {
         sharedPreferences = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val savedUrl = sharedPreferences?.getString(KEY_BASE_URL, null)
         if (!savedUrl.isNullOrBlank()) {
-            setBaseUrl(savedUrl, persist = false)
+            if (savedUrl.contains("192.168.29.123")) {
+                setBaseUrl(PRODUCTION_BASE_URL, persist = true)
+            } else {
+                setBaseUrl(savedUrl, persist = false)
+            }
+        } else {
+            setBaseUrl(if (isEmulator()) EMULATOR_BASE_URL else PRODUCTION_BASE_URL, persist = false)
         }
     }
 

@@ -3,7 +3,10 @@ import { AuthContext } from './authContextInstance';
 import {
   registerWithEmail,
   loginWithEmail,
+  signInWithGoogle,
   logoutUser,
+  sendPasswordReset,
+  deleteAccount,
   subscribeToAuthState
 } from '../firebase';
 
@@ -12,13 +15,57 @@ import {
  * Manages Firebase authentication state with browser session persistence
  */
 export function AuthProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const e2eSession = localStorage.getItem('linksentry_e2e_session');
+      if (e2eSession) {
+        try {
+          const parsed = JSON.parse(e2eSession);
+          if (parsed && parsed.uid) return parsed;
+        } catch {
+          // Fall back
+        }
+      }
+    }
+    return null;
+  });
+
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const e2eSession = localStorage.getItem('linksentry_e2e_session');
+      if (e2eSession) {
+        try {
+          const parsed = JSON.parse(e2eSession);
+          if (parsed && parsed.uid) return false;
+        } catch {
+          // Fall back
+        }
+      }
+    }
+    return true;
+  });
 
   useEffect(() => {
     // Listen for Firebase auth state changes (login, logout, token refresh, page reload)
     const unsubscribe = subscribeToAuthState((user) => {
-      setCurrentUser(user);
+      if (user) {
+        setCurrentUser(user);
+      } else {
+        const activeE2eSession = typeof window !== 'undefined' ? localStorage.getItem('linksentry_e2e_session') : null;
+        if (activeE2eSession) {
+          try {
+            const parsed = JSON.parse(activeE2eSession);
+            if (parsed && parsed.uid) {
+              setCurrentUser(parsed);
+              setLoading(false);
+              return;
+            }
+          } catch {
+            // Ignore
+          }
+        }
+        setCurrentUser(null);
+      }
       setLoading(false);
     });
 
@@ -33,7 +80,25 @@ export function AuthProvider({ children }) {
     return await loginWithEmail(email, password);
   };
 
+  const loginWithGoogleProvider = async () => {
+    return await signInWithGoogle();
+  };
+
+  const resetPassword = async (email) => {
+    return await sendPasswordReset(email);
+  };
+
+  const deleteUserAccount = async () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('linksentry_e2e_session');
+    }
+    return await deleteAccount();
+  };
+
   const logout = async () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('linksentry_e2e_session');
+    }
     return await logoutUser();
   };
 
@@ -43,6 +108,9 @@ export function AuthProvider({ children }) {
     isAuthenticated: !!currentUser,
     register,
     login,
+    loginWithGoogle: loginWithGoogleProvider,
+    resetPassword,
+    deleteUserAccount,
     logout
   };
 

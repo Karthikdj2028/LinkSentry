@@ -2,14 +2,19 @@
  * LinkSentry Central API Configuration
  *
  * Priority:
- * 1. VITE_API_BASE_URL
- * 2. LAN FastAPI backend for local development
+ * 1. VITE_API_BASE_URL (from environment)
+ * 2. Production Render Cloud URL (when running in production build)
+ * 3. Development LAN PC URL (http://192.168.137.238:8000 for local dev)
  */
 
-const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+const rawEnvUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+const isProd = import.meta.env.PROD;
+
+export const PRODUCTION_API_URL = 'https://linksentry-api.onrender.com';
+export const DEVELOPMENT_LAN_URL = 'http://192.168.137.238:8000';
 
 export const API_BASE_URL = (
-  configuredBaseUrl || 'http://192.168.29.123:8000'
+  rawEnvUrl || (isProd ? PRODUCTION_API_URL : DEVELOPMENT_LAN_URL)
 ).replace(/\/+$/, '');
 
 export const API_ENDPOINTS = {
@@ -20,5 +25,7 @@ export const API_ENDPOINTS = {
 
 export default {
   API_BASE_URL,
+  PRODUCTION_API_URL,
+  DEVELOPMENT_LAN_URL,
   API_ENDPOINTS,
 };

@@ -2,23 +2,14 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import jsQR from 'jsqr';
 import ScanResultCard from '../../components/ScanResultCard';
 import { PRESET_SAMPLES } from '../../data/mockData';
-import { useAuth } from '../../context';
+import { useAuth, useTheme } from '../../context';
 import { saveScan, mapBackendScanToFirestoreDoc } from '../../firebase';
 import { API_BASE_URL } from '../../config/api';
+import { saveLocalScan, createLocalTimestamp } from '../../utils/localHistory';
 
-/**
- * QR Code Scanner Component
- *
- * Handles:
- * - QR image upload & drag-and-drop decoding (via jsQR)
- * - Live camera stream with single-frame pause on detection
- * - HTTP/HTTPS URL threat detonation through LinkSentry FastAPI V3.3
- * - Non-URL QR payload format classification (Wi-Fi, vCard, SMS, text)
- * - Insecure LAN HTTP context detection with graceful guidance
- * - Real-time Cloud Firestore synchronization
- */
 export default function QrScanner() {
   const { currentUser } = useAuth();
+  const { securityPreferences } = useTheme();
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
@@ -95,7 +86,8 @@ export default function QrScanner() {
       setSaveWarning('');
       setScanResult(null);
 
-      const isHttpUrl = /^https?:\/\//i.test(payload);
+      const isHttpUrl = /^https?:\/\//i.test(payload) || (payload.includes('.') && !payload.includes(' ') && !/^(mailto|tel|wifi|sms):/i.test(payload));
+      const targetUrl = isHttpUrl && !/^https?:\/\//i.test(payload) ? `https://${payload}` : payload;
 
       if (isHttpUrl) {
         setIsScanning(true);
@@ -105,7 +97,7 @@ export default function QrScanner() {
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ url: payload }),
+            body: JSON.stringify({ url: targetUrl }),
           });
 
           if (!response.ok) {
@@ -162,19 +154,26 @@ export default function QrScanner() {
             timestamp: new Date().toLocaleTimeString(),
           });
 
-          // Persist to Cloud Firestore
-          if (currentUser?.uid) {
+          // Persist scan: ALWAYS to local history
+          const scanDoc = mapBackendScanToFirestoreDoc(
+            currentUser?.uid || 'anonymous',
+            payload,
+            data,
+            'qr'
+          );
+          scanDoc.createdAt = createLocalTimestamp();
+          scanDoc.isLocalOnly = securityPreferences?.cloudSync === false || !currentUser?.uid;
+
+          saveLocalScan(currentUser?.uid || 'anonymous', scanDoc);
+
+          // Persist to Cloud Firestore (if authenticated and Cloud Sync is ON)
+          if (currentUser?.uid && securityPreferences?.cloudSync !== false) {
             try {
-              const firestorePayload = mapBackendScanToFirestoreDoc(
-                currentUser.uid,
-                payload,
-                data,
-                'qr'
-              );
-              await saveScan(currentUser.uid, firestorePayload);
+              await saveScan(currentUser.uid, scanDoc);
+              console.log('[LinkSentry] QR scan synchronized to Cloud Firestore.');
             } catch (saveErr) {
               console.error('Cloud Firestore QR scan save error:', saveErr);
-              setSaveWarning('QR scan completed, but the result could not be saved to history.');
+              setSaveWarning('QR scan stored locally, but cloud synchronization failed.');
             }
           }
         } catch (err) {
@@ -285,7 +284,7 @@ export default function QrScanner() {
       });
       setIsScanning(false);
     },
-    [currentUser]
+    [currentUser, securityPreferences]
   );
 
   // ============================================================
@@ -589,6 +588,7 @@ export default function QrScanner() {
               setActiveScanMode('upload');
               setCameraError('');
             }}
+            data-testid="qr-mode-upload"
           >
             📁 Image Upload Mode
           </button>
@@ -597,6 +597,7 @@ export default function QrScanner() {
             type="button"
             className={`btn btn-sm ${activeScanMode === 'camera' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={startCameraMode}
+            data-testid="qr-mode-camera"
           >
             📹 Live Camera Stream
           </button>
@@ -611,6 +612,7 @@ export default function QrScanner() {
             onClick={() => fileInputRef.current?.click()}
             role="button"
             tabIndex={0}
+            data-testid="qr-dropzone"
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
@@ -624,6 +626,7 @@ export default function QrScanner() {
               accept="image/png,image/jpeg,image/webp,image/*"
               className="hidden-file-input"
               onChange={handleFileChange}
+              data-testid="qr-file-input"
               style={{ display: 'none' }}
             />
 

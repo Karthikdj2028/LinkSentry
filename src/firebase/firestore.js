@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   addDoc,
+  setDoc,
   getDocs,
   getDoc,
   deleteDoc,
@@ -103,6 +104,8 @@ export async function saveScan(userId, scanData) {
     throw new Error('Cannot save scan: userId (Firebase UID) is required.');
   }
 
+  console.log(`SCAN_PERSISTENCE_START uid=${userId} type=${scanData.type || scanData.scanType || 'url'}`);
+
   const scansCollectionRef = collection(db, 'users', userId, 'scans');
 
   const documentPayload = {
@@ -121,12 +124,18 @@ export async function saveScan(userId, scanData) {
     createdAt: scanData.createdAt || serverTimestamp()
   };
 
-  const docRef = await addDoc(scansCollectionRef, documentPayload);
+  try {
+    const docRef = await addDoc(scansCollectionRef, documentPayload);
+    console.log(`SCAN_PERSISTENCE_SUCCESS uid=${userId} scanId=${docRef.id}`);
 
-  return {
-    id: docRef.id,
-    ...documentPayload
-  };
+    return {
+      id: docRef.id,
+      ...documentPayload
+    };
+  } catch (err) {
+    console.error(`SCAN_PERSISTENCE_FAILURE uid=${userId} error=`, err?.message || err);
+    throw err;
+  }
 }
 
 /**
@@ -244,3 +253,86 @@ export async function deleteScan(userId, scanId) {
   const scanDocRef = doc(db, 'users', userId, 'scans', scanId);
   await deleteDoc(scanDocRef);
 }
+
+/**
+ * Retrieves the user's cross-platform preferences from Firestore.
+ * Path: users/{userId}/settings/preferences
+ * 
+ * @param {string} userId - Authenticated user's Firebase UID
+ * @returns {Promise<object|null>} Settings document or null
+ */
+export async function getUserSettings(userId) {
+  if (!userId) return null;
+  try {
+    const settingsDocRef = doc(db, 'users', userId, 'settings', 'preferences');
+    const docSnap = await getDoc(settingsDocRef);
+    if (docSnap.exists()) {
+      return docSnap.data();
+    }
+    return null;
+  } catch (err) {
+    console.error('Failed to get user settings from Firestore:', err);
+    return null;
+  }
+}
+
+/**
+ * Saves or merges the user's cross-platform preferences in Firestore.
+ * Path: users/{userId}/settings/preferences
+ * 
+ * @param {string} userId - Authenticated user's Firebase UID
+ * @param {object} settings - Settings object { theme, realTimeDetection, cloudSync, clipboardDetection, pushNotifications }
+ * @returns {Promise<void>}
+ */
+export async function saveUserSettings(userId, settings) {
+  if (!userId) return;
+  try {
+    const settingsDocRef = doc(db, 'users', userId, 'settings', 'preferences');
+    await setDoc(settingsDocRef, {
+      ...settings,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (err) {
+    console.error('Failed to save user settings to Firestore:', err);
+  }
+}
+
+/**
+ * Subscribes to real-time updates for a user's cross-platform preferences.
+ * 
+ * @param {string} userId - Authenticated user's Firebase UID
+ * @param {function} onUpdate - Callback with settings object
+ * @returns {function} Unsubscribe function
+ */
+export function subscribeToUserSettings(userId, onUpdate) {
+  if (!userId) return () => {};
+  const settingsDocRef = doc(db, 'users', userId, 'settings', 'preferences');
+  return onSnapshot(settingsDocRef, (docSnap) => {
+    if (docSnap.exists()) {
+      onUpdate(docSnap.data());
+    }
+  }, (err) => {
+    console.error('Settings snapshot error:', err);
+  });
+}
+
+/**
+ * Submits user feedback / bug report to Firestore.
+ * Path: users/{userId}/feedback/{feedbackId}
+ * 
+ * @param {string} userId - Authenticated user's Firebase UID
+ * @param {object} feedbackData - { category, description, payload, email }
+ * @returns {Promise<string>} Created feedback document ID
+ */
+export async function submitUserFeedback(userId, feedbackData) {
+  if (!userId) throw new Error('User ID required to submit feedback');
+  const feedbackColRef = collection(db, 'users', userId, 'feedback');
+  const docRef = await addDoc(feedbackColRef, {
+    ...feedbackData,
+    userId,
+    source: 'web',
+    createdAt: serverTimestamp()
+  });
+  return docRef.id;
+}
+

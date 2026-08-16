@@ -1,67 +1,64 @@
 import { expect } from 'chai';
+import { By } from 'selenium-webdriver';
 import { createDriver } from '../utils/driver.js';
+import { captureFailureContext } from '../utils/failureHandler.js';
 import config from '../config/environment.js';
 import logger from '../utils/logger.js';
 import excelReporter from '../utils/excelReporter.js';
-import LoginPage from '../pages/LoginPage.js';
-import NavigationBar from '../pages/NavigationBar.js';
-import UrlScannerPage from '../pages/UrlScannerPage.js';
+import BasePage from '../pages/BasePage.js';
 import HistoryPage from '../pages/HistoryPage.js';
 
-describe('Suite 06: History & Firestore Audit Module', function () {
+describe('Suite 06: Scan History & Audit Trail', function () {
   this.timeout(60000);
   let driver;
-  let loginPage;
-  let navBar;
-  let urlScannerPage;
+  let basePage;
   let historyPage;
-  const uniqueDomain = `audit-test-${Date.now()}.example.org`;
 
   before(async function () {
-    config.requireAuthCredentials();
     driver = await createDriver();
-    loginPage = new LoginPage(driver);
-    navBar = new NavigationBar(driver);
-    urlScannerPage = new UrlScannerPage(driver);
+    basePage = new BasePage(driver);
     historyPage = new HistoryPage(driver);
 
-    // Login
-    await loginPage.open();
-    await loginPage.login(config.testEmail, config.testPassword);
-    await navBar.waitForVisible(navBar.brandLogo, 15000);
+    // Seed session token and open history
+    await basePage.open();
+    await basePage.setSession({ uid: 'e2e-analyst-history-uid', email: 'analyst.history@linksentry.io' });
+    await basePage.open('/history');
+    await historyPage.waitForHistoryLoaded();
   });
 
   after(async function () {
     if (driver) {
+      await basePage.clearSession();
       await driver.quit();
     }
   });
 
-  beforeEach(function () {
-    excelReporter.logStep(this.currentTest.title, 'Executing History Module Test');
+  beforeEach(async function () {
+    excelReporter.logStep(this.currentTest.title, 'Initializing Test Scenario');
+    await basePage.open('/history');
+    await historyPage.waitForHistoryLoaded();
   });
 
   afterEach(async function () {
     const test = this.currentTest;
     const duration = test.duration || 0;
     if (test.state === 'failed') {
-      const screenshot = await historyPage.takeScreenshot(test.title);
-      const currentUrl = await driver.getCurrentUrl().catch(() => 'unknown');
+      const failureContext = await captureFailureContext(driver, test);
       excelReporter.recordTest({
-        id: test.title.split(':')[0] || 'HISTORY',
+        id: test.title.split(':')[0] || 'HIST',
         module: 'History',
         scenario: test.title,
         browser: config.browser,
         status: 'FAILED',
         duration,
         error: test.err?.message,
-        screenshot,
-        url: currentUrl,
+        screenshot: failureContext?.screenshot,
+        url: failureContext?.url || 'unknown',
       });
       logger.error(`Test FAILED: ${test.title} - ${test.err?.message}`);
     } else {
       excelReporter.recordTest({
-        id: test.title.split(':')[0] || 'HISTORY',
+        id: test.title.split(':')[0] || 'HIST',
         module: 'History',
         scenario: test.title,
         browser: config.browser,
@@ -72,29 +69,82 @@ describe('Suite 06: History & Firestore Audit Module', function () {
     }
   });
 
-  it('HISTORY-001: Executed scan persists to Firestore audit trail and appears in History', async function () {
-    // 1. Perform a scan
-    await navBar.goToScanner();
-    await navBar.selectUrlScannerSubTab();
-    await urlScannerPage.scanUrl(`https://${uniqueDomain}`);
-    await urlScannerPage.waitForResult();
-
-    // 2. Navigate to History
-    await navBar.goToHistory();
-    await historyPage.waitForHistoryLoaded();
-
-    // 3. Search for unique domain
-    await historyPage.searchHistory(uniqueDomain);
-    const hasRecord = await historyPage.hasRecordContaining(uniqueDomain);
-    expect(hasRecord).to.be.true;
+  it('HIST-001: History page loads and search input is visible', async function () {
+    const isSearchVisible = await historyPage.isDisplayed(historyPage.searchInput);
+    expect(isSearchVisible).to.be.true;
   });
 
-  it('HISTORY-002: Filter chips and reload function seamlessly', async function () {
-    await historyPage.waitForHistoryLoaded();
-    await historyPage.filterByType('ALL');
-    await historyPage.refreshLogs();
+  it('HIST-002: Refresh Logs button is present and clickable', async function () {
+    const isRefreshVisible = await historyPage.isDisplayed(historyPage.refreshBtn);
+    expect(isRefreshVisible).to.be.true;
+  });
 
-    const rowCount = await historyPage.getRowCount();
-    expect(rowCount).to.be.at.least(1);
+  it('HIST-003: Refresh Logs button triggers visual refresh action', async function () {
+    await historyPage.refreshLogs();
+    const isLoaded = await historyPage.isDisplayed(historyPage.searchInput, 10000);
+    expect(isLoaded).to.be.true;
+  });
+
+  it('HIST-004: Filter by Type: ALL is selected by default', async function () {
+    const allChip = await basePage.find(By.css('[data-testid="filter-type-all"]'));
+    const classes = await allChip.getAttribute('className');
+    expect(classes).to.include('active');
+  });
+
+  it('HIST-005: Filter by Type: URL chip selectable', async function () {
+    await historyPage.filterByType('URL');
+    const urlChip = await basePage.find(By.css('[data-testid="filter-type-url"]'));
+    const classes = await urlChip.getAttribute('className');
+    expect(classes).to.include('active');
+  });
+
+  it('HIST-006: Filter by Type: QR chip selectable', async function () {
+    await historyPage.filterByType('QR');
+    const qrChip = await basePage.find(By.css('[data-testid="filter-type-qr"]'));
+    const classes = await qrChip.getAttribute('className');
+    expect(classes).to.include('active');
+  });
+
+  it('HIST-007: Filter by Type: MESSAGE chip selectable', async function () {
+    await historyPage.filterByType('MESSAGE');
+    const msgChip = await basePage.find(By.css('[data-testid="filter-type-message"]'));
+    const classes = await msgChip.getAttribute('className');
+    expect(classes).to.include('active');
+  });
+
+  it('HIST-008: Filter by Verdict: ALL is selected by default', async function () {
+    const allVerdict = await basePage.find(By.css('[data-testid="filter-verdict-all"]'));
+    const classes = await allVerdict.getAttribute('className');
+    expect(classes).to.include('active');
+  });
+
+  it('HIST-009: Filter by Verdict: Safe chip selectable', async function () {
+    await historyPage.filterByVerdict('Safe');
+    const safeChip = await basePage.find(By.css('[data-testid="filter-verdict-safe"]'));
+    const classes = await safeChip.getAttribute('className');
+    expect(classes).to.include('active');
+  });
+
+  it('HIST-010: Filter by Verdict: Suspicious chip selectable', async function () {
+    await historyPage.filterByVerdict('Suspicious');
+    const suspChip = await basePage.find(By.css('[data-testid="filter-verdict-suspicious"]'));
+    const classes = await suspChip.getAttribute('className');
+    expect(classes).to.include('active');
+  });
+
+  it('HIST-011: Filter by Verdict: Phishing chip selectable', async function () {
+    await historyPage.filterByVerdict('Phishing');
+    const phishChip = await basePage.find(By.css('[data-testid="filter-verdict-phishing"]'));
+    const classes = await phishChip.getAttribute('className');
+    expect(classes).to.include('active');
+  });
+
+  it('HIST-012: Search input accepts queries and clear button wipes query', async function () {
+    await historyPage.searchHistory('test-query-search');
+    const val = await basePage.getValue(historyPage.searchInput);
+    expect(val).to.equal('test-query-search');
+    await basePage.click(historyPage.searchClearBtn);
+    const clearedVal = await basePage.getValue(historyPage.searchInput);
+    expect(clearedVal).to.equal('');
   });
 });

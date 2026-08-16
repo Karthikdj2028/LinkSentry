@@ -10,10 +10,11 @@ export class ProfilePage extends BasePage {
     super(driver);
 
     // Locators
-    this.logoutCardBtn = By.css('button.logout-action-card-btn');
-    this.logoutTopBtn = By.css('button.logout-btn-top');
-    this.emailDisplay = By.css('.profile-meta-row .meta-val.text-cyan');
+    this.logoutTopBtn = By.css('[data-testid="profile-logout-btn"], button.logout-btn-top');
+    this.emailDisplay = By.css('[data-testid="profile-user-email"], .profile-meta-row .meta-val.text-cyan');
+    this.uidDisplay = By.css('[data-testid="profile-user-uid"]');
     this.heroHeading = By.css('.page-main-heading');
+    this.profilePage = By.css('.profile-page');
   }
 
   async waitForProfileLoaded() {
@@ -22,16 +23,21 @@ export class ProfilePage extends BasePage {
 
   async logout() {
     await this.waitForProfileLoaded();
-    if (await this.isDisplayed(this.logoutCardBtn, 2000)) {
-      await this.click(this.logoutCardBtn);
-    } else {
-      await this.click(this.logoutTopBtn);
-    }
+    await this.click(this.logoutTopBtn);
   }
 
   async getDisplayedEmail() {
     await this.waitForProfileLoaded();
     return await this.getText(this.emailDisplay);
+  }
+
+  async getDisplayedUid() {
+    await this.waitForProfileLoaded();
+    return await this.getText(this.uidDisplay);
+  }
+
+  async isProfilePageDisplayed() {
+    return await this.isDisplayed(this.profilePage, 5000);
   }
 }
 

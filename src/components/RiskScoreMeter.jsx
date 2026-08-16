@@ -21,11 +21,11 @@ export default function RiskScoreMeter({ score = 0, size = 'normal', showLabel =
   const clampedScore = Math.min(100, Math.max(0, score));
 
   return (
-    <div className={`risk-score-wrapper ${size}`}>
+    <div className={`risk-score-wrapper ${size}`} data-testid="risk-score-meter">
       <div className="risk-score-header">
         {showLabel && <span className="risk-score-title">Threat Risk Index</span>}
         <div className="risk-score-value-container">
-          <span className={`risk-score-number font-mono ${colorClass}`}>{clampedScore}</span>
+          <span className={`risk-score-number font-mono ${colorClass}`} data-testid="risk-score-value">{clampedScore}</span>
           <span className="risk-score-max">/100</span>
         </div>
       </div>

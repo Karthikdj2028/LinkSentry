@@ -1,18 +1,14 @@
 import { useState } from 'react';
 import ScanResultCard from '../../components/ScanResultCard';
 import { PRESET_SAMPLES } from '../../data/mockData';
-import { useAuth } from '../../context';
+import { useAuth, useTheme } from '../../context';
 import { saveScan, mapBackendScanToFirestoreDoc } from '../../firebase';
 import { API_BASE_URL } from '../../config/api';
+import { saveLocalScan, createLocalTimestamp } from '../../utils/localHistory';
 
-/**
- * Message Scanner Component
- * Handles SMS / Email / Chat message analysis for loan smishing, urgency coercion,
- * and embedded threat link extraction via the FastAPI LinkSentry V3.3 Threat Engine,
- * and persists audit logs to Cloud Firestore.
- */
 export default function MessageScanner() {
   const { currentUser } = useAuth();
+  const { securityPreferences } = useTheme();
   const [messageText, setMessageText] = useState('');
   const [validationError, setValidationError] = useState('');
   const [saveWarning, setSaveWarning] = useState('');
@@ -102,18 +98,26 @@ export default function MessageScanner() {
       });
 
       // 2. Persist successful scan to Cloud Firestore under authenticated user
-      if (currentUser?.uid) {
+      // Persist scan: ALWAYS to local history
+      const scanDoc = mapBackendScanToFirestoreDoc(
+        currentUser?.uid || 'anonymous',
+        payloadText,
+        data,
+        'message'
+      );
+      scanDoc.createdAt = createLocalTimestamp();
+      scanDoc.isLocalOnly = securityPreferences?.cloudSync === false || !currentUser?.uid;
+
+      saveLocalScan(currentUser?.uid || 'anonymous', scanDoc);
+
+      // Persist to Cloud Firestore (if authenticated and Cloud Sync is ON)
+      if (currentUser?.uid && securityPreferences?.cloudSync !== false) {
         try {
-          const firestorePayload = mapBackendScanToFirestoreDoc(
-            currentUser.uid,
-            payloadText,
-            data,
-            'message'
-          );
-          await saveScan(currentUser.uid, firestorePayload);
+          await saveScan(currentUser.uid, scanDoc);
+          console.log('[LinkSentry] Message scan synchronized to Cloud Firestore.');
         } catch (saveErr) {
           console.error('Cloud Firestore Message scan save error:', saveErr);
-          setSaveWarning('Message scan completed, but the result could not be saved to history.');
+          setSaveWarning('Message scan stored locally, but cloud synchronization failed.');
         }
       }
     } catch (err) {
@@ -177,9 +181,10 @@ export default function MessageScanner() {
                 if (validationError) setValidationError('');
               }}
               disabled={isScanning}
+              data-testid="message-input"
             />
             {validationError && (
-              <div className="validation-error-message animate-fade-in">
+              <div className="validation-error-message animate-fade-in" data-testid="message-validation-error">
                 ⚠️ {validationError}
               </div>
             )}
@@ -191,6 +196,7 @@ export default function MessageScanner() {
                 type="submit"
                 className="btn btn-primary btn-lg scan-submit-btn"
                 disabled={isScanning || !messageText.trim()}
+                data-testid="message-scan-submit"
               >
                 {isScanning ? (
                   <>
@@ -209,6 +215,7 @@ export default function MessageScanner() {
                   type="button"
                   className="btn btn-secondary btn-lg"
                   onClick={handleClear}
+                  data-testid="message-scan-clear"
                 >
                   Clear
                 </button>
@@ -226,6 +233,7 @@ export default function MessageScanner() {
                     className={`preset-chip chip-${preset.type.toLowerCase()}`}
                     onClick={() => handlePresetSelect(preset)}
                     disabled={isScanning}
+                    data-testid={`preset-message-${idx}`}
                   >
                     {preset.label}
                   </button>

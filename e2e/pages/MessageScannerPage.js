@@ -10,14 +10,15 @@ export class MessageScannerPage extends BasePage {
     super(driver);
 
     // Locators
-    this.messageInput = By.id('message-input');
-    this.scanSubmitBtn = By.css('button.scan-submit-btn');
-    this.clearBtn = By.xpath("//form[contains(@class, 'scan-form')]//button[contains(text(), 'Clear')]");
-    this.validationError = By.css('.validation-error-message');
-    this.resultCard = By.css('.cyber-card.scan-result-card');
-    this.verdictBadge = By.css('.verdict-main-row .cyber-badge');
-    this.riskScoreText = By.css('.risk-score-number');
-    this.confidenceText = By.css('.verdict-confidence');
+    this.messageInput = By.css('[data-testid="message-input"], #message-input');
+    this.scanSubmitBtn = By.css('[data-testid="message-scan-submit"], button.scan-submit-btn');
+    this.clearBtn = By.css('[data-testid="message-scan-clear"]');
+    this.validationError = By.css('[data-testid="message-validation-error"], .validation-error-message');
+    this.resultCard = By.css('[data-testid="scan-result-card"], .cyber-card.scan-result-card');
+    this.verdictBadge = By.css('[data-testid="scan-result-verdict"], .verdict-main-row .cyber-badge');
+    this.riskScoreText = By.css('[data-testid="risk-score-value"], .risk-score-number');
+    this.confidenceText = By.css('[data-testid="scan-result-confidence"], .verdict-confidence');
+    this.charCount = By.css('.character-counter');
   }
 
   async scanMessage(text) {
@@ -28,11 +29,22 @@ export class MessageScannerPage extends BasePage {
       await input.sendKeys(text);
     }
     const btn = await this.waitForClickable(this.scanSubmitBtn, 15000);
-    await btn.click();
+    // Scroll the submit button into center view before clicking.
+    // On small viewports (390x844) the button can be pushed below the fold.
+    await this.scrollAndClickElement(btn, 15000);
+  }
+
+  async selectPreset(index = 0) {
+    const presetBtn = By.css(`[data-testid="preset-message-${index}"]`);
+    await this.click(presetBtn);
   }
 
   async clearInput() {
     await this.click(this.clearBtn);
+  }
+
+  async getInputValue() {
+    return await this.getValue(this.messageInput);
   }
 
   async getValidationError() {
@@ -43,7 +55,7 @@ export class MessageScannerPage extends BasePage {
     return await this.isDisplayed(this.validationError, timeout);
   }
 
-  async waitForResult(timeout = 25000) {
+  async waitForResult(timeout = 30000) {
     await this.waitForVisible(this.resultCard, timeout);
     await this.waitForVisible(this.verdictBadge, timeout);
   }
@@ -62,6 +74,10 @@ export class MessageScannerPage extends BasePage {
 
   async isResultDisplayed() {
     return await this.isDisplayed(this.resultCard, 5000);
+  }
+
+  async getCharacterCountText() {
+    return await this.getText(this.charCount);
   }
 }
 

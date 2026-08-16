@@ -10,11 +10,12 @@ export class HistoryPage extends BasePage {
     super(driver);
 
     // Locators
-    this.searchInput = By.css('input.search-input');
-    this.refreshBtn = By.css('button.logout-btn-top');
+    this.searchInput = By.css('[data-testid="history-search-input"], input.search-input');
+    this.searchClearBtn = By.css('[data-testid="history-search-clear"]');
+    this.refreshBtn = By.css('[data-testid="history-refresh-btn"]');
     this.table = By.css('table.cyber-table');
     this.tableRows = By.css('table.cyber-table tbody tr');
-    this.emptyState = By.xpath("//div[contains(@class, 'cyber-card')]//h3[contains(text(), 'No scans recorded yet')]");
+    this.emptyState = By.css('[data-testid="history-empty-state"]');
   }
 
   async waitForHistoryLoaded() {
@@ -23,19 +24,21 @@ export class HistoryPage extends BasePage {
 
   async searchHistory(query) {
     await this.waitForHistoryLoaded();
-
     const input = await this.waitForClickable(this.searchInput, 15000);
-
     await input.click();
     await input.clear();
-
     if (query) {
       await input.sendKeys(query);
     }
   }
 
   async filterByType(type) {
-    const chipLocator = By.xpath(`//div[contains(@class, 'filter-group')]//button[contains(@class, 'filter-chip') and normalize-space(text())='${type}']`);
+    const chipLocator = By.css(`[data-testid="filter-type-${type.toLowerCase()}"]`);
+    await this.click(chipLocator);
+  }
+
+  async filterByVerdict(verdict) {
+    const chipLocator = By.css(`[data-testid="filter-verdict-${verdict.toLowerCase()}"]`);
     await this.click(chipLocator);
   }
 
@@ -50,6 +53,10 @@ export class HistoryPage extends BasePage {
     } catch {
       return 0;
     }
+  }
+
+  async isEmptyStateDisplayed() {
+    return await this.isDisplayed(this.emptyState, 5000);
   }
 
   async hasRecordContaining(text) {

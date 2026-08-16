@@ -110,7 +110,7 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
   const hasBackendAnalysis = Object.keys(backendAnalysis).length > 0;
 
   return (
-    <div className="cyber-card scan-result-card animate-fade-in">
+    <div className="cyber-card scan-result-card animate-fade-in" data-testid="scan-result-card">
       {/* HEADER */}
       <div className="scan-result-header">
         <div className="scan-result-title-group">
@@ -123,7 +123,7 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
             </span>
           </div>
 
-          <h3 className="scan-target-text font-mono" title={target}>
+          <h3 className="scan-target-text font-mono" title={target} data-testid="scan-result-target">
             {target}
           </h3>
         </div>
@@ -133,6 +133,7 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
             type="button"
             className="btn btn-secondary btn-sm"
             onClick={handleCopy}
+            data-testid="scan-copy-button"
           >
             {copied ? '✓ Copied Report' : '📋 Copy Analysis'}
           </button>
@@ -142,6 +143,7 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
               type="button"
               className="btn btn-secondary btn-sm"
               onClick={onReset}
+              data-testid="scan-reset-button"
             >
               🔄 New Scan
             </button>
@@ -163,11 +165,12 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
                 status={verdict}
                 size="lg"
                 pulse={normalizedVerdict !== 'safe'}
+                data-testid="scan-result-verdict"
               >
                 {String(verdict).toUpperCase()}
               </Badge>
 
-              <span className="verdict-confidence">
+              <span className="verdict-confidence" data-testid="scan-result-confidence">
                 Confidence: <strong>{confidence}</strong>
               </span>
             </div>

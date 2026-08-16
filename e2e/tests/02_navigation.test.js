@@ -1,63 +1,47 @@
 import { expect } from 'chai';
+import { By } from 'selenium-webdriver';
 import { createDriver } from '../utils/driver.js';
+import { captureFailureContext } from '../utils/failureHandler.js';
 import config from '../config/environment.js';
 import logger from '../utils/logger.js';
 import excelReporter from '../utils/excelReporter.js';
-import LoginPage from '../pages/LoginPage.js';
+import BasePage from '../pages/BasePage.js';
 import NavigationBar from '../pages/NavigationBar.js';
-import UrlScannerPage from '../pages/UrlScannerPage.js';
-import QrScannerPage from '../pages/QrScannerPage.js';
-import MessageScannerPage from '../pages/MessageScannerPage.js';
-import HistoryPage from '../pages/HistoryPage.js';
-import DashboardPage from '../pages/DashboardPage.js';
-import ProfilePage from '../pages/ProfilePage.js';
 
-describe('Suite 02: Navigation & View Routing Module', function () {
+describe('Suite 02: Top-Level & Deep-Link Navigation', function () {
   this.timeout(60000);
   let driver;
-  let loginPage;
+  let basePage;
   let navBar;
-  let urlScannerPage;
-  let qrScannerPage;
-  let messageScannerPage;
-  let historyPage;
-  let dashboardPage;
-  let profilePage;
 
   before(async function () {
-    config.requireAuthCredentials();
     driver = await createDriver();
-    loginPage = new LoginPage(driver);
+    basePage = new BasePage(driver);
     navBar = new NavigationBar(driver);
-    urlScannerPage = new UrlScannerPage(driver);
-    qrScannerPage = new QrScannerPage(driver);
-    messageScannerPage = new MessageScannerPage(driver);
-    historyPage = new HistoryPage(driver);
-    dashboardPage = new DashboardPage(driver);
-    profilePage = new ProfilePage(driver);
 
-    // Authenticate session once for navigation suite
-    await loginPage.open();
-    await loginPage.login(config.testEmail, config.testPassword);
+    // Seed session token and open home page
+    await basePage.open();
+    await basePage.setSession({ uid: 'e2e-analyst-nav-uid', email: 'analyst.nav@linksentry.io' });
+    await basePage.open();
     await navBar.waitForVisible(navBar.brandLogo, 15000);
   });
 
   after(async function () {
     if (driver) {
+      await basePage.clearSession();
       await driver.quit();
     }
   });
 
   beforeEach(function () {
-    excelReporter.logStep(this.currentTest.title, 'Executing Navigation Scenario');
+    excelReporter.logStep(this.currentTest.title, 'Initializing Test Scenario');
   });
 
   afterEach(async function () {
     const test = this.currentTest;
     const duration = test.duration || 0;
     if (test.state === 'failed') {
-      const screenshot = await navBar.takeScreenshot(test.title);
-      const currentUrl = await driver.getCurrentUrl().catch(() => 'unknown');
+      const failureContext = await captureFailureContext(driver, test);
       excelReporter.recordTest({
         id: test.title.split(':')[0] || 'NAV',
         module: 'Navigation',
@@ -66,8 +50,8 @@ describe('Suite 02: Navigation & View Routing Module', function () {
         status: 'FAILED',
         duration,
         error: test.err?.message,
-        screenshot,
-        url: currentUrl,
+        screenshot: failureContext?.screenshot,
+        url: failureContext?.url || 'unknown',
       });
       logger.error(`Test FAILED: ${test.title} - ${test.err?.message}`);
     } else {
@@ -83,55 +67,133 @@ describe('Suite 02: Navigation & View Routing Module', function () {
     }
   });
 
-  it('NAV-001: Primary tab switching activates corresponding views', async function () {
-    // 1. Go to Scanner
-    await navBar.goToScanner();
-    const isUrlInputVisible = await urlScannerPage.isDisplayed(urlScannerPage.urlInput, 5000);
-    expect(isUrlInputVisible).to.be.true;
-
-    // 2. Go to History
-    await navBar.goToHistory();
-    const isHistoryVisible = await historyPage.isDisplayed(historyPage.searchInput, 5000);
-    expect(isHistoryVisible).to.be.true;
-
-    // 3. Go to Dashboard
-    await navBar.goToDashboard();
-    const isDashboardVisible = await dashboardPage.isDisplayed(dashboardPage.heroHeading, 5000);
-    expect(isDashboardVisible).to.be.true;
-
-    // 4. Go to Profile
-    await navBar.goToProfile();
-    const isProfileVisible = await profilePage.isDisplayed(profilePage.heroHeading, 5000);
-    expect(isProfileVisible).to.be.true;
-
-    // 5. Return Home
+  it('NAV-001: Authenticated session reaches Home page and hero section renders', async function () {
     await navBar.goToHome();
+    const heroTitle = await basePage.getText(By.css('.hero-headline'));
+    expect(heroTitle).to.include('Proactive Phishing Protection');
   });
 
-  it('NAV-002: Scanner subtab navigation switches between URL, QR, and Message scanners', async function () {
+  it('NAV-002: Top navbar renders brand logo and system status pill', async function () {
+    const isBrandVisible = await navBar.isNavbarVisible();
+    expect(isBrandVisible).to.be.true;
+    const isStatusVisible = await basePage.isDisplayed(navBar.statusPill);
+    expect(isStatusVisible).to.be.true;
+  });
+
+  it('NAV-003: Navigation to Scanner page (/scanner) renders multi-vector scanner hub', async function () {
     await navBar.goToScanner();
-
-    // 1. Select QR Scanner subtab
-    await navBar.selectQrScannerSubTab();
-    const isDropzoneVisible = await qrScannerPage.isDisplayed(qrScannerPage.dropzone, 5000);
-    expect(isDropzoneVisible).to.be.true;
-
-    // 2. Select Message Scanner subtab
-    await navBar.selectMessageScannerSubTab();
-    const isMessageInputVisible = await messageScannerPage.isDisplayed(messageScannerPage.messageInput, 5000);
-    expect(isMessageInputVisible).to.be.true;
-
-    // 3. Return to URL Scanner subtab
-    await navBar.selectUrlScannerSubTab();
-    const isUrlInputVisible = await urlScannerPage.isDisplayed(urlScannerPage.urlInput, 5000);
-    expect(isUrlInputVisible).to.be.true;
+    const heading = await basePage.getText(By.css('.page-main-heading'));
+    expect(heading).to.include('Multi-Vector Security Scanner');
   });
 
-  it('NAV-003: Home logo click returns to Home view', async function () {
+  it('NAV-004: Scanner tab shows active indicator when selected', async function () {
+    await navBar.goToScanner();
+    const isActive = await navBar.isTabActive('scanner');
+    expect(isActive).to.be.true;
+  });
+
+  it('NAV-005: Navigation to History page (/history) renders audit trail controls', async function () {
+    await navBar.goToHistory();
+    const isHistoryVisible = await basePage.isDisplayed(By.css('.history-controls-card, [data-testid="history-search-input"]'));
+    expect(isHistoryVisible).to.be.true;
+  });
+
+  it('NAV-006: History tab shows active indicator when selected', async function () {
+    await navBar.goToHistory();
+    const isActive = await navBar.isTabActive('history');
+    expect(isActive).to.be.true;
+  });
+
+  it('NAV-007: Navigation to Analytics page (/analytics) renders telemetry dossier', async function () {
+    await navBar.goToAnalytics();
+    const title = await basePage.getText(By.css('.page-title'));
+    expect(title).to.include('Cybersecurity Threat Analytics');
+  });
+
+  it('NAV-008: Analytics tab shows active indicator when selected', async function () {
+    await navBar.goToAnalytics();
+    const isActive = await navBar.isTabActive('analytics');
+    expect(isActive).to.be.true;
+  });
+
+  it('NAV-009: Navigation to Dashboard page (/dashboard) renders telemetry overview', async function () {
     await navBar.goToDashboard();
+    const heading = await basePage.getText(By.css('.page-main-heading'));
+    // Application h1 heading is "Phishing Telemetry & Dashboard".
+    expect(heading).to.include('Phishing Telemetry');
+  });
+
+  it('NAV-010: Dashboard tab shows active indicator when selected', async function () {
+    await navBar.goToDashboard();
+    const isActive = await navBar.isTabActive('dashboard');
+    expect(isActive).to.be.true;
+  });
+
+  it('NAV-011: Navigation to Profile page (/profile) renders analyst profile settings', async function () {
+    await navBar.goToProfile();
+    const heading = await basePage.getText(By.css('.page-main-heading'));
+    expect(heading).to.include('User Profile & Security Settings');
+  });
+
+  it('NAV-012: Profile tab shows active indicator when selected', async function () {
+    await navBar.goToProfile();
+    const isActive = await navBar.isTabActive('profile');
+    expect(isActive).to.be.true;
+  });
+
+  it('NAV-013: Brand logo click navigates back to Home from any page', async function () {
+    await navBar.goToProfile();
     await navBar.click(navBar.brandLogo);
-    // Home view banner
-    const isHome = await navBar.isDisplayed(navBar.brandLogo, 5000);
-    expect(isHome).to.be.true;
+    const heroTitle = await basePage.getText(By.css('.hero-headline'));
+    expect(heroTitle).to.include('Proactive Phishing Protection');
+  });
+
+  it('NAV-014: Browser Back button returns to previous active tab', async function () {
+    await navBar.goToScanner();
+    await navBar.goToHistory();
+    await driver.navigate().back();
+    const isScannerHeading = await basePage.isDisplayed(By.css('.scanner-page'));
+    expect(isScannerHeading).to.be.true;
+  });
+
+  it('NAV-015: Browser Forward button advances back to navigated tab', async function () {
+    await driver.navigate().forward();
+    const isHistory = await basePage.isDisplayed(By.css('.history-page, [data-testid="history-search-input"]'));
+    expect(isHistory).to.be.true;
+  });
+
+  it('NAV-016: Scanner subtab URL switch toggles active subtab to QR scanner', async function () {
+    await navBar.goToScanner();
+    await navBar.selectQrScannerSubTab();
+    const isQrVisible = await basePage.isDisplayed(By.css('[data-testid="qr-dropzone"], .qr-dropzone, .camera-viewfinder, .qr-camera-placeholder'));
+    expect(isQrVisible).to.be.true;
+  });
+
+  it('NAV-017: Scanner subtab switch toggles to Message scanner', async function () {
+    await navBar.goToScanner();
+    await navBar.selectMessageScannerSubTab();
+    const isMsgVisible = await basePage.isDisplayed(By.css('[data-testid="message-input"], #message-input'));
+    expect(isMsgVisible).to.be.true;
+  });
+
+  it('NAV-018: Direct deep link /scanner?type=qr activates QR scanner subtab', async function () {
+    await basePage.open('/scanner?type=qr');
+    await basePage.waitForVisible(By.css('.scanner-page'), 10000);
+    const isQrVisible = await basePage.isDisplayed(By.css('[data-testid="qr-dropzone"], .qr-dropzone, .camera-viewfinder, .qr-camera-placeholder'));
+    expect(isQrVisible).to.be.true;
+  });
+
+  it('NAV-019: Direct deep link /scanner?type=message activates Message scanner subtab', async function () {
+    await basePage.open('/scanner?type=message');
+    await basePage.waitForVisible(By.css('.scanner-page'), 10000);
+    const isMsgVisible = await basePage.isDisplayed(By.css('[data-testid="message-input"], #message-input'));
+    expect(isMsgVisible).to.be.true;
+  });
+
+  it('NAV-020: Direct deep link /scanner?type=url activates URL scanner subtab', async function () {
+    await basePage.open('/scanner?type=url');
+    await basePage.waitForVisible(By.css('.scanner-page'), 10000);
+    const isUrlVisible = await basePage.isDisplayed(By.css('[data-testid="url-input"], #url-input'));
+    expect(isUrlVisible).to.be.true;
   });
 });

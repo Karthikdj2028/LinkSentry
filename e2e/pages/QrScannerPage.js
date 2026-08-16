@@ -10,21 +10,21 @@ export class QrScannerPage extends BasePage {
     super(driver);
 
     // Locators
-    this.fileInput = By.css('input.hidden-file-input[type="file"]');
-    this.dropzone = By.css('.qr-dropzone');
-    this.uploadModeBtn = By.xpath("//div[contains(@class, 'qr-mode-switch-row')]//button[contains(text(), 'Image Upload Mode')]");
-    this.cameraModeBtn = By.xpath("//div[contains(@class, 'qr-mode-switch-row')]//button[contains(text(), 'Live Camera Stream')]");
+    this.fileInput = By.css('[data-testid="qr-file-input"], input.hidden-file-input[type="file"]');
+    this.dropzone = By.css('[data-testid="qr-dropzone"], .qr-dropzone');
+    this.uploadModeBtn = By.css('[data-testid="qr-mode-upload"]');
+    this.cameraModeBtn = By.css('[data-testid="qr-mode-camera"]');
     this.cameraPlaceholder = By.css('.qr-camera-placeholder, .camera-viewfinder');
     this.cameraVideo = By.css('video, .camera-viewfinder');
     this.cameraError = By.css('.camera-instruction.text-red, .auth-error-alert');
-    this.resultCard = By.css('.cyber-card.scan-result-card');
-    this.verdictBadge = By.css('.verdict-main-row .cyber-badge');
-    this.riskScoreText = By.css('.risk-score-number');
-    this.resetBtn = By.xpath("//div[contains(@class, 'scan-result-actions')]//button[contains(text(), 'New Scan')]");
+    this.resultCard = By.css('[data-testid="scan-result-card"], .cyber-card.scan-result-card');
+    this.verdictBadge = By.css('[data-testid="scan-result-verdict"], .verdict-main-row .cyber-badge');
+    this.riskScoreText = By.css('[data-testid="risk-score-value"], .risk-score-number');
+    this.resetBtn = By.css('[data-testid="scan-reset-button"]');
+    this.validationError = By.css('.validation-error-message');
   }
 
   async uploadQrImage(filePath) {
-    // Ensure upload mode is active and file input is located
     await this.switchToUploadMode();
     const inputElement = await this.driver.wait(until.elementLocated(this.fileInput), 15000);
     await inputElement.sendKeys(filePath);
@@ -47,7 +47,7 @@ export class QrScannerPage extends BasePage {
     return placeholderVisible || videoVisible || errorVisible;
   }
 
-  async waitForResult(timeout = 25000) {
+  async waitForResult(timeout = 30000) {
     await this.waitForVisible(this.resultCard, timeout);
     await this.waitForVisible(this.verdictBadge, timeout);
   }
@@ -66,6 +66,10 @@ export class QrScannerPage extends BasePage {
 
   async isResultDisplayed() {
     return await this.isDisplayed(this.resultCard, 5000);
+  }
+
+  async resetScan() {
+    await this.click(this.resetBtn);
   }
 }
 

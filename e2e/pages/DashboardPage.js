@@ -11,11 +11,12 @@ export class DashboardPage extends BasePage {
 
     // Locators
     this.heroHeading = By.css('.page-main-heading');
-    this.refreshBtn = By.css('button.logout-btn-top');
+    this.dashboardPage = By.css('.dashboard-page');
     this.statCards = By.css('.dashboard-stats-grid .stat-card');
     this.vectorCard = By.css('.dashboard-vector-card');
     this.vectorItems = By.css('.vector-bars-list .vector-bar-item');
-    this.launchScannerCta = By.xpath("//button[contains(text(), 'Launch URL Scanner')]");
+    this.launchScannerCta = By.css('[data-testid="dashboard-launch-scanner-btn"], .dashboard-launch-scanner-btn');
+    this.emptyState = By.css('[data-testid="dashboard-empty-state"]');
   }
 
   async waitForDashboardLoaded() {
@@ -35,8 +36,12 @@ export class DashboardPage extends BasePage {
     return await this.isDisplayed(this.vectorCard, 5000);
   }
 
-  async refreshTelemetry() {
-    await this.click(this.refreshBtn);
+  async isDashboardLoaded() {
+    return await this.isDisplayed(this.dashboardPage, 5000);
+  }
+
+  async isEmptyStateDisplayed() {
+    return await this.isDisplayed(this.emptyState, 5000);
   }
 }
 

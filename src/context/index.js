@@ -1,3 +1,9 @@
 export { AuthProvider } from './AuthContext';
 export { AuthContext } from './authContextInstance';
 export { useAuth } from './useAuth';
+export { ThemeProvider } from './ThemeContext';
+export { ThemeContext } from './themeContextInstance';
+export { useTheme } from './useTheme';
+export { ScanProvider } from './ScanContext';
+export { ScanContext } from './scanContextInstance';
+export { useScans } from './useScans';

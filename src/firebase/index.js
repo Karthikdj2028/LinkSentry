@@ -3,7 +3,10 @@ export {
   getAuthErrorMessage,
   registerWithEmail,
   loginWithEmail,
+  signInWithGoogle,
   logoutUser,
+  sendPasswordReset,
+  deleteAccount,
   subscribeToAuthState
 } from './auth';
 export {
@@ -12,6 +15,11 @@ export {
   subscribeToUserScans,
   getScanById,
   deleteScan,
-  mapBackendScanToFirestoreDoc
+  mapBackendScanToFirestoreDoc,
+  getUserSettings,
+  saveUserSettings,
+  subscribeToUserSettings,
+  submitUserFeedback
 } from './firestore';
 export { default } from './config';
+

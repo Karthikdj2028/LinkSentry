@@ -2,7 +2,11 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  deleteUser,
+  GoogleAuthProvider,
+  signInWithPopup
 } from 'firebase/auth';
 import { auth } from './config';
 
@@ -31,6 +35,8 @@ export function getAuthErrorMessage(error) {
       return 'Access temporarily locked due to multiple failed attempts. Please try again in a few minutes.';
     case 'auth/network-request-failed':
       return 'Network communication failed. Please check your internet connection and try again.';
+    case 'auth/requires-recent-login':
+      return 'For security, please re-authenticate before performing account deletion.';
     case 'auth/operation-not-allowed':
       return 'Email/Password sign-in is not enabled for this project.';
     case 'auth/popup-closed-by-user':
@@ -52,6 +58,29 @@ export async function registerWithEmail(email, password) {
  */
 export async function loginWithEmail(email, password) {
   return await signInWithEmailAndPassword(auth, email.trim(), password);
+}
+
+/**
+ * Sign in with Google Auth Provider
+ */
+export async function signInWithGoogle() {
+  const provider = new GoogleAuthProvider();
+  return await signInWithPopup(auth, provider);
+}
+
+/**
+ * Send password reset email
+ */
+export async function sendPasswordReset(email) {
+  return await sendPasswordResetEmail(auth, email.trim());
+}
+
+/**
+ * Delete current user account
+ */
+export async function deleteAccount() {
+  if (!auth.currentUser) throw new Error('No active session found.');
+  return await deleteUser(auth.currentUser);
 }
 
 /**

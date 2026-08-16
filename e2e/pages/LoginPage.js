@@ -10,19 +10,20 @@ export class LoginPage extends BasePage {
     super(driver);
 
     // Locators
-    this.emailInput = By.id('login-email');
-    this.passwordInput = By.id('login-password');
-    this.submitBtn = By.css('button.auth-submit-btn');
-    this.switchModeBtn = By.css('button.auth-switch-btn');
-    this.errorAlert = By.css('.auth-error-alert .error-text');
-    this.errorBanner = By.css('.auth-error-alert');
+    this.emailInput = By.css('[data-testid="login-email-input"], #login-email');
+    this.passwordInput = By.css('[data-testid="login-password-input"], #login-password');
+    this.submitBtn = By.css('[data-testid="login-submit-button"], button.auth-submit-btn');
+    this.switchModeBtn = By.css('[data-testid="switch-to-register-btn"], button.auth-switch-btn');
+    this.loginTab = By.css('[data-testid="auth-tab-login"]');
+    this.registerTab = By.css('[data-testid="auth-tab-register"]');
+    this.errorAlert = By.css('[data-testid="auth-error"] .error-text, .auth-error-alert .error-text');
+    this.errorBanner = By.css('[data-testid="auth-error"], .auth-error-alert');
     this.loadingSplash = By.css('.auth-loading-splash');
     this.authCardTitle = By.css('.auth-card-title');
-    this.authForm = By.css('.auth-form');
+    this.authForm = By.css('[data-testid="login-form"], .auth-form');
   }
 
   async waitForAuthLoaded() {
-    // Wait for the Firebase splash loader to dismiss and login form to mount
     await this.driver.wait(until.elementLocated(this.emailInput), 20000);
     await this.waitForVisible(this.emailInput, 15000);
     await this.waitForClickable(this.submitBtn, 15000);
@@ -58,6 +59,14 @@ export class LoginPage extends BasePage {
 
   async switchToRegister() {
     await this.click(this.switchModeBtn);
+  }
+
+  async clickLoginTab() {
+    await this.click(this.loginTab);
+  }
+
+  async clickRegisterTab() {
+    await this.click(this.registerTab);
   }
 
   async isLoginPageDisplayed() {

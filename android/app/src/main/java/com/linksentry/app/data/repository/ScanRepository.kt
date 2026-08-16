@@ -1,84 +1,189 @@
 package com.linksentry.app.data.repository
 
+import android.util.Log
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.linksentry.app.data.model.ScanRecord
-import kotlinx.coroutines.channels.awaitClose
+import com.linksentry.app.data.preferences.LocalScanManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 class ScanRepository(private val db: FirebaseFirestore = FirebaseFirestore.getInstance()) {
 
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val _scansState = MutableStateFlow<List<ScanRecord>>(emptyList())
+    val scansState: StateFlow<List<ScanRecord>> = _scansState.asStateFlow()
+
+    @Volatile
+    private var activeListenerRegistration: ListenerRegistration? = null
+    @Volatile
+    private var activeUid: String? = null
+
+    private var remoteScans = emptyList<ScanRecord>()
+    private var localScans = LocalScanManager.localScansFlow.value
+
+    init {
+        // Continuously observe local scans
+        scope.launch {
+            LocalScanManager.localScansFlow.collect { updatedLocal ->
+                localScans = updatedLocal
+                recalculateAndEmit()
+            }
+        }
+    }
+
     /**
-     * Real-time listener for the authenticated user's scan history collection.
-     * Path: users/{userId}/scans
+     * Initializes and maintains a single stable Firestore listener for the user.
+     * Prevents listener destruction / recreation on screen recomposition or tab switches.
      */
-    fun getScansFlow(userId: String): Flow<List<ScanRecord>> = callbackFlow {
-        if (userId.isBlank()) {
-            trySend(emptyList())
-            close()
-            return@callbackFlow
+    @Synchronized
+    fun startSync(userId: String) {
+        val currentAuthUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        val targetUid = userId.ifBlank { currentAuthUid }
+
+        if (targetUid.isNotBlank() && targetUid == activeUid && activeListenerRegistration != null) {
+            return
         }
 
-        val registration = db.collection("users")
-            .document(userId)
+        if (targetUid.isBlank()) {
+            if (currentAuthUid.isBlank()) {
+                // Only clear if user is genuinely logged out
+                if (activeListenerRegistration != null) {
+                    activeListenerRegistration?.remove()
+                    activeListenerRegistration = null
+                }
+                activeUid = ""
+                remoteScans = emptyList()
+                recalculateAndEmit()
+            } else {
+                startSync(currentAuthUid)
+            }
+            return
+        }
+
+        // Clean up previous registration if switching users
+        if (activeListenerRegistration != null) {
+            activeListenerRegistration?.remove()
+            activeListenerRegistration = null
+        }
+
+        activeUid = targetUid
+
+        activeListenerRegistration = db.collection("users")
+            .document(targetUid)
             .collection("scans")
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    Log.w("ScanRepository", "Firestore stream offline/error, retaining last state: ${error.message}")
+                    recalculateAndEmit()
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
-                    val scans = snapshot.documents.mapNotNull { doc ->
-                        doc.toObject(ScanRecord::class.java)?.apply {
-                            id = doc.id
+                    val docs = snapshot.documents.mapNotNull { doc ->
+                        try {
+                            doc.toObject(ScanRecord::class.java)?.apply {
+                                id = doc.id
+                            }
+                        } catch (e: Exception) {
+                            Log.e("ScanRepository", "Deserialization error for doc ${doc.id}: ${e.localizedMessage}")
+                            null
                         }
                     }
-                    trySend(scans)
+                    remoteScans = docs
+                    recalculateAndEmit()
                 }
             }
+    }
 
-        awaitClose { registration.remove() }
+    private fun recalculateAndEmit() {
+        val map = LinkedHashMap<String, ScanRecord>()
+        remoteScans.forEach { if (it.id.isNotBlank()) map[it.id] = it }
+        localScans.forEach { scan ->
+            if (scan.id.isNotBlank() && !map.containsKey(scan.id)) {
+                map[scan.id] = scan
+            }
+        }
+        val merged = map.values.sortedByDescending { it.createdAt?.seconds ?: 0L }
+        _scansState.value = merged
     }
 
     /**
-     * Persists a scan record to the user's Firestore scan history.
+     * Backward-compatible Flow entrypoint returning the stable, application-wide scansState.
      */
-    suspend fun saveScan(userId: String, scanRecord: ScanRecord): Result<String> {
+    fun getScansFlow(userId: String): Flow<List<ScanRecord>> {
+        startSync(userId)
+        return scansState
+    }
+
+    /**
+     * Persists a scan record locally and optionally to Firestore if Cloud Sync is active.
+     */
+    suspend fun saveScan(userId: String, scanRecord: ScanRecord, cloudSyncEnabled: Boolean = true): Result<String> {
         return try {
-            if (userId.isBlank()) throw Exception("User ID is required to save scan.")
-            scanRecord.userId = userId
+            val targetUid = userId.ifBlank {
+                FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            }
+
+            scanRecord.userId = targetUid
             scanRecord.source = "android"
 
-            val docRef = db.collection("users")
-                .document(userId)
-                .collection("scans")
-                .add(scanRecord)
-                .await()
+            // 1. Save to local storage engine
+            val localId = LocalScanManager.saveLocalScan(scanRecord)
 
-            Result.success(docRef.id)
+            // 2. Save to Cloud Firestore if authenticated and sync enabled
+            if (cloudSyncEnabled && targetUid.isNotBlank()) {
+                val docRef = db.collection("users")
+                    .document(targetUid)
+                    .collection("scans")
+                    .add(scanRecord)
+                    .await()
+
+                scanRecord.id = docRef.id
+                LocalScanManager.saveLocalScan(scanRecord)
+                Result.success(docRef.id)
+            } else {
+                Result.success(localId)
+            }
         } catch (e: Exception) {
+            Log.e("ScanRepository", "Save scan exception: ${e.localizedMessage}")
             Result.failure(e)
         }
     }
 
     /**
-     * Deletes a scan record from the user's Firestore scan history.
+     * Deletes a scan record from local storage and Firestore.
      */
     suspend fun deleteScan(userId: String, scanId: String): Result<Unit> {
         return try {
-            if (userId.isBlank() || scanId.isBlank()) throw Exception("User ID and Scan ID are required.")
-            db.collection("users")
-                .document(userId)
-                .collection("scans")
-                .document(scanId)
-                .delete()
-                .await()
+            if (scanId.isBlank()) throw Exception("Scan ID required.")
+            LocalScanManager.deleteLocalScan(scanId)
+
+            val targetUid = userId.ifBlank {
+                FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            }
+
+            if (targetUid.isNotBlank() && !scanId.startsWith("local_")) {
+                db.collection("users")
+                    .document(targetUid)
+                    .collection("scans")
+                    .document(scanId)
+                    .delete()
+                    .await()
+            }
 
             Result.success(Unit)
         } catch (e: Exception) {
+            Log.e("ScanRepository", "Delete scan exception: ${e.localizedMessage}")
             Result.failure(e)
         }
     }

@@ -1,11 +1,14 @@
 package com.linksentry.app.ui.screens.dashboard
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -17,8 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,7 +30,10 @@ import com.linksentry.app.data.repository.ScanRepository
 import com.linksentry.app.ui.components.CyberBadge
 import com.linksentry.app.ui.components.CyberCard
 import com.linksentry.app.ui.components.CyberTopBar
+import com.linksentry.app.ui.components.ScanDetailBottomSheet
 import com.linksentry.app.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun DashboardScreen(
@@ -35,7 +41,16 @@ fun DashboardScreen(
     scanRepository: ScanRepository,
     onNavigateToScanner: (String) -> Unit
 ) {
-    val scans by scanRepository.getScansFlow(userId).collectAsState(initial = emptyList())
+    val colors = LocalAppColors.current
+    val cloudSyncEnabled by com.linksentry.app.data.preferences.AppPreferences.cloudSyncFlow.collectAsState()
+    val scans by scanRepository.getScansFlow(userId).collectAsState(initial = scanRepository.scansState.value)
+    var selectedScanForDetail by remember { mutableStateOf<ScanRecord?>(null) }
+    var isOnline by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        val probe = com.linksentry.app.data.api.ApiClient.probeHealth()
+        isOnline = probe.isSuccess
+    }
 
     val totalScans = scans.size
     val safeCount = scans.count { it.verdict.lowercase() == "safe" }
@@ -44,252 +59,514 @@ fun DashboardScreen(
     val safetyRate = if (totalScans > 0) (safeCount * 100) / totalScans else 100
     val avgRisk = if (totalScans > 0) scans.sumOf { it.riskScore } / totalScans else 0
 
-    val urlScans = scans.count { it.type == "url" }
-    val qrScans = scans.count { it.type == "qr" }
-    val messageScans = scans.count { it.type == "message" }
-
     Scaffold(
         topBar = {
             CyberTopBar(
-                title = "LinkSentry SOC",
-                subtitle = "LIVE TELEMETRY CLUSTER"
+                title = "LinkSentry",
+                subtitle = "Threat protection",
+                statusText = if (isOnline) "Protected" else "Offline",
+                isOnline = isOnline
             )
         },
-        containerColor = CyberDarkBg
+        containerColor = colors.background
     ) { padding ->
-        LazyColumn(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .imePadding()
-                .padding(horizontal = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(vertical = 12.dp)
         ) {
-            // Hero Telemetry Card
-            item {
-                CyberCard(
-                    borderColor = CyberCyan.copy(alpha = 0.4f),
-                    backgroundColor = CyberSurfaceLight
+            val isNarrow = maxWidth < 360.dp
+            val horizontalPadding = if (isNarrow) 12.dp else 16.dp
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .align(Alignment.TopCenter)
+                    .widthIn(max = 640.dp)
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = horizontalPadding),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "FLEET DEFENSE HEALTH",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = CyberCyan,
-                            maxLines = 1,
-                            softWrap = false,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
+                    // Cloud Sync OFF Banner Notice
+                    if (!cloudSyncEnabled) {
+                        item {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = colors.brandAccent.copy(alpha = 0.08f),
+                                border = BorderStroke(1.dp, colors.brandAccent.copy(alpha = 0.2f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.CloudOff,
+                                        contentDescription = null,
+                                        tint = colors.brandAccent,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = "Cloud sync is off — scans remain stored locally on this device.",
+                                        fontSize = 12.sp,
+                                        color = colors.textPrimary,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                    // 1. Primary Protection Status Card
+                    item {
+                        CyberCard {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Protection status",
+                                    fontSize = 13.sp,
+                                    color = colors.textSecondary,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = colors.brandAccent.copy(alpha = 0.12f),
+                                    border = BorderStroke(1.dp, colors.brandAccent.copy(alpha = 0.25f))
+                                ) {
+                                    Text(
+                                        text = "$totalScans total",
+                                        fontSize = 11.sp,
+                                        color = colors.brandAccent,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
+                            }
 
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(CyberCyan.copy(alpha = 0.15f))
-                                .border(1.dp, CyberCyan.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 8.dp, vertical = 3.dp)
-                        ) {
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Text(
+                                    text = "$safetyRate%",
+                                    fontSize = 36.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (safetyRate >= 80) colors.safe else colors.suspicious,
+                                    lineHeight = 36.sp
+                                )
+                                Text(
+                                    text = if (safetyRate >= 80) "Protected" else "Threats flagged",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = colors.textPrimary,
+                                    modifier = Modifier.padding(bottom = 3.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
                             Text(
-                                text = "$totalScans Total Scans",
-                                color = CyberCyan,
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false
+                                text = "Real-time AI threat analysis is active across links, QR codes, and messages.",
+                                color = colors.textSecondary,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "$safetyRate% Clean",
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Black,
-                        color = if (safetyRate >= 80) CyberEmerald else CyberAmber
-                    )
-
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    Text(
-                        text = "Real-time AI threat engine active across all vectors.",
-                        color = TextSecondary,
-                        fontSize = 11.sp
-                    )
-                }
-            }
-
-            // 2x2 Metric Grid
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    MetricMiniCard(
-                        title = "Phishing Neutralized",
-                        value = phishingCount.toString(),
-                        color = CyberRed,
-                        icon = Icons.Filled.Dangerous,
-                        modifier = Modifier.weight(1f)
-                    )
-                    MetricMiniCard(
-                        title = "Suspicious Flagged",
-                        value = suspiciousCount.toString(),
-                        color = CyberAmber,
-                        icon = Icons.Filled.Warning,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    MetricMiniCard(
-                        title = "Safe Assets",
-                        value = safeCount.toString(),
-                        color = CyberEmerald,
-                        icon = Icons.Filled.CheckCircle,
-                        modifier = Modifier.weight(1f)
-                    )
-                    MetricMiniCard(
-                        title = "Avg Threat Score",
-                        value = "$avgRisk/100",
-                        color = if (avgRisk >= 50) CyberRed else CyberCyan,
-                        icon = Icons.Filled.Speed,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
-            // Vector Launchers
-            item {
-                Text(
-                    text = "DEFENSE RADARS",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    VectorLaunchCard(
-                        title = "URL Link",
-                        count = "$urlScans Scans",
-                        icon = Icons.Filled.Language,
-                        onClick = { onNavigateToScanner("url") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    VectorLaunchCard(
-                        title = "QR Code",
-                        count = "$qrScans Scans",
-                        icon = Icons.Filled.QrCodeScanner,
-                        onClick = { onNavigateToScanner("qr") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    VectorLaunchCard(
-                        title = "SMS Text",
-                        count = "$messageScans Scans",
-                        icon = Icons.AutoMirrored.Filled.Chat,
-                        onClick = { onNavigateToScanner("message") },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
-            // Recent Threats / Activity
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "RECENT INVESTIGATION LOGS",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary
-                    )
-                    Text(
-                        text = "Cloud Synchronized",
-                        color = CyberEmerald,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-            }
-
-            if (scans.isEmpty()) {
-                item {
-                    CyberCard {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 20.dp),
-                            contentAlignment = Alignment.Center
+                    // 2. 2x2 Metric Grid (Adaptive & Content-First)
+                    item {
+                        Text(
+                            text = "Threat activity",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = colors.textPrimary
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    imageVector = Icons.Filled.Radar,
-                                    contentDescription = "Radar",
-                                    tint = CyberCyan,
-                                    modifier = Modifier.size(32.dp)
+                            ModernMetricCard(
+                                label = "Phishing",
+                                value = phishingCount.toString(),
+                                color = colors.phishing,
+                                icon = Icons.Filled.Dangerous,
+                                modifier = Modifier.weight(1f)
+                            )
+                            ModernMetricCard(
+                                label = "Suspicious",
+                                value = suspiciousCount.toString(),
+                                color = colors.suspicious,
+                                icon = Icons.Filled.Warning,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            ModernMetricCard(
+                                label = "Safe",
+                                value = safeCount.toString(),
+                                color = colors.safe,
+                                icon = Icons.Filled.CheckCircle,
+                                modifier = Modifier.weight(1f)
+                            )
+                            ModernMetricCard(
+                                label = "Avg. Risk",
+                                value = "$avgRisk / 100",
+                                color = if (avgRisk >= 50) colors.phishing else colors.brandAccent,
+                                icon = Icons.Filled.Speed,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    // 3. Real Security Analytics (Firestore Derived Timeline & Threat Distribution)
+                    item {
+                        CyberCard {
+                            Text(
+                                text = "Security analytics",
+                                fontSize = 13.sp,
+                                color = colors.textSecondary,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Threat Distribution Bar
+                            if (totalScans > 0) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(colors.surfaceLight)
+                                ) {
+                                    if (safeCount > 0) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxHeight()
+                                                .weight(safeCount.toFloat())
+                                                .background(colors.safe)
+                                        )
+                                    }
+                                    if (suspiciousCount > 0) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxHeight()
+                                                .weight(suspiciousCount.toFloat())
+                                                .background(colors.suspicious)
+                                        )
+                                    }
+                                    if (phishingCount > 0) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxHeight()
+                                                .weight(phishingCount.toFloat())
+                                                .background(colors.phishing)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    DistributionLabel(label = "Safe", count = safeCount, color = colors.safe)
+                                    DistributionLabel(label = "Suspicious", count = suspiciousCount, color = colors.suspicious)
+                                    DistributionLabel(label = "Phishing", count = phishingCount, color = colors.phishing)
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(6.dp)
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(colors.surfaceLight)
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // 7-Day Activity Chart
+                            Text(
+                                text = "Activity timeline (Last 7 days)",
+                                fontSize = 12.sp,
+                                color = colors.textSecondary,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            WeeklyActivityChart(scans = scans)
+                        }
+                    }
+
+                    // 4. Quick Scan Actions (Vertical Icon-over-label, Never Clipped)
+                    item {
+                        Text(
+                            text = "Quick scan",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = colors.textPrimary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            AdaptiveQuickScanButton(
+                                label = "Link",
+                                icon = Icons.Filled.Language,
+                                onClick = { onNavigateToScanner("url") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            AdaptiveQuickScanButton(
+                                label = "QR Code",
+                                icon = Icons.Filled.QrCodeScanner,
+                                onClick = { onNavigateToScanner("qr") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            AdaptiveQuickScanButton(
+                                label = "Message",
+                                icon = Icons.AutoMirrored.Filled.Chat,
+                                onClick = { onNavigateToScanner("message") },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    // 5. Recent Activity Section
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Recent activity",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colors.textPrimary
+                            )
+                            if (scans.isNotEmpty()) {
                                 Text(
-                                    text = "No Scans Recorded Yet",
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimary,
-                                    fontSize = 13.sp
-                                )
-                                Text(
-                                    text = "Launch a scanner below to initiate telemetry.",
-                                    color = TextMuted,
-                                    fontSize = 11.sp
+                                    text = "Tap to inspect",
+                                    fontSize = 12.sp,
+                                    color = colors.textMuted
                                 )
                             }
                         }
                     }
+
+                    if (scans.isEmpty()) {
+                        item {
+                            CyberCard {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 24.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Shield,
+                                            contentDescription = null,
+                                            tint = colors.textMuted,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = "No scans yet",
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = colors.textPrimary,
+                                            fontSize = 14.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "Scan a link, QR code, or text message above.",
+                                            color = colors.textSecondary,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        items(scans.take(6)) { scan ->
+                            CleanRecentScanItem(
+                                scan = scan,
+                                onClick = { selectedScanForDetail = scan }
+                            )
+                        }
+                    }
                 }
-            } else {
-                items(scans.take(5)) { scan ->
-                    RecentScanRow(scan = scan)
+            }
+        }
+    }
+
+    selectedScanForDetail?.let { detailScan ->
+        ScanDetailBottomSheet(
+            scan = detailScan,
+            onDismiss = { selectedScanForDetail = null }
+        )
+    }
+}
+
+@Composable
+private fun DistributionLabel(
+    label: String,
+    count: Int,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    val colors = LocalAppColors.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = modifier
+    ) {
+        Box(
+            modifier = Modifier
+                .size(7.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Text(
+            text = "$label: $count",
+            fontSize = 11.sp,
+            color = colors.textSecondary,
+            maxLines = 1,
+            softWrap = false
+        )
+    }
+}
+
+@Composable
+private fun WeeklyActivityChart(scans: List<ScanRecord>) {
+    val colors = LocalAppColors.current
+    val days = remember(scans) {
+        val cal = Calendar.getInstance()
+        val dayFormat = SimpleDateFormat("EEE", Locale.US)
+        val dayKeyFormat = SimpleDateFormat("yyyyMMdd", Locale.US)
+
+        val past7Days = (6 downTo 0).map { offset ->
+            val c = Calendar.getInstance()
+            c.add(Calendar.DAY_OF_YEAR, -offset)
+            val dayName = dayFormat.format(c.time)
+            val key = dayKeyFormat.format(c.time)
+            Triple(dayName, key, 0)
+        }.toMutableList()
+
+        scans.forEach { scan ->
+            val scanDate = scan.createdAt?.toDate() ?: Date()
+            val scanKey = dayKeyFormat.format(scanDate)
+            val idx = past7Days.indexOfFirst { it.second == scanKey }
+            if (idx != -1) {
+                val current = past7Days[idx]
+                past7Days[idx] = Triple(current.first, current.second, current.third + 1)
+            }
+        }
+        past7Days
+    }
+
+    val maxCount = maxOf(days.maxOfOrNull { it.third } ?: 1, 1)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(84.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        days.forEach { (dayName, _, count) ->
+            val barFraction = if (maxCount > 0) (count.toFloat() / maxCount).coerceIn(0.12f, 1f) else 0.12f
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Bottom,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = if (count > 0) count.toString() else "",
+                    fontSize = 10.sp,
+                    color = colors.brandAccent,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.height(16.dp),
+                    maxLines = 1,
+                    softWrap = false
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Box(
+                    modifier = Modifier
+                        .width(18.dp)
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                        .background(colors.surfaceLight),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(fraction = barFraction)
+                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                            .background(if (count > 0) colors.brandAccent else colors.borderSubtle)
+                    )
                 }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = dayName,
+                    fontSize = 10.sp,
+                    color = colors.textSecondary,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
 }
 
 @Composable
-fun MetricMiniCard(
-    title: String,
+private fun ModernMetricCard(
+    label: String,
     value: String,
     color: Color,
     icon: ImageVector,
     modifier: Modifier = Modifier
 ) {
-    CyberCard(
-        modifier = modifier,
-        borderColor = color.copy(alpha = 0.3f)
-    ) {
+    val colors = LocalAppColors.current
+    CyberCard(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = title,
-                fontSize = 10.sp,
-                color = TextSecondary,
+                text = label,
+                fontSize = 12.sp,
+                color = colors.textSecondary,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 softWrap = false,
                 overflow = TextOverflow.Ellipsis,
@@ -297,109 +574,144 @@ fun MetricMiniCard(
             )
             Icon(
                 imageVector = icon,
-                contentDescription = title,
+                contentDescription = label,
                 tint = color,
                 modifier = Modifier.size(15.dp)
             )
         }
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = value,
-            fontSize = 18.sp,
+            fontSize = 19.sp,
             fontWeight = FontWeight.Bold,
             color = color,
-            fontFamily = FontFamily.Monospace
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
 
 @Composable
-fun VectorLaunchCard(
-    title: String,
-    count: String,
+private fun AdaptiveQuickScanButton(
+    label: String,
     icon: ImageVector,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    val colors = LocalAppColors.current
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = colors.surface,
+        border = BorderStroke(1.dp, colors.borderSubtle),
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(CyberSurface)
-            .border(1.dp, CyberBorderSubtle, RoundedCornerShape(10.dp))
-            .clickable { onClick() }
-            .padding(10.dp)
+            .defaultMinSize(minHeight = 64.dp)
+            .heightIn(min = 64.dp)
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(vertical = 10.dp, horizontal = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
             Icon(
                 imageVector = icon,
-                contentDescription = title,
-                tint = CyberCyan,
-                modifier = Modifier.size(22.dp)
+                contentDescription = label,
+                tint = colors.brandAccent,
+                modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = title,
-                fontSize = 11.sp,
+                text = label,
+                fontSize = 11.5.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = TextPrimary,
+                color = colors.textPrimary,
                 maxLines = 1,
-                softWrap = false
-            )
-            Text(
-                text = count,
-                fontSize = 9.sp,
-                color = TextMuted,
-                fontFamily = FontFamily.Monospace
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
             )
         }
     }
 }
 
 @Composable
-fun RecentScanRow(scan: ScanRecord) {
+private fun CleanRecentScanItem(
+    scan: ScanRecord,
+    onClick: () -> Unit
+) {
+    val colors = LocalAppColors.current
     CyberCard(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(colors.surfaceLight),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = when (scan.type.lowercase()) {
+                        "qr" -> Icons.Filled.QrCodeScanner
+                        "message" -> Icons.AutoMirrored.Filled.Chat
+                        else -> Icons.Filled.Language
+                    },
+                    contentDescription = scan.type,
+                    tint = colors.brandAccent,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
             Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (scan.domain.isNotBlank()) scan.domain else scan.input.ifEmpty { scan.url },
+                    color = colors.textPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = scan.type.uppercase(),
-                        color = CyberCyan,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
+                        text = when (scan.type.lowercase()) {
+                            "url" -> "Link"
+                            "qr" -> "QR"
+                            "message" -> "SMS"
+                            else -> scan.type.replaceFirstChar { it.uppercase() }
+                        },
+                        color = colors.textSecondary,
+                        fontSize = 11.sp
                     )
                     Text(
                         text = "•",
-                        color = TextMuted,
-                        fontSize = 9.sp
+                        color = colors.textMuted,
+                        fontSize = 10.sp
                     )
                     Text(
                         text = scan.formattedDate,
-                        color = TextMuted,
-                        fontSize = 9.sp,
-                        fontFamily = FontFamily.Monospace
+                        color = colors.textMuted,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = if (scan.domain.isNotBlank()) scan.domain else scan.input,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
-            Spacer(modifier = Modifier.width(6.dp))
+
+            Spacer(modifier = Modifier.width(8.dp))
+
             CyberBadge(verdict = scan.verdict)
         }
     }

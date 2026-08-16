@@ -1,16 +1,36 @@
 import { useState } from 'react';
 import LoginPage from './LoginPage';
 import RegisterPage from './RegisterPage';
+import { useTheme } from '../../context';
 
-/**
- * AuthPage Component
- * Main authentication portal container allowing seamless switching between Sign In and Registration
- */
 export default function AuthPage({ initialMode = 'login' }) {
-  const [authMode, setAuthMode] = useState(initialMode); // 'login' | 'register'
+  const [authMode, setAuthMode] = useState(initialMode);
+  const { theme, resolvedTheme, setTheme } = useTheme();
+
+  const toggleTheme = () => {
+    if (theme === 'system') {
+      setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
+    } else if (theme === 'dark') {
+      setTheme('light');
+    } else {
+      setTheme('dark');
+    }
+  };
 
   return (
     <div className="auth-page-wrapper animate-fade-in">
+      <div style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', zIndex: 10 }}>
+        <button
+          type="button"
+          className="theme-toggle-btn"
+          onClick={toggleTheme}
+          title={`Theme: ${resolvedTheme}. Click to toggle.`}
+          aria-label="Toggle theme mode"
+          data-testid="auth-theme-toggle"
+        >
+          {resolvedTheme === 'dark' ? '🌙' : '☀️'}
+        </button>
+      </div>
       <div className="container auth-container">
         {/* Brand Banner */}
         <div className="auth-brand-header">
@@ -48,6 +68,7 @@ export default function AuthPage({ initialMode = 'login' }) {
               type="button"
               className={`auth-mode-tab ${authMode === 'login' ? 'active' : ''}`}
               onClick={() => setAuthMode('login')}
+              data-testid="auth-tab-login"
             >
               <span>🔑 Sign In</span>
               {authMode === 'login' && <div className="tab-active-glow" />}
@@ -56,6 +77,7 @@ export default function AuthPage({ initialMode = 'login' }) {
               type="button"
               className={`auth-mode-tab ${authMode === 'register' ? 'active' : ''}`}
               onClick={() => setAuthMode('register')}
+              data-testid="auth-tab-register"
             >
               <span>🛡️ Register Analyst</span>
               {authMode === 'register' && <div className="tab-active-glow" />}

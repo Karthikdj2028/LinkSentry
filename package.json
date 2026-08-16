@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:rules": "firebase emulators:exec --only firestore \"node --test tests-firestore/firestore.rules.test.js\""
+    "test:rules": "firebase emulators:exec --only firestore \"node --test tests-firestore/firestore.rules.test.js\"",
+    "test:e2e": "npm --prefix e2e run test:headless"
   },
   "dependencies": {
     "firebase": "^12.17.1",

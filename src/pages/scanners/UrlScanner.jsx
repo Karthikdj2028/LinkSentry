@@ -1,32 +1,14 @@
 import { useState } from 'react';
 import ScanResultCard from '../../components/ScanResultCard';
 import { PRESET_SAMPLES } from '../../data/mockData';
-import { useAuth } from '../../context';
+import { useAuth, useTheme } from '../../context';
 import { saveScan, mapBackendScanToFirestoreDoc } from '../../firebase';
 import { API_BASE_URL } from '../../config/api';
+import { saveLocalScan, createLocalTimestamp } from '../../utils/localHistory';
 
-/**
- * URL Scanner
- *
- * Connects the React frontend to the LinkSentry FastAPI V3.3
- * URL phishing detection pipeline.
- *
- * Flow:
- *
- * User URL
- *    ↓
- * POST /api/scan/url
- *    ↓
- * FastAPI
- *    ↓
- * V3.3 ML + trusted-domain + typosquatting + decision fusion
- *    ↓
- * ScanResultCard
- *    ↓
- * Optional Firestore history
- */
 export default function UrlScanner() {
   const { currentUser } = useAuth();
+  const { securityPreferences } = useTheme();
 
   const [urlInput, setUrlInput] = useState('');
   const [validationError, setValidationError] = useState('');
@@ -321,36 +303,29 @@ export default function UrlScanner() {
       setScanResult(result);
 
       // ----------------------------------------------------------
-      // FIRESTORE HISTORY
+      // PERSIST SCAN: ALWAYS TO LOCAL HISTORY
       // ----------------------------------------------------------
+      const scanDoc = mapBackendScanToFirestoreDoc(
+        currentUser?.uid || 'anonymous',
+        targetUrl,
+        data,
+        'url'
+      );
+      scanDoc.createdAt = createLocalTimestamp();
+      scanDoc.isLocalOnly = securityPreferences?.cloudSync === false || !currentUser?.uid;
 
-      if (currentUser?.uid) {
+      saveLocalScan(currentUser?.uid || 'anonymous', scanDoc);
+
+      // ----------------------------------------------------------
+      // FIRESTORE HISTORY (Only when user is authenticated & Cloud Sync is ON)
+      // ----------------------------------------------------------
+      if (currentUser?.uid && securityPreferences?.cloudSync !== false) {
         try {
-          const firestorePayload =
-            mapBackendScanToFirestoreDoc(
-              currentUser.uid,
-              targetUrl,
-              data,
-              'url'
-            );
-
-          await saveScan(
-            currentUser.uid,
-            firestorePayload
-          );
-
-          console.log(
-            '[LinkSentry] Scan saved to Firestore.'
-          );
+          await saveScan(currentUser.uid, scanDoc);
+          console.log('[LinkSentry] Scan synchronized to Cloud Firestore.');
         } catch (saveErr) {
-          console.error(
-            '[LinkSentry] Cloud Firestore scan save error:',
-            saveErr
-          );
-
-          setSaveWarning(
-            'Scan completed, but the result could not be saved to history.'
-          );
+          console.error('[LinkSentry] Cloud Firestore scan save error:', saveErr);
+          setSaveWarning('Scan stored locally, but cloud synchronization failed.');
         }
       }
     } catch (err) {
@@ -481,6 +456,7 @@ export default function UrlScanner() {
                 disabled={isScanning}
                 autoComplete="off"
                 spellCheck="false"
+                data-testid="url-input"
               />
 
               {urlInput && !isScanning && (
@@ -489,6 +465,7 @@ export default function UrlScanner() {
                   className="input-clear-btn"
                   onClick={handleClear}
                   title="Clear input"
+                  data-testid="url-scan-clear"
                 >
                   ×
                 </button>
@@ -497,7 +474,7 @@ export default function UrlScanner() {
             </div>
 
             {validationError && (
-              <div className="validation-error-message animate-fade-in">
+              <div className="validation-error-message animate-fade-in" data-testid="url-validation-error">
                 ⚠️ {validationError}
               </div>
             )}
@@ -514,6 +491,7 @@ export default function UrlScanner() {
               type="submit"
               className="btn btn-primary btn-lg scan-submit-btn"
               disabled={isScanning}
+              data-testid="url-scan-submit"
             >
 
               {isScanning ? (
@@ -556,6 +534,7 @@ export default function UrlScanner() {
                         handlePresetSelect(preset)
                       }
                       disabled={isScanning}
+                      data-testid={`preset-url-${idx}`}
                     >
                       {preset.label}
                     </button>

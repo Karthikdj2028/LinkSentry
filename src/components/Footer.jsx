@@ -30,13 +30,13 @@ export default function Footer({ onSelectTab }) {
             <h4 className="footer-heading">Platform Modules</h4>
             <ul className="footer-links-list">
               <li>
-                <button type="button" className="footer-link-btn" onClick={() => onSelectTab('home')}>
-                  Overview & Threat Intel
+                <button type="button" className="footer-link-btn" onClick={() => onSelectTab('overview')}>
+                  Security Overview & Telemetry
                 </button>
               </li>
               <li>
                 <button type="button" className="footer-link-btn" onClick={() => onSelectTab('scanner')}>
-                  Unified Scanner Hub (URL / QR / SMS)
+                  Multi-Vector Scanner (Link / QR / SMS)
                 </button>
               </li>
               <li>
@@ -45,8 +45,8 @@ export default function Footer({ onSelectTab }) {
                 </button>
               </li>
               <li>
-                <button type="button" className="footer-link-btn" onClick={() => onSelectTab('dashboard')}>
-                  SOC Analytics & Dashboard
+                <button type="button" className="footer-link-btn" onClick={() => onSelectTab('analytics')}>
+                  Threat Intelligence Analytics
                 </button>
               </li>
             </ul>

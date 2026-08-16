@@ -4,8 +4,8 @@
  */
 
 export const config = {
-  // Target application URL (local development or deployed Firebase app)
-  baseUrl: process.env.E2E_BASE_URL || 'https://linksentry-7e694.web.app',
+  // Target application URL (local development or deployed preview)
+  baseUrl: process.env.E2E_BASE_URL || 'http://localhost:4174',
 
   // Authentication credentials (must be provided via CI Secrets or .env in local runs)
   testEmail: process.env.E2E_TEST_EMAIL || '',
