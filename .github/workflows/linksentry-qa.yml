@@ -88,7 +88,7 @@ jobs:
           node qa/k6/scenarios/k6-suite-runner.js
 
 
-    appium:
+  appium:
     name: Appium Android Tests
     runs-on: self-hosted
     timeout-minutes: 30
