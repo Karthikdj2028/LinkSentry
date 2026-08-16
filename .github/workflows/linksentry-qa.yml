@@ -170,7 +170,7 @@ jobs:
       - name: Verify Appium Driver
         shell: powershell
         run: |
-          appium driver list --installed
+          npx appium driver list --installed
 
       - name: Run Real Appium Tests
         shell: powershell
