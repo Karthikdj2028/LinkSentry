@@ -12,7 +12,7 @@ import {
   onSnapshot,
   serverTimestamp
 } from 'firebase/firestore';
-import { db } from './config';
+import { db } from './config.js';
 
 /**
  * LinkSentry Cloud Firestore Scan-History Service
@@ -108,6 +108,17 @@ export async function saveScan(userId, scanData) {
 
   const scansCollectionRef = collection(db, 'users', userId, 'scans');
 
+  // Sanitize createdAt for Cloud Firestore persistence.
+  // If scanData.createdAt contains JavaScript functions (such as createLocalTimestamp() from local history),
+  // override it with serverTimestamp() to ensure valid Firestore serialization.
+  let validCreatedAt = serverTimestamp();
+  if (scanData?.createdAt && typeof scanData.createdAt === 'object') {
+    const hasFunctions = Object.values(scanData.createdAt).some((val) => typeof val === 'function');
+    if (!hasFunctions && typeof scanData.createdAt.toMillis === 'function') {
+      validCreatedAt = scanData.createdAt;
+    }
+  }
+
   const documentPayload = {
     userId,
     type: scanData.type || scanData.scanType || 'url',
@@ -121,7 +132,7 @@ export async function saveScan(userId, scanData) {
     engine: scanData.engine || 'LinkSentry V3.3 URL ML Engine',
     modelVersion: scanData.modelVersion || scanData.model_version || 'V3.3',
     source: scanData.source || 'web',
-    createdAt: scanData.createdAt || serverTimestamp()
+    createdAt: validCreatedAt
   };
 
   try {
