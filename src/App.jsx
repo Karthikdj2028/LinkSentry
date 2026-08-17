@@ -197,7 +197,10 @@ function MainContent() {
         )}
 
         {activeTab === 'security-center' && (
-          <SecurityCenterPage />
+          <SecurityCenterPage 
+            onSelectTab={handleSelectTab} 
+            onNavigateToScanner={handleNavigateToScanner} 
+          />
         )}
 
         {activeTab === 'profile' && (
