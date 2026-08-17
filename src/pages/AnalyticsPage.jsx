@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import StatCard from '../components/StatCard';
 import Badge from '../components/Badge';
-import { useScans } from '../context';
+import SecurityAuditReportModal from '../components/SecurityAuditReportModal';
+import { useScans, useAuth } from '../context';
 
 /**
  * Format Firestore timestamp safely for exports and display.
@@ -51,57 +52,236 @@ function formatTimestamp(createdAt) {
 }
 
 /**
+ * Extract clean hostname from arbitrary target strings
+ */
+function extractHostname(input) {
+  if (!input) return 'Unknown';
+  try {
+    const urlStr = input.startsWith('http://') || input.startsWith('https://')
+      ? input
+      : `https://${input}`;
+    const parsed = new URL(urlStr);
+    return parsed.hostname.toLowerCase().trim() || input.trim();
+  } catch {
+    return input.split('/')[0].toLowerCase().trim();
+  }
+}
+
+/**
  * AnalyticsPage Component
  * Provides comprehensive security intelligence, threat posture grading,
- * vector analysis, top targeted domains, and CSV / PDF report export capabilities.
+ * vector threat exposure, targeted infrastructure correlation, and CSV / Executive Audit Report generation.
  */
 export default function AnalyticsPage() {
   const { scans, error } = useScans();
+  const { currentUser } = useAuth();
   const [exportNotice, setExportNotice] = useState('');
+  const [showAuditModal, setShowAuditModal] = useState(false);
 
+  // Memoized Core Telemetry Calculations
+  const metrics = useMemo(() => {
+    const totalScans = scans.length;
+    const safeScans = scans.filter((s) => (s.verdict || '').toLowerCase() === 'safe').length;
+    const suspiciousScans = scans.filter((s) => (s.verdict || '').toLowerCase() === 'suspicious').length;
+    const phishingScans = scans.filter((s) => (s.verdict || '').toLowerCase() === 'phishing').length;
+    const threatsDetected = suspiciousScans + phishingScans;
 
-  // Telemetry Calculations
-  const totalScans = scans.length;
-  const safeScans = scans.filter((s) => (s.verdict || '').toLowerCase() === 'safe').length;
-  const suspiciousScans = scans.filter((s) => (s.verdict || '').toLowerCase() === 'suspicious').length;
-  const phishingScans = scans.filter((s) => (s.verdict || '').toLowerCase() === 'phishing').length;
-  const threatsDetected = suspiciousScans + phishingScans;
+    const safePercentage = totalScans === 0 ? 100 : Math.round((safeScans / totalScans) * 100);
+    const suspiciousPercentage = totalScans === 0 ? 0 : Math.round((suspiciousScans / totalScans) * 100);
+    const phishingPercentage = totalScans === 0 ? 0 : Math.round((phishingScans / totalScans) * 100);
+    const threatPercentage = totalScans === 0 ? 0 : Math.round((threatsDetected / totalScans) * 100);
 
-  const urlScans = scans.filter((s) => (s.type || '').toLowerCase() === 'url').length;
-  const qrScans = scans.filter((s) => (s.type || '').toLowerCase() === 'qr').length;
-  const messageScans = scans.filter((s) => (s.type || '').toLowerCase() === 'message').length;
+    const avgRiskScore = totalScans === 0
+      ? 0
+      : Math.round(scans.reduce((acc, s) => acc + (s.riskScore || s.risk_score || 0), 0) / totalScans);
 
-  const safePercentage = totalScans === 0 ? 0 : Math.round((safeScans / totalScans) * 100);
-  const threatPercentage = totalScans === 0 ? 0 : Math.round((threatsDetected / totalScans) * 100);
+    // Multi-Vector Threat Exposure
+    const urlScans = scans.filter((s) => (s.type || 'url').toLowerCase() === 'url');
+    const qrScans = scans.filter((s) => (s.type || '').toLowerCase() === 'qr');
+    const messageScans = scans.filter((s) => (s.type || '').toLowerCase() === 'message');
 
-  const avgRiskScore = totalScans === 0
-    ? 0
-    : Math.round(scans.reduce((acc, s) => acc + (s.riskScore || s.risk_score || 0), 0) / totalScans);
+    const urlThreats = urlScans.filter((s) => (s.verdict || '').toLowerCase() !== 'safe').length;
+    const qrThreats = qrScans.filter((s) => (s.verdict || '').toLowerCase() !== 'safe').length;
+    const messageThreats = messageScans.filter((s) => (s.verdict || '').toLowerCase() !== 'safe').length;
 
-  // Security Posture Grade
-  const getSecurityPostureGrade = () => {
-    if (totalScans === 0) return { grade: 'N/A', label: 'No Scans Yet', color: '#94a3b8' };
-    if (avgRiskScore <= 15) return { grade: 'A+', label: 'Optimal Defense Posture', color: '#10b981' };
-    if (avgRiskScore <= 30) return { grade: 'A', label: 'Robust Security Posture', color: '#10b981' };
-    if (avgRiskScore <= 50) return { grade: 'B', label: 'Elevated Threat Exposure', color: '#eab308' };
-    if (avgRiskScore <= 70) return { grade: 'C', label: 'High Threat Environment', color: '#f97316' };
-    return { grade: 'F', label: 'Critical Threat Hazard', color: '#ef4444' };
-  };
+    const vectorBreakdown = [
+      {
+        id: 'url',
+        name: 'Web URLs & Links',
+        icon: '🌐',
+        count: urlScans.length,
+        percentage: totalScans === 0 ? 0 : Math.round((urlScans.length / totalScans) * 100),
+        threats: urlThreats,
+        clean: urlScans.length - urlThreats,
+        threatRate: urlScans.length === 0 ? 0 : Math.round((urlThreats / urlScans.length) * 100),
+        color: 'var(--brand-cyan)',
+        accentBg: 'rgba(6, 182, 212, 0.12)'
+      },
+      {
+        id: 'qr',
+        name: 'QR Optical Barcodes',
+        icon: '📷',
+        count: qrScans.length,
+        percentage: totalScans === 0 ? 0 : Math.round((qrScans.length / totalScans) * 100),
+        threats: qrThreats,
+        clean: qrScans.length - qrThreats,
+        threatRate: qrScans.length === 0 ? 0 : Math.round((qrThreats / qrScans.length) * 100),
+        color: '#8b5cf6',
+        accentBg: 'rgba(139, 92, 246, 0.12)'
+      },
+      {
+        id: 'message',
+        name: 'SMS & Chat Messages',
+        icon: '💬',
+        count: messageScans.length,
+        percentage: totalScans === 0 ? 0 : Math.round((messageScans.length / totalScans) * 100),
+        threats: messageThreats,
+        clean: messageScans.length - messageThreats,
+        threatRate: messageScans.length === 0 ? 0 : Math.round((messageThreats / messageScans.length) * 100),
+        color: '#ec4899',
+        accentBg: 'rgba(236, 72, 153, 0.12)'
+      }
+    ];
 
-  const posture = getSecurityPostureGrade();
+    // Security Posture Grade
+    const getPostureEvaluation = () => {
+      if (totalScans === 0) {
+        return {
+          grade: 'N/A',
+          label: 'Baseline Ready',
+          color: '#64748b',
+          summary: 'No investigations recorded. Execute scans across link, QR, or message channels to establish posture rating.'
+        };
+      }
+      if (avgRiskScore <= 15) {
+        return {
+          grade: 'A+',
+          label: 'Optimal Defense Posture',
+          color: '#10b981',
+          summary: 'Exceptional defense posture. The overwhelming majority of inspected artifacts are verified benign with low risk profile.'
+        };
+      }
+      if (avgRiskScore <= 30) {
+        return {
+          grade: 'A',
+          label: 'Robust Security Posture',
+          color: '#06b6d4',
+          summary: 'Solid defensive readiness. Threat signals are localized and effectively classified by multi-vector heuristics.'
+        };
+      }
+      if (avgRiskScore <= 50) {
+        return {
+          grade: 'B',
+          label: 'Moderate Threat Exposure',
+          color: '#f59e0b',
+          summary: 'Elevated threat activity detected. Exercise caution when interacting with unknown links or urgency-driven SMS lures.'
+        };
+      }
+      if (avgRiskScore <= 70) {
+        return {
+          grade: 'C',
+          label: 'High Threat Environment',
+          color: '#f97316',
+          summary: 'High density of malicious payloads observed. Multiple targeted social engineering patterns identified.'
+        };
+      }
+      return {
+        grade: 'F',
+        label: 'Critical Threat Exposure',
+        color: '#ef4444',
+        summary: 'Severe threat concentration. Significant volume of active phishing or credential-harvesting targets encountered.'
+      };
+    };
 
-  // Top Targeted Domains
-  const domainFrequency = {};
-  scans.forEach((scan) => {
-    const domain = scan.domain || (scan.input && scan.input.startsWith('http') ? new URL(scan.input).hostname : null);
-    if (domain && domain !== 'N/A' && domain !== 'Unknown') {
-      domainFrequency[domain] = (domainFrequency[domain] || 0) + 1;
+    const posture = getPostureEvaluation();
+
+    // Top Targeted Infrastructure Aggregation
+    const domainMap = {};
+    scans.forEach((scan) => {
+      const rawTarget = scan.domain || scan.input || scan.url;
+      const domain = extractHostname(rawTarget);
+
+      if (domain && domain !== 'N/A' && domain !== 'Unknown') {
+        if (!domainMap[domain]) {
+          domainMap[domain] = {
+            domain,
+            total: 0,
+            threats: 0,
+            highestVerdict: 'Safe',
+            vectors: new Set()
+          };
+        }
+
+        domainMap[domain].total += 1;
+        const v = (scan.verdict || 'safe').toLowerCase();
+        if (v !== 'safe') {
+          domainMap[domain].threats += 1;
+          if (v === 'phishing') {
+            domainMap[domain].highestVerdict = 'Phishing';
+          } else if (v === 'suspicious' && domainMap[domain].highestVerdict !== 'Phishing') {
+            domainMap[domain].highestVerdict = 'Suspicious';
+          }
+        }
+        domainMap[domain].vectors.add((scan.type || 'url').toUpperCase());
+      }
+    });
+
+    const topInfrastructure = Object.values(domainMap)
+      .sort((a, b) => b.total - a.total || b.threats - a.threats)
+      .slice(0, 5)
+      .map((item) => ({
+        ...item,
+        threatRate: item.total === 0 ? 0 : Math.round((item.threats / item.total) * 100),
+        vectorList: Array.from(item.vectors).join(' / ')
+      }));
+
+    // 7-Day Velocity Trend
+    const now = new Date();
+    const trend7Days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      const dayDateStr = d.toISOString().slice(0, 10);
+      const dayName = i === 0 ? 'Today' : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
+
+      const dayScans = scans.filter((s) => {
+        if (!s.createdAt) return false;
+        let sDate;
+        if (typeof s.createdAt.toDate === 'function') sDate = s.createdAt.toDate();
+        else if (typeof s.createdAt.seconds === 'number') sDate = new Date(s.createdAt.seconds * 1000);
+        else sDate = new Date(s.createdAt);
+        return sDate && sDate.toISOString().slice(0, 10) === dayDateStr;
+      });
+
+      const daySafe = dayScans.filter((s) => (s.verdict || '').toLowerCase() === 'safe').length;
+      const dayThreats = dayScans.filter((s) => (s.verdict || '').toLowerCase() !== 'safe').length;
+
+      trend7Days.push({
+        dayName,
+        date: dayDateStr,
+        total: dayScans.length,
+        safe: daySafe,
+        threats: dayThreats
+      });
     }
-  });
 
-  const topDomains = Object.entries(domainFrequency)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+    return {
+      totalScans,
+      safeScans,
+      suspiciousScans,
+      phishingScans,
+      threatsDetected,
+      safePercentage,
+      suspiciousPercentage,
+      phishingPercentage,
+      threatPercentage,
+      avgRiskScore,
+      vectorBreakdown,
+      posture,
+      topInfrastructure,
+      trend7Days
+    };
+  }, [scans]);
 
   // -------------------------------------------------------------------------
   // EXPORT HANDLERS
@@ -153,13 +333,6 @@ export default function AnalyticsPage() {
     setTimeout(() => setExportNotice(''), 4000);
   };
 
-  /**
-   * Trigger clean print-styled PDF view
-   */
-  const handlePrintReport = () => {
-    window.print();
-  };
-
   return (
     <div className="page-container analytics-page animate-fade-in">
       <div className="container">
@@ -167,15 +340,15 @@ export default function AnalyticsPage() {
         <div className="page-hero-header">
           <div className="hero-tagline-badge">
             <span className="cyber-badge-dot pulse" style={{ backgroundColor: 'var(--brand-cyan)' }} />
-            <span className="font-mono">TELEMETRY & INTELLIGENCE</span>
+            <span className="font-mono">SECURITY INTELLIGENCE & TELEMETRY</span>
           </div>
-          <h1 className="page-main-heading">Cybersecurity Threat Analytics</h1>
+          <h1 className="page-main-heading">Threat Analytics & Executive Reporting</h1>
           <p className="page-subheading">
-            Comprehensive audit reports, vector threat distribution, and risk telemetry synchronized across Web and Mobile.
+            Multi-vector attack surface analysis, targeted infrastructure correlation, and publication-ready executive audit generation.
           </p>
 
           {/* Action Toolbar */}
-          <div className="header-actions" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.25rem' }}>
+          <div className="header-actions analytics-action-bar" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.25rem', flexWrap: 'wrap' }}>
             <button
               type="button"
               className="btn btn-secondary btn-sm"
@@ -183,20 +356,21 @@ export default function AnalyticsPage() {
               disabled={scans.length === 0}
               data-testid="analytics-export-csv"
             >
-              📊 Export CSV Log
+              📊 Export CSV Telemetry
             </button>
             <button
               type="button"
               className="btn btn-primary btn-sm"
-              onClick={handlePrintReport}
+              onClick={() => setShowAuditModal(true)}
               disabled={scans.length === 0}
               data-testid="analytics-print-report"
             >
-              📄 Print Security Audit Report
+              📄 Generate Security Audit Report
             </button>
           </div>
         </div>
 
+        {/* Temporary Notice */}
         {exportNotice && (
           <div className="auth-error-alert animate-fade-in" style={{ borderColor: 'rgba(16, 185, 129, 0.4)', background: 'rgba(16, 185, 129, 0.1)', color: '#6ee7b7', marginBottom: '1.5rem' }}>
             <span className="error-icon">✓</span>
@@ -204,6 +378,7 @@ export default function AnalyticsPage() {
           </div>
         )}
 
+        {/* Error Notice */}
         {error && (
           <div className="auth-error-alert" style={{ marginBottom: '1.5rem' }}>
             <span className="error-icon">⚠</span>
@@ -211,204 +386,248 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {/* Top Stat Cards Grid */}
+        {/* 1. Primary KPI Grid */}
         <div className="grid grid-cols-4 dashboard-metrics-grid" style={{ marginBottom: '2rem' }}>
           <StatCard
-            title="Total Scans Processed"
-            value={totalScans}
+            title="Total Investigations"
+            value={metrics.totalScans}
             icon="🛡️"
-            subtitle="Audited across URL, QR, and SMS"
-            badge="Telemetry"
+            subtitle={`${metrics.totalScans} payloads analyzed`}
+            badge="Unified"
             variant="cyan"
           />
 
           <StatCard
-            title="Threat Mitigation Rate"
-            value={`${safePercentage}%`}
+            title="Benign / Safe Ratio"
+            value={`${metrics.safePercentage}%`}
             icon="✅"
-            subtitle={`${safeScans} benign payloads safely verified`}
-            badge={safePercentage >= 70 ? 'Optimal' : 'Caution'}
+            subtitle={`${metrics.safeScans} verified clean payloads`}
+            badge={metrics.safePercentage >= 75 ? 'Optimal' : 'Caution'}
             variant="green"
           />
 
           <StatCard
-            title="Active Threats Blocked"
-            value={threatsDetected}
+            title="Threats Blocked"
+            value={metrics.threatsDetected}
             icon="⚠️"
-            subtitle={`${phishingScans} critical phishing • ${suspiciousScans} suspicious`}
-            badge={`${threatPercentage}% Ratio`}
+            subtitle={`${metrics.phishingScans} phishing • ${metrics.suspiciousScans} suspicious`}
+            badge={`${metrics.threatPercentage}% Exposure`}
             variant="red"
           />
 
           <StatCard
-            title="Average Risk Score"
-            value={`${avgRiskScore}/100`}
+            title="Average Threat Risk"
+            value={`${metrics.avgRiskScore}/100`}
             icon="⚡"
-            subtitle="Composite multi-signal threat index"
+            subtitle="Multi-signal composite score"
             badge="V3.3 Fusion"
             variant="amber"
           />
         </div>
 
-        {/* Posture & Threat Vector Row */}
-        <div className="dashboard-charts-grid" style={{ marginBottom: '2.5rem' }}>
-          {/* Security Posture Dossier */}
-          <div className="cyber-card">
+        {/* 2. Middle Section: Security Posture Dossier & Attack Vector Exposure */}
+        <div className="dashboard-charts-grid" style={{ marginBottom: '2rem' }}>
+          {/* Left: Security Posture Dossier */}
+          <div className="cyber-card analytics-card">
             <div className="card-header-row">
               <div>
-                <h3 className="card-title">Defensive Posture Evaluation</h3>
-                <p className="card-subtitle">Aggregated organizational readiness and threat profile</p>
+                <h3 className="card-title">Security Defense Posture Dossier</h3>
+                <p className="card-subtitle">Aggregated multi-signal readiness and threat exposure index</p>
               </div>
-              <span className="badge-tier font-mono" style={{ fontSize: '0.6875rem' }}>ISO/IEC 27001 ALIGNED</span>
+              <span className="badge-tier font-mono" style={{ fontSize: '0.6875rem' }}>POSTURE INDEX</span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', margin: '1.5rem 0' }}>
+            <div className="posture-evaluation-container" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', margin: '1.25rem 0' }}>
               <div
+                className="posture-grade-badge font-mono"
                 style={{
-                  width: '80px',
-                  height: '80px',
+                  width: '84px',
+                  height: '84px',
                   borderRadius: 'var(--radius-lg)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: '2.25rem',
                   fontWeight: '800',
-                  fontFamily: 'var(--font-mono)',
                   color: '#ffffff',
-                  backgroundColor: posture.color,
-                  boxShadow: `0 0 20px ${posture.color}55`,
+                  backgroundColor: metrics.posture.color,
+                  boxShadow: `0 0 20px ${metrics.posture.color}55`,
                   flexShrink: 0
                 }}
               >
-                {posture.grade}
+                {metrics.posture.grade}
               </div>
               <div>
-                <h4 style={{ fontSize: '1.1rem', fontWeight: '700', color: posture.color, marginBottom: '0.25rem' }}>
-                  {posture.label}
+                <h4 style={{ fontSize: '1.125rem', fontWeight: '700', color: metrics.posture.color, marginBottom: '0.35rem' }}>
+                  {metrics.posture.label} (Score: {metrics.totalScans === 0 ? '100' : Math.max(0, 100 - metrics.avgRiskScore)}/100)
                 </h4>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-                  {totalScans === 0
-                    ? 'No scans available to evaluate defense posture. Run a security scan to establish baseline.'
-                    : `Your organization has analyzed ${totalScans} digital payloads with an average risk level of ${avgRiskScore}/100. ${threatsDetected} suspicious or malicious payloads were successfully flagged.`}
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
+                  {metrics.totalScans === 0
+                    ? 'No investigations recorded. Execute scans across link, QR, or message channels to establish baseline posture.'
+                    : `Your workspace has audited ${metrics.totalScans} target payloads with an average risk level of ${metrics.avgRiskScore}/100. ${metrics.threatsDetected} threats (${metrics.phishingScans} phishing, ${metrics.suspiciousScans} suspicious) were flagged.`}
                 </p>
               </div>
             </div>
 
-            <div className="health-checklist">
+            {/* Dynamic Telemetry Status Signals */}
+            <div className="health-checklist" style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem' }}>
               <div className="health-check-row">
                 <span className="check-icon" style={{ color: 'var(--status-safe)' }}>✓</span>
-                <span>Real-Time Phishing Domain Telemetry: <strong>Active</strong></span>
+                <span>Active Telemetry Streams: <strong>{metrics.totalScans} Unified Record{metrics.totalScans === 1 ? '' : 's'}</strong></span>
+              </div>
+              <div className="health-check-row">
+                <span className="check-icon" style={{ color: metrics.threatsDetected > 0 ? 'var(--status-phishing)' : 'var(--status-safe)' }}>
+                  {metrics.threatsDetected > 0 ? '⚠️' : '✓'}
+                </span>
+                <span>Threat Exposure Status: <strong>{metrics.threatsDetected > 0 ? `${metrics.threatsDetected} Flagged Threats (${metrics.threatPercentage}%)` : 'Zero Threats Detected'}</strong></span>
               </div>
               <div className="health-check-row">
                 <span className="check-icon" style={{ color: 'var(--status-safe)' }}>✓</span>
-                <span>Optical QR Matrix Quishing Filter: <strong>Operational</strong></span>
-              </div>
-              <div className="health-check-row">
-                <span className="check-icon" style={{ color: 'var(--status-safe)' }}>✓</span>
-                <span>SMS / Smishing Neural Heuristic Engine: <strong>Synchronized</strong></span>
+                <span>Multi-Vector Detection Engines: <strong>V3.3 Hybrid Inference Active</strong></span>
               </div>
             </div>
           </div>
 
-          {/* Threat Vector Distribution */}
-          <div className="cyber-card">
+          {/* Right: Multi-Vector Threat Exposure */}
+          <div className="cyber-card analytics-card">
             <div className="card-header-row">
               <div>
-                <h3 className="card-title">Attack Vector Distribution</h3>
-                <p className="card-subtitle">Telemetry volume classified by payload type</p>
+                <h3 className="card-title">Multi-Vector Threat Exposure</h3>
+                <p className="card-subtitle">Volume breakdown and threat rates across attack surfaces</p>
               </div>
+              <span className="badge-tier font-mono" style={{ fontSize: '0.6875rem' }}>3 Channels</span>
             </div>
 
-            <div className="vectors-breakdown-list" style={{ marginTop: '1rem' }}>
-              <div className="vector-breakdown-item">
-                <div className="vector-info-row">
-                  <span className="vector-name">🌐 Web Links & URLs</span>
-                  <span className="vector-count font-mono">{urlScans} ({totalScans === 0 ? 0 : Math.round((urlScans / totalScans) * 100)}%)</span>
-                </div>
-                <div className="vector-progress-track">
-                  <div
-                    className="vector-progress-fill"
-                    style={{
-                      width: `${totalScans === 0 ? 0 : Math.max(4, Math.round((urlScans / totalScans) * 100))}%`,
-                      backgroundColor: 'var(--brand-cyan)'
-                    }}
-                  />
-                </div>
-              </div>
+            <div className="analytics-vectors-list" style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem', marginTop: '1rem' }}>
+              {metrics.vectorBreakdown.map((vec) => (
+                <div key={vec.id} className="analytics-vector-item" data-testid={`analytics-vector-${vec.id}`}>
+                  <div className="vector-info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '1.1rem' }}>{vec.icon}</span>
+                      <strong className="vector-name" style={{ fontSize: '0.875rem' }}>{vec.name}</strong>
+                    </div>
+                    <div className="vector-metrics-pill font-mono" style={{ fontSize: '0.75rem' }}>
+                      <span>{vec.count} scans ({vec.percentage}%)</span>
+                      <span style={{ margin: '0 0.35rem', color: 'var(--border-medium)' }}>•</span>
+                      <span style={{ color: vec.threats > 0 ? 'var(--status-phishing-text)' : 'var(--status-safe-text)', fontWeight: 700 }}>
+                        {vec.threats > 0 ? `${vec.threats} Threat${vec.threats === 1 ? '' : 's'} (${vec.threatRate}%)` : '0 Threats (0%)'}
+                      </span>
+                    </div>
+                  </div>
 
-              <div className="vector-breakdown-item">
-                <div className="vector-info-row">
-                  <span className="vector-name">📷 QR Optical Barcodes</span>
-                  <span className="vector-count font-mono">{qrScans} ({totalScans === 0 ? 0 : Math.round((qrScans / totalScans) * 100)}%)</span>
+                  <div className="vector-progress-track" style={{ height: '7px' }}>
+                    <div
+                      className="vector-progress-fill"
+                      style={{
+                        width: `${metrics.totalScans === 0 ? 0 : Math.max(vec.count > 0 ? 6 : 0, vec.percentage)}%`,
+                        backgroundColor: vec.color
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="vector-progress-track">
-                  <div
-                    className="vector-progress-fill"
-                    style={{
-                      width: `${totalScans === 0 ? 0 : Math.max(4, Math.round((qrScans / totalScans) * 100))}%`,
-                      backgroundColor: '#8b5cf6'
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="vector-breakdown-item">
-                <div className="vector-info-row">
-                  <span className="vector-name">💬 SMS & Smishing Messages</span>
-                  <span className="vector-count font-mono">{messageScans} ({totalScans === 0 ? 0 : Math.round((messageScans / totalScans) * 100)}%)</span>
-                </div>
-                <div className="vector-progress-track">
-                  <div
-                    className="vector-progress-fill"
-                    style={{
-                      width: `${totalScans === 0 ? 0 : Math.max(4, Math.round((messageScans / totalScans) * 100))}%`,
-                      backgroundColor: '#ec4899'
-                    }}
-                  />
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Top Targeted Domains Table */}
-        <div className="cyber-card">
+        {/* 3. 7-Day Velocity & Trend Summary */}
+        <div className="cyber-card analytics-card" style={{ marginBottom: '2rem' }}>
           <div className="card-header-row">
             <div>
-              <h3 className="card-title">Top Targeted Hostnames & Infrastructure</h3>
-              <p className="card-subtitle">Most frequently analyzed hostnames across investigations</p>
+              <h3 className="card-title">7-Day Threat Velocity & Volume Trend</h3>
+              <p className="card-subtitle">Daily audit volume correlated with safe vs. threat detections</p>
             </div>
+            <span className="badge-tier font-mono" style={{ fontSize: '0.6875rem' }}>7-Day Trajectory</span>
           </div>
 
-          {topDomains.length === 0 ? (
-            <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <p className="font-mono text-sm">No domain telemetry recorded yet.</p>
+          <div className="analytics-trend-grid">
+            {metrics.trend7Days.map((day) => (
+              <div key={day.date} className="analytics-trend-col">
+                <div className="analytics-trend-count font-mono">{day.total}</div>
+                <div className="analytics-trend-bar-track">
+                  {day.total > 0 ? (
+                    <>
+                      {day.safe > 0 && (
+                        <div
+                          className="analytics-trend-safe"
+                          style={{ height: `${(day.safe / Math.max(1, day.total)) * 100}%` }}
+                          title={`${day.safe} Safe Scans`}
+                        />
+                      )}
+                      {day.threats > 0 && (
+                        <div
+                          className="analytics-trend-threat"
+                          style={{ height: `${(day.threats / Math.max(1, day.total)) * 100}%` }}
+                          title={`${day.threats} Threat Scans`}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <div className="analytics-trend-empty" />
+                  )}
+                </div>
+                <div className="analytics-trend-day font-mono">{day.dayName}</div>
+                <div className="analytics-trend-date font-mono">{day.date.slice(5)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 4. Top Targeted Hostnames & Infrastructure Table */}
+        <div className="cyber-card analytics-card">
+          <div className="card-header-row">
+            <div>
+              <h3 className="card-title">Top Targeted Hostnames & Threat Correlation</h3>
+              <p className="card-subtitle">Most frequently inspected targets with observed attack vectors and risk classifications</p>
+            </div>
+            <span className="badge-tier font-mono" style={{ fontSize: '0.6875rem' }}>
+              {metrics.topInfrastructure.length} Targets
+            </span>
+          </div>
+
+          {metrics.topInfrastructure.length === 0 ? (
+            <div style={{ padding: '2.5rem 1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <p className="font-mono text-sm">No target hostname telemetry recorded yet.</p>
             </div>
           ) : (
             <div className="history-table-container" style={{ margin: '1rem 0 0' }}>
               <table className="history-table">
                 <thead>
                   <tr>
-                    <th>Domain / Hostname</th>
-                    <th>Scan Invocations</th>
+                    <th>Domain / Target Hostname</th>
+                    <th>Invocations</th>
+                    <th>Threats Flagged</th>
+                    <th>Threat Exposure Rate</th>
                     <th>Observed Vectors</th>
-                    <th style={{ textAlign: 'right' }}>Telemetry Status</th>
+                    <th style={{ textAlign: 'right' }}>Highest Verdict</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {topDomains.map(([domain, count]) => (
-                    <tr key={domain}>
-                      <td className="font-mono" style={{ fontWeight: '600', color: 'var(--brand-cyan)' }}>
-                        {domain}
+                  {metrics.topInfrastructure.map((item) => (
+                    <tr key={item.domain}>
+                      <td className="font-mono" style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
+                        {item.domain}
                       </td>
                       <td className="font-mono">
-                        {count} scan{count > 1 ? 's' : ''}
+                        {item.total} audit{item.total > 1 ? 's' : ''}
+                      </td>
+                      <td className="font-mono" style={{ color: item.threats > 0 ? 'var(--status-phishing-text)' : 'inherit', fontWeight: item.threats > 0 ? '700' : 'normal' }}>
+                        {item.threats}
+                      </td>
+                      <td className="font-mono">
+                        <span style={{ color: item.threatRate > 50 ? 'var(--status-phishing-text)' : item.threatRate > 0 ? 'var(--status-suspicious-text)' : 'var(--status-safe-text)', fontWeight: '700' }}>
+                          {item.threatRate}%
+                        </span>
                       </td>
                       <td>
-                        <span className="badge-chip font-mono">LINK / QR</span>
+                        <span className="badge-chip font-mono" style={{ fontSize: '0.6875rem' }}>
+                          {item.vectorList}
+                        </span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <Badge status="Safe" size="sm">Synchronized</Badge>
+                        <Badge status={item.highestVerdict} size="sm">
+                          {item.highestVerdict}
+                        </Badge>
                       </td>
                     </tr>
                   ))}
@@ -418,6 +637,16 @@ export default function AnalyticsPage() {
           )}
         </div>
       </div>
+
+      {/* Security Audit Report Modal */}
+      {showAuditModal && (
+        <SecurityAuditReportModal
+          scans={scans}
+          currentUser={currentUser}
+          onClose={() => setShowAuditModal(false)}
+        />
+      )}
     </div>
   );
 }
+
