@@ -20,19 +20,24 @@ export function getAuthErrorMessage(error) {
 
   switch (code) {
     case 'auth/invalid-credential':
+    case 'auth/invalid-login-credentials':
     case 'auth/user-not-found':
     case 'auth/wrong-password':
       return 'Invalid email or password. Please verify your credentials.';
     case 'auth/email-already-in-use':
       return 'An account with this email address already exists. Please sign in instead.';
     case 'auth/weak-password':
-      return 'Password is too weak. Please use at least 6 characters with letters and numbers.';
+      return 'Password is too weak. Please use at least 6 characters.';
     case 'auth/invalid-email':
       return 'Please enter a valid email address format (e.g., analyst@domain.com).';
+    case 'auth/missing-email':
+      return 'Please enter your email address.';
+    case 'auth/missing-password':
+      return 'Please enter your password.';
     case 'auth/user-disabled':
       return 'This analyst account has been suspended. Please contact your SOC administrator.';
     case 'auth/too-many-requests':
-      return 'Access temporarily locked due to multiple failed attempts. Please try again in a few minutes.';
+      return 'Access temporarily locked due to multiple failed attempts. Please try again in a few minutes or reset your password.';
     case 'auth/network-request-failed':
       return 'Network communication failed. Please check your internet connection and try again.';
     case 'auth/requires-recent-login':
@@ -41,6 +46,12 @@ export function getAuthErrorMessage(error) {
       return 'Email/Password sign-in is not enabled for this project.';
     case 'auth/popup-closed-by-user':
       return 'Sign-in window was closed before completion.';
+    case 'auth/cancelled-popup-request':
+      return 'Sign-in operation was cancelled.';
+    case 'auth/popup-blocked':
+      return 'Sign-in popup was blocked by browser. Please allow popups for LinkSentry.';
+    case 'auth/account-exists-with-different-credential':
+      return 'An account already exists with the same email address but different sign-in credentials.';
     default:
       return error.message || 'Authentication failed. Please check your credentials and try again.';
   }

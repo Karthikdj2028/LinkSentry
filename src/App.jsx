@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AuthProvider, ThemeProvider, ScanProvider, useAuth } from './context';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -59,6 +59,37 @@ function MainContent() {
   
   // Initial tab & subtab state derived from URL
   const [activeTab, setActiveTab] = useState(() => getTabFromPath(window.location.pathname));
+  const prevUserRef = useRef(currentUser);
+  const isInitialLoadRef = useRef(true);
+
+  // Synchronize session transitions (Login / Register -> Overview, Logout -> Login)
+  useEffect(() => {
+    if (loading) return;
+
+    if (isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      prevUserRef.current = currentUser;
+      return;
+    }
+
+    // New login or registration -> always open Overview page
+    if (!prevUserRef.current && currentUser) {
+      setActiveTab('overview');
+      if (window.location.pathname !== '/') {
+        window.history.replaceState({ tab: 'overview' }, '', '/');
+      }
+    }
+
+    // Logout -> reset tab to overview for subsequent logins
+    if (prevUserRef.current && !currentUser) {
+      setActiveTab('overview');
+      if (window.location.pathname !== '/') {
+        window.history.replaceState({ tab: 'overview' }, '', '/');
+      }
+    }
+
+    prevUserRef.current = currentUser;
+  }, [currentUser, loading]);
   
   const [scannerSubTab, setScannerSubTab] = useState(() => {
     const searchParams = new URLSearchParams(window.location.search);

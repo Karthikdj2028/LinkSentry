@@ -13,9 +13,11 @@ export default function LoginPage({ onSwitchToRegister }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
+  const [resetError, setResetError] = useState('');
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const validateForm = () => {
     if (!email || email.trim() === '') {
@@ -54,21 +56,29 @@ export default function LoginPage({ onSwitchToRegister }) {
 
   const handleResetSubmit = async (e) => {
     e.preventDefault();
-    if (!resetEmail || !resetEmail.trim()) {
-      setError('Please enter your email address for password reset.');
+    const targetEmail = (resetEmail || email || '').trim();
+    if (!targetEmail) {
+      setResetError('Please enter your email address for password reset.');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(targetEmail)) {
+      setResetError('Please enter a valid email address format.');
       return;
     }
 
-    setIsSubmitting(true);
+    setIsResetting(true);
+    setResetError('');
     setError('');
     try {
-      await resetPassword(resetEmail);
-      setResetSuccess(`Password reset email sent to ${resetEmail}. Check your inbox.`);
+      await resetPassword(targetEmail);
+      setResetSuccess(`Password reset email sent to ${targetEmail}. Please check your inbox and your Spam / Junk folder.`);
       setShowResetModal(false);
+      setResetEmail('');
     } catch (err) {
-      setError(getAuthErrorMessage(err));
+      setResetError(getAuthErrorMessage(err));
     } finally {
-      setIsSubmitting(false);
+      setIsResetting(false);
     }
   };
 
@@ -89,9 +99,9 @@ export default function LoginPage({ onSwitchToRegister }) {
       )}
 
       {resetSuccess && (
-        <div className="auth-error-alert animate-fade-in" style={{ borderColor: 'rgba(34, 197, 94, 0.4)', background: 'rgba(34, 197, 94, 0.1)', color: '#86efac' }} role="alert">
-          <span className="error-icon">✓</span>
-          <span className="error-text">{resetSuccess}</span>
+        <div className="auth-success-alert animate-fade-in" role="alert" data-testid="auth-success">
+          <span className="success-icon">✓</span>
+          <span className="success-text">{resetSuccess}</span>
         </div>
       )}
 
@@ -127,16 +137,18 @@ export default function LoginPage({ onSwitchToRegister }) {
             </label>
             <button
               type="button"
-              style={{ background: 'none', border: 'none', color: '#00f2fe', cursor: 'pointer', fontSize: '0.8rem' }}
+              className="forgot-password-link"
               onClick={() => {
                 setResetEmail(email);
-                setShowResetModal(true);
+                setResetError('');
+                setShowResetModal(!showResetModal);
               }}
+              aria-expanded={showResetModal}
             >
               Forgot Password?
             </button>
           </div>
-          <div className="input-with-icon-box" style={{ position: 'relative' }}>
+          <div className="input-with-icon-box">
             <span className="input-field-icon">🔒</span>
             <input
               id="login-password"
@@ -155,23 +167,68 @@ export default function LoginPage({ onSwitchToRegister }) {
             />
             <button
               type="button"
+              className="password-toggle-btn"
               onClick={() => setShowPassword(!showPassword)}
-              style={{
-                position: 'absolute',
-                right: '10px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'none',
-                border: 'none',
-                color: '#94a3b8',
-                cursor: 'pointer',
-                fontSize: '1rem'
-              }}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              title={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? '👁️' : '🙈'}
             </button>
           </div>
         </div>
+
+        {showResetModal && (
+          <div className="reset-password-card animate-fade-in" data-testid="reset-password-panel">
+            <h4 className="reset-password-title">Reset Password Link</h4>
+            <p className="reset-password-desc">
+              Enter your analyst email address. We will send a secure password reset link to your email.
+            </p>
+            {resetError && (
+              <div className="auth-error-alert animate-fade-in" style={{ marginBottom: '0.75rem' }} role="alert">
+                <span className="error-icon">⚠️</span>
+                <span className="error-text">{resetError}</span>
+              </div>
+            )}
+            <div className="input-with-icon-box" style={{ marginBottom: '0.75rem' }}>
+              <span className="input-field-icon">✉️</span>
+              <input
+                type="email"
+                className="form-input font-mono"
+                placeholder="analyst@linksentry.io"
+                value={resetEmail}
+                onChange={(e) => {
+                  setResetEmail(e.target.value);
+                  if (resetError) setResetError('');
+                }}
+                disabled={isResetting}
+                autoComplete="email"
+                data-testid="reset-email-input"
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={handleResetSubmit}
+                disabled={isResetting}
+                data-testid="send-reset-btn"
+              >
+                {isResetting ? 'Sending...' : 'Send Reset Link'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setShowResetModal(false);
+                  setResetError('');
+                }}
+                disabled={isResetting}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         <button
           type="submit"
@@ -212,6 +269,7 @@ export default function LoginPage({ onSwitchToRegister }) {
               setIsSubmitting(false);
             }
           }}
+          data-testid="login-google-button"
         >
           <svg width="18" height="18" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -222,25 +280,6 @@ export default function LoginPage({ onSwitchToRegister }) {
           <span>Sign in with Google Workspace</span>
         </button>
       </form>
-
-      {showResetModal && (
-        <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(0, 242, 254, 0.3)', borderRadius: '8px' }}>
-          <h4 style={{ color: '#00f2fe', margin: '0 0 0.5rem 0', fontSize: '0.95rem' }}>Reset Password</h4>
-          <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: '0 0 0.75rem 0' }}>Enter your email to receive a password reset link from Firebase.</p>
-          <input
-            type="email"
-            className="form-input font-mono"
-            placeholder="analyst@linksentry.io"
-            value={resetEmail}
-            onChange={(e) => setResetEmail(e.target.value)}
-            style={{ marginBottom: '0.75rem' }}
-          />
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button type="button" className="btn btn-primary btn-sm" onClick={handleResetSubmit} disabled={isSubmitting}>Send Link</button>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowResetModal(false)}>Cancel</button>
-          </div>
-        </div>
-      )}
 
       <div className="auth-footer-prompt">
         <span>Need a new LinkSentry analyst account?</span>

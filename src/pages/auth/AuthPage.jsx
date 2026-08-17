@@ -56,8 +56,8 @@ export default function AuthPage({ initialMode = 'login' }) {
             Next-Generation AI Phishing Detection & Threat Intelligence Hub
           </p>
           <div className="auth-badge-status">
-            <span className="cyber-badge-dot pulse" style={{ backgroundColor: '#10b981' }} />
-            <span className="font-mono text-cyan">FIREBASE AUTHENTICATION ACTIVE</span>
+            <span className="cyber-badge-dot pulse" style={{ backgroundColor: 'var(--status-safe)' }} />
+            <span className="font-mono">FIREBASE AUTHENTICATION ACTIVE</span>
           </div>
         </div>
 
