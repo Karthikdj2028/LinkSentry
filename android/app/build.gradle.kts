@@ -19,8 +19,18 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(System.getenv("LINKSENTRY_KEYSTORE"))
+            storePassword = System.getenv("LINKSENTRY_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("LINKSENTRY_KEY_ALIAS")
+            keyPassword = System.getenv("LINKSENTRY_KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -28,13 +38,16 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
     }
+
     kotlinOptions {
         jvmTarget = "21"
     }
+
     buildFeatures {
         compose = true
     }
@@ -94,4 +107,3 @@ tasks.register<Copy>("copyDebugApkToOutputs") {
 tasks.matching { it.name == "assembleDebug" }.configureEach {
     finalizedBy("copyDebugApkToOutputs")
 }
-
