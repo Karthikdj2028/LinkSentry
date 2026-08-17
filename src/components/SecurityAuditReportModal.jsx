@@ -218,11 +218,25 @@ export default function SecurityAuditReportModal({ scans = [], currentUser, onCl
               </div>
               <span className="report-doc-tagline font-mono">EXECUTIVE CYBERSECURITY INTELLIGENCE AUDIT</span>
             </div>
-            <div className="report-meta-box font-mono">
-              <div><strong>Report ID:</strong> {reportId}</div>
-              <div><strong>Generated:</strong> {generatedDate}</div>
-              <div><strong>Scope:</strong> {currentUser?.email || 'Authenticated Workspace User'}</div>
-              <div><strong>Classification:</strong> RESTRICTED / CLIENT AUDIT</div>
+
+            {/* 2-Column Structured Metadata Grid */}
+            <div className="report-meta-grid font-mono">
+              <div className="report-meta-item">
+                <span className="report-meta-label">Report ID:</span>
+                <span className="report-meta-value">{reportId}</span>
+              </div>
+              <div className="report-meta-item">
+                <span className="report-meta-label">Generated:</span>
+                <span className="report-meta-value">{generatedDate}</span>
+              </div>
+              <div className="report-meta-item">
+                <span className="report-meta-label">Scope:</span>
+                <span className="report-meta-value">{currentUser?.email || 'Authenticated Workspace User'}</span>
+              </div>
+              <div className="report-meta-item">
+                <span className="report-meta-label">Classification:</span>
+                <span className="report-meta-value">RESTRICTED / CLIENT AUDIT</span>
+              </div>
             </div>
           </div>
 
@@ -249,31 +263,31 @@ export default function SecurityAuditReportModal({ scans = [], currentUser, onCl
             </div>
           </div>
 
-          {/* Section 2: Key Telemetry Metrics */}
+          {/* Section 2: Key Telemetry Metrics (4-Column KPI Grid) */}
           <div className="report-section">
             <h4 className="report-section-title font-mono">2. CORE TELEMETRY METRICS</h4>
             <div className="report-metrics-grid">
               <div className="report-metric-box">
-                <span className="report-metric-label">Total Audits</span>
+                <span className="report-metric-label font-mono">TOTAL AUDITS</span>
                 <span className="report-metric-value font-mono">{totalScans}</span>
                 <span className="report-metric-sub">Multi-vector payload targets</span>
               </div>
               <div className="report-metric-box">
-                <span className="report-metric-label">Benign / Safe Ratio</span>
+                <span className="report-metric-label font-mono">BENIGN / SAFE RATIO</span>
                 <span className="report-metric-value font-mono" style={{ color: 'var(--status-safe)' }}>
                   {safePercentage}%
                 </span>
                 <span className="report-metric-sub">{safeScans} verified clean payloads</span>
               </div>
               <div className="report-metric-box">
-                <span className="report-metric-label">Threats Blocked</span>
+                <span className="report-metric-label font-mono">THREATS FLAGGED</span>
                 <span className="report-metric-value font-mono" style={{ color: threatsDetected > 0 ? 'var(--status-phishing)' : 'var(--text-primary)' }}>
                   {threatsDetected}
                 </span>
                 <span className="report-metric-sub">{phishingScans} phishing • {suspiciousScans} suspicious</span>
               </div>
               <div className="report-metric-box">
-                <span className="report-metric-label">Threat Exposure Rate</span>
+                <span className="report-metric-label font-mono">THREAT EXPOSURE RATE</span>
                 <span className="report-metric-value font-mono" style={{ color: threatPercentage > 20 ? 'var(--status-phishing)' : 'var(--status-suspicious)' }}>
                   {threatPercentage}%
                 </span>
@@ -282,24 +296,27 @@ export default function SecurityAuditReportModal({ scans = [], currentUser, onCl
             </div>
           </div>
 
-          {/* Section 3: Attack Vector Breakdown */}
+          {/* Section 3: Attack Vector Breakdown (Full-Width Proportional Table) */}
           <div className="report-section">
             <h4 className="report-section-title font-mono">3. MULTI-VECTOR ATTACK SURFACE ANALYSIS</h4>
             <table className="report-table">
               <thead>
                 <tr>
-                  <th>Attack Vector</th>
-                  <th>Total Audited</th>
-                  <th>Clean Payloads</th>
-                  <th>Threats Flagged</th>
-                  <th style={{ textAlign: 'right' }}>Vector Threat Rate</th>
+                  <th style={{ width: '32%' }}>Attack Vector</th>
+                  <th style={{ width: '17%' }}>Total Audited</th>
+                  <th style={{ width: '17%' }}>Clean Payloads</th>
+                  <th style={{ width: '17%' }}>Threats Flagged</th>
+                  <th style={{ width: '17%', textAlign: 'right' }}>Threat Rate</th>
                 </tr>
               </thead>
               <tbody>
                 {vectorStats.map((vec) => (
                   <tr key={vec.name}>
                     <td>
-                      <strong>{vec.icon} {vec.name}</strong>
+                      <span className="report-vector-cell">
+                        <span className="report-vector-icon">{vec.icon}</span>
+                        <strong className="report-vector-name">{vec.name}</strong>
+                      </span>
                     </td>
                     <td className="font-mono">{vec.total}</td>
                     <td className="font-mono" style={{ color: 'var(--status-safe)' }}>{vec.clean}</td>
@@ -315,32 +332,40 @@ export default function SecurityAuditReportModal({ scans = [], currentUser, onCl
             </table>
           </div>
 
-          {/* Section 4: Classification Distribution */}
+          {/* Section 4: Verdict Classification Distribution (3-Column Grid Cards) */}
           <div className="report-section">
             <h4 className="report-section-title font-mono">4. VERDICT CLASSIFICATION DISTRIBUTION</h4>
-            <div className="report-classification-pills">
-              <div className="report-class-pill safe">
-                <span className="report-class-dot safe" />
-                <div>
-                  <strong>Clean / Benign:</strong> {safeScans} scans ({safePercentage}%)
+            <div className="report-classification-grid">
+              <div className="report-class-card safe">
+                <div className="report-class-header">
+                  <span className="report-class-dot safe" />
+                  <span className="report-class-name font-mono">CLEAN / BENIGN</span>
                 </div>
+                <div className="report-class-val font-mono">{safePercentage}%</div>
+                <div className="report-class-sub font-mono">{safeScans} verified clean scan{safeScans === 1 ? '' : 's'}</div>
               </div>
-              <div className="report-class-pill suspicious">
-                <span className="report-class-dot suspicious" />
-                <div>
-                  <strong>Suspicious Risk:</strong> {suspiciousScans} scans ({suspiciousPercentage}%)
+
+              <div className="report-class-card suspicious">
+                <div className="report-class-header">
+                  <span className="report-class-dot suspicious" />
+                  <span className="report-class-name font-mono">SUSPICIOUS RISK</span>
                 </div>
+                <div className="report-class-val font-mono">{suspiciousPercentage}%</div>
+                <div className="report-class-sub font-mono">{suspiciousScans} suspicious scan{suspiciousScans === 1 ? '' : 's'}</div>
               </div>
-              <div className="report-class-pill phishing">
-                <span className="report-class-dot phishing" />
-                <div>
-                  <strong>Critical Phishing:</strong> {phishingScans} scans ({phishingPercentage}%)
+
+              <div className="report-class-card phishing">
+                <div className="report-class-header">
+                  <span className="report-class-dot phishing" />
+                  <span className="report-class-name font-mono">CRITICAL PHISHING</span>
                 </div>
+                <div className="report-class-val font-mono">{phishingPercentage}%</div>
+                <div className="report-class-sub font-mono">{phishingScans} critical hazard{phishingScans === 1 ? '' : 's'}</div>
               </div>
             </div>
           </div>
 
-          {/* Section 5: Top Targeted Infrastructure */}
+          {/* Section 5: Top Targeted Infrastructure (Full-Width Proportional Table) */}
           <div className="report-section">
             <h4 className="report-section-title font-mono">5. TOP TARGETED HOSTNAMES & INFRASTRUCTURE</h4>
             {topInfrastructure.length === 0 ? (
@@ -351,31 +376,40 @@ export default function SecurityAuditReportModal({ scans = [], currentUser, onCl
               <table className="report-table">
                 <thead>
                   <tr>
-                    <th>Domain / Hostname</th>
-                    <th>Invocations</th>
-                    <th>Threats Detected</th>
-                    <th>Observed Vectors</th>
-                    <th style={{ textAlign: 'right' }}>Risk Assessment</th>
+                    <th style={{ width: '34%' }}>Domain / Hostname</th>
+                    <th style={{ width: '12%' }}>Audits</th>
+                    <th style={{ width: '12%' }}>Threats</th>
+                    <th style={{ width: '14%' }}>Threat Rate</th>
+                    <th style={{ width: '14%' }}>Vectors</th>
+                    <th style={{ width: '14%', textAlign: 'right' }}>Assessment</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {topInfrastructure.map((item) => (
-                    <tr key={item.domain}>
-                      <td className="font-mono font-bold">{item.domain}</td>
-                      <td className="font-mono">{item.total}</td>
-                      <td className="font-mono" style={{ color: item.threats > 0 ? 'var(--status-phishing)' : 'inherit' }}>
-                        {item.threats}
-                      </td>
-                      <td className="font-mono" style={{ fontSize: '0.75rem' }}>
-                        {Array.from(item.vectors).join(', ')}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <Badge status={item.highestVerdict} size="sm">
-                          {item.highestVerdict}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
+                  {topInfrastructure.map((item) => {
+                    const domainThreatRate = item.total === 0 ? 0 : Math.round((item.threats / item.total) * 100);
+                    return (
+                      <tr key={item.domain}>
+                        <td className="font-mono font-bold" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                          {item.domain}
+                        </td>
+                        <td className="font-mono">{item.total}</td>
+                        <td className="font-mono" style={{ color: item.threats > 0 ? 'var(--status-phishing)' : 'inherit' }}>
+                          {item.threats}
+                        </td>
+                        <td className="font-mono" style={{ fontWeight: 700, color: domainThreatRate > 50 ? 'var(--status-phishing)' : domainThreatRate > 0 ? 'var(--status-suspicious)' : 'var(--status-safe)' }}>
+                          {domainThreatRate}%
+                        </td>
+                        <td className="font-mono" style={{ fontSize: '0.72rem' }}>
+                          {Array.from(item.vectors).join(', ')}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <Badge status={item.highestVerdict} size="sm">
+                            {item.highestVerdict}
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
