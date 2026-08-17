@@ -186,7 +186,10 @@ function MainContent() {
         )}
 
         {activeTab === 'history' && (
-          <HistoryPage />
+          <HistoryPage 
+            onSelectTab={handleSelectTab} 
+            onNavigateToScanner={handleNavigateToScanner} 
+          />
         )}
 
         {activeTab === 'analytics' && (
