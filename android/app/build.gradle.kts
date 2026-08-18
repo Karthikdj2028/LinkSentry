@@ -20,24 +20,32 @@ android {
     }
 
     signingConfigs {
+    val keystorePath = System.getenv("LINKSENTRY_KEYSTORE")
+
+    if (!keystorePath.isNullOrBlank()) {
         create("release") {
-            storeFile = file(System.getenv("LINKSENTRY_KEYSTORE"))
+            storeFile = file(keystorePath)
             storePassword = System.getenv("LINKSENTRY_KEYSTORE_PASSWORD")
             keyAlias = System.getenv("LINKSENTRY_KEY_ALIAS")
             keyPassword = System.getenv("LINKSENTRY_KEY_PASSWORD")
         }
     }
+}
 
-    buildTypes {
-        release {
-            signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+buildTypes {
+    release {
+        signingConfigs.findByName("release")?.let {
+            signingConfig = it
         }
+
+        isMinifyEnabled = false
+
+        proguardFiles(
+            getDefaultProguardFile("proguard-android-optimize.txt"),
+            "proguard-rules.pro"
+        )
     }
+}
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
