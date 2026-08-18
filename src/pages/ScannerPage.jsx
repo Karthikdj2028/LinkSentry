@@ -8,7 +8,16 @@ import MessageScanner from './scanners/MessageScanner';
  * Multi-vector scanner hub: Link / URL, Optical QR Barcode, Message / SMS
  */
 export default function ScannerPage({ initialSubTab = 'url' }) {
-  const [activeSubTab, setActiveSubTab] = useState(initialSubTab);
+  const [activeSubTab, setActiveSubTab] = useState(() => {
+    if (typeof window !== 'undefined' && window.location.search) {
+      const params = new URLSearchParams(window.location.search);
+      const type = params.get('type');
+      if (type && ['url', 'qr', 'message'].includes(type.toLowerCase())) {
+        return type.toLowerCase();
+      }
+    }
+    return initialSubTab;
+  });
 
   const subTabs = [
     { id: 'url', label: 'Link', icon: '🌐', subtitle: 'URLs & Domains' },

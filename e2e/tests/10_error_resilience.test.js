@@ -114,7 +114,7 @@ describe('Suite 10: Error Boundaries & App Resilience', function () {
 
   it('ERR-006: Dashboard page handles zero scan history without crashing', async function () {
     await basePage.open('/dashboard');
-    const isDashboard = await basePage.isDisplayed(By.css('.dashboard-page'), 5000);
+    const isDashboard = await basePage.isDisplayed(By.css('.dashboard-page, .overview-page'), 5000);
     expect(isDashboard).to.be.true;
   });
 
@@ -127,7 +127,7 @@ describe('Suite 10: Error Boundaries & App Resilience', function () {
   it('ERR-008: Page refresh preserves current active URL path', async function () {
     await basePage.open('/analytics');
     await driver.navigate().refresh();
-    const isAnalytics = await basePage.isDisplayed(By.css('.analytics-page-container'), 10000);
+    const isAnalytics = await basePage.isDisplayed(By.css('.analytics-page-container, .analytics-page'), 10000);
     expect(isAnalytics).to.be.true;
   });
 

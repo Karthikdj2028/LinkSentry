@@ -12,11 +12,11 @@ export class NavigationBar extends BasePage {
     // Desktop Nav Items
     this.brandLogo = By.css('[data-testid="nav-brand-logo"], .brand-logo');
     this.statusPill = By.css('[data-testid="nav-system-status"], .system-status-pill');
-    this.homeTab = By.css('[data-testid="nav-tab-home"]');
+    this.homeTab = By.css('[data-testid="nav-tab-home"], [data-testid="nav-tab-overview"]');
     this.scannerTab = By.css('[data-testid="nav-tab-scanner"]');
     this.historyTab = By.css('[data-testid="nav-tab-history"]');
     this.analyticsTab = By.css('[data-testid="nav-tab-analytics"]');
-    this.dashboardTab = By.css('[data-testid="nav-tab-dashboard"]');
+    this.dashboardTab = By.css('[data-testid="nav-tab-dashboard"], [data-testid="nav-tab-overview"]');
     this.profileTab = By.css('[data-testid="nav-tab-profile"]');
 
     // Mobile menu
@@ -31,7 +31,7 @@ export class NavigationBar extends BasePage {
 
   async goToHome() {
     await this.click(this.homeTab);
-    await this.waitForVisible(By.css('.home-page'), 10000);
+    await this.waitForVisible(By.css('.home-page, .overview-page'), 10000);
   }
 
   async goToScanner() {
@@ -46,12 +46,12 @@ export class NavigationBar extends BasePage {
 
   async goToAnalytics() {
     await this.click(this.analyticsTab);
-    await this.waitForVisible(By.css('.analytics-page-container'), 10000);
+    await this.waitForVisible(By.css('.analytics-page-container, .analytics-page'), 10000);
   }
 
   async goToDashboard() {
     await this.click(this.dashboardTab);
-    await this.waitForVisible(By.css('.dashboard-page'), 10000);
+    await this.waitForVisible(By.css('.dashboard-page, .overview-page'), 10000);
   }
 
   async goToProfile() {
@@ -79,7 +79,8 @@ export class NavigationBar extends BasePage {
   }
 
   async isTabActive(tabId) {
-    const tabElement = await this.find(By.css(`[data-testid="nav-tab-${tabId}"]`));
+    const effectiveTabId = (tabId === 'home' || tabId === 'dashboard') ? 'overview' : tabId;
+    const tabElement = await this.find(By.css(`[data-testid="nav-tab-${effectiveTabId}"], [data-testid="nav-tab-${tabId}"]`));
     const classes = await tabElement.getAttribute('className');
     return classes.includes('active');
   }

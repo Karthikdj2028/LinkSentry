@@ -10,11 +10,11 @@ export class AnalyticsPage extends BasePage {
     super(driver);
 
     // Locators
-    this.pageContainer = By.css('.analytics-page-container');
-    this.pageTitle = By.css('.page-title');
+    this.pageContainer = By.css('.analytics-page-container, .analytics-page');
+    this.pageTitle = By.css('.page-title, .page-main-heading');
     this.exportCsvBtn = By.css('[data-testid="analytics-export-csv"]');
     this.printReportBtn = By.css('[data-testid="analytics-print-report"]');
-    this.statCards = By.css('.stat-cards-grid .stat-card');
+    this.statCards = By.css('.stat-cards-grid .stat-card, .dashboard-metrics-grid .stat-card, .stat-card');
   }
 
   async waitForAnalyticsLoaded() {

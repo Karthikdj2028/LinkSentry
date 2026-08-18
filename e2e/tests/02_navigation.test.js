@@ -69,8 +69,8 @@ describe('Suite 02: Top-Level & Deep-Link Navigation', function () {
 
   it('NAV-001: Authenticated session reaches Home page and hero section renders', async function () {
     await navBar.goToHome();
-    const heroTitle = await basePage.getText(By.css('.hero-headline'));
-    expect(heroTitle).to.include('Proactive Phishing Protection');
+    const heroTitle = await basePage.getText(By.css('.hero-headline, .page-main-heading'));
+    expect(heroTitle).to.include('Security Overview');
   });
 
   it('NAV-002: Top navbar renders brand logo and system status pill', async function () {
@@ -106,8 +106,8 @@ describe('Suite 02: Top-Level & Deep-Link Navigation', function () {
 
   it('NAV-007: Navigation to Analytics page (/analytics) renders telemetry dossier', async function () {
     await navBar.goToAnalytics();
-    const title = await basePage.getText(By.css('.page-title'));
-    expect(title).to.include('Cybersecurity Threat Analytics');
+    const title = await basePage.getText(By.css('.page-title, .page-main-heading'));
+    expect(title).to.include('Threat Analytics');
   });
 
   it('NAV-008: Analytics tab shows active indicator when selected', async function () {
@@ -119,8 +119,7 @@ describe('Suite 02: Top-Level & Deep-Link Navigation', function () {
   it('NAV-009: Navigation to Dashboard page (/dashboard) renders telemetry overview', async function () {
     await navBar.goToDashboard();
     const heading = await basePage.getText(By.css('.page-main-heading'));
-    // Application h1 heading is "Phishing Telemetry & Dashboard".
-    expect(heading).to.include('Phishing Telemetry');
+    expect(heading).to.include('Security Overview');
   });
 
   it('NAV-010: Dashboard tab shows active indicator when selected', async function () {
@@ -132,7 +131,7 @@ describe('Suite 02: Top-Level & Deep-Link Navigation', function () {
   it('NAV-011: Navigation to Profile page (/profile) renders analyst profile settings', async function () {
     await navBar.goToProfile();
     const heading = await basePage.getText(By.css('.page-main-heading'));
-    expect(heading).to.include('User Profile & Security Settings');
+    expect(heading).to.include('Profile & Account Security');
   });
 
   it('NAV-012: Profile tab shows active indicator when selected', async function () {
@@ -144,8 +143,8 @@ describe('Suite 02: Top-Level & Deep-Link Navigation', function () {
   it('NAV-013: Brand logo click navigates back to Home from any page', async function () {
     await navBar.goToProfile();
     await navBar.click(navBar.brandLogo);
-    const heroTitle = await basePage.getText(By.css('.hero-headline'));
-    expect(heroTitle).to.include('Proactive Phishing Protection');
+    const heroTitle = await basePage.getText(By.css('.hero-headline, .page-main-heading'));
+    expect(heroTitle).to.include('Security Overview');
   });
 
   it('NAV-014: Browser Back button returns to previous active tab', async function () {

@@ -33,12 +33,12 @@ export class HistoryPage extends BasePage {
   }
 
   async filterByType(type) {
-    const chipLocator = By.css(`[data-testid="filter-type-${type.toLowerCase()}"]`);
+    const chipLocator = By.css(`[data-testid="filter-chip-${type.toLowerCase()}"], [data-testid="filter-type-${type.toLowerCase()}"]`);
     await this.click(chipLocator);
   }
 
   async filterByVerdict(verdict) {
-    const chipLocator = By.css(`[data-testid="filter-verdict-${verdict.toLowerCase()}"]`);
+    const chipLocator = By.css(`[data-testid="filter-chip-${verdict.toLowerCase()}"], [data-testid="filter-verdict-${verdict.toLowerCase()}"]`);
     await this.click(chipLocator);
   }
 

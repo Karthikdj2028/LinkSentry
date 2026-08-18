@@ -86,55 +86,55 @@ describe('Suite 06: Scan History & Audit Trail', function () {
   });
 
   it('HIST-004: Filter by Type: ALL is selected by default', async function () {
-    const allChip = await basePage.find(By.css('[data-testid="filter-type-all"]'));
+    const allChip = await basePage.find(By.css('[data-testid="filter-chip-all"], [data-testid="filter-type-all"]'));
     const classes = await allChip.getAttribute('className');
     expect(classes).to.include('active');
   });
 
   it('HIST-005: Filter by Type: URL chip selectable', async function () {
     await historyPage.filterByType('URL');
-    const urlChip = await basePage.find(By.css('[data-testid="filter-type-url"]'));
+    const urlChip = await basePage.find(By.css('[data-testid="filter-chip-url"], [data-testid="filter-type-url"]'));
     const classes = await urlChip.getAttribute('className');
     expect(classes).to.include('active');
   });
 
   it('HIST-006: Filter by Type: QR chip selectable', async function () {
     await historyPage.filterByType('QR');
-    const qrChip = await basePage.find(By.css('[data-testid="filter-type-qr"]'));
+    const qrChip = await basePage.find(By.css('[data-testid="filter-chip-qr"], [data-testid="filter-type-qr"]'));
     const classes = await qrChip.getAttribute('className');
     expect(classes).to.include('active');
   });
 
   it('HIST-007: Filter by Type: MESSAGE chip selectable', async function () {
     await historyPage.filterByType('MESSAGE');
-    const msgChip = await basePage.find(By.css('[data-testid="filter-type-message"]'));
+    const msgChip = await basePage.find(By.css('[data-testid="filter-chip-message"], [data-testid="filter-type-message"]'));
     const classes = await msgChip.getAttribute('className');
     expect(classes).to.include('active');
   });
 
   it('HIST-008: Filter by Verdict: ALL is selected by default', async function () {
-    const allVerdict = await basePage.find(By.css('[data-testid="filter-verdict-all"]'));
+    const allVerdict = await basePage.find(By.css('[data-testid="filter-chip-all"], [data-testid="filter-verdict-all"]'));
     const classes = await allVerdict.getAttribute('className');
     expect(classes).to.include('active');
   });
 
   it('HIST-009: Filter by Verdict: Safe chip selectable', async function () {
     await historyPage.filterByVerdict('Safe');
-    const safeChip = await basePage.find(By.css('[data-testid="filter-verdict-safe"]'));
+    const safeChip = await basePage.find(By.css('[data-testid="filter-chip-safe"], [data-testid="filter-verdict-safe"]'));
     const classes = await safeChip.getAttribute('className');
     expect(classes).to.include('active');
   });
 
   it('HIST-010: Filter by Verdict: Suspicious chip selectable', async function () {
     await historyPage.filterByVerdict('Suspicious');
-    const suspChip = await basePage.find(By.css('[data-testid="filter-verdict-suspicious"]'));
+    const suspChip = await basePage.find(By.css('[data-testid="filter-chip-suspicious"], [data-testid="filter-verdict-suspicious"]'));
     const classes = await suspChip.getAttribute('className');
     expect(classes).to.include('active');
   });
 
   it('HIST-011: Filter by Verdict: Phishing chip selectable', async function () {
     await historyPage.filterByVerdict('Phishing');
-    const phishChip = await basePage.find(By.css('[data-testid="filter-verdict-phishing"]'));
+    const phishChip = await basePage.find(By.css('[data-testid="filter-chip-phishing"], [data-testid="filter-verdict-phishing"]'));
     const classes = await phishChip.getAttribute('className');
     expect(classes).to.include('active');
   });

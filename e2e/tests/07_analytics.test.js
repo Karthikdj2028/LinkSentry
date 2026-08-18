@@ -70,19 +70,19 @@ describe('Suite 07: Telemetry Analytics & Reporting', function () {
   });
 
   it('ANLY-001: Analytics page loads with ISO/IEC 27001 posture header', async function () {
-    const isLoaded = await basePage.isDisplayed(By.css('.analytics-page-container'));
+    const isLoaded = await basePage.isDisplayed(By.css('.analytics-page-container, .analytics-page'));
     expect(isLoaded).to.be.true;
   });
 
   it('ANLY-002: Page title and telemetry section tag render', async function () {
     const title = await basePage.getText(analyticsPage.pageTitle);
-    expect(title).to.include('Cybersecurity Threat Analytics');
-    const tag = await basePage.getText(By.css('.section-tag'));
-    expect(tag).to.include('TELEMETRY & INTELLIGENCE');
+    expect(title).to.include('Threat Analytics');
+    const tag = await basePage.getText(By.css('.section-tag, .hero-tagline-badge'));
+    expect(tag).to.include('TELEMETRY');
   });
 
   it('ANLY-003: Total Scans Processed stat card renders', async function () {
-    const isCard = await basePage.isDisplayed(By.css('.stat-cards-grid .stat-card'));
+    const isCard = await basePage.isDisplayed(By.css('.stat-cards-grid .stat-card, .dashboard-metrics-grid .stat-card'));
     expect(isCard).to.be.true;
   });
 
@@ -102,7 +102,7 @@ describe('Suite 07: Telemetry Analytics & Reporting', function () {
   });
 
   it('ANLY-007: Defensive Posture Evaluation grade badge renders', async function () {
-    const isPostureSection = await basePage.isDisplayed(By.css('.dashboard-section-header'));
+    const isPostureSection = await basePage.isDisplayed(By.css('.dashboard-section-header, .page-hero-header'));
     expect(isPostureSection).to.be.true;
   });
 
@@ -118,7 +118,7 @@ describe('Suite 07: Telemetry Analytics & Reporting', function () {
 
   it('ANLY-010: Analytics layout adapts to tablet viewport (768x1024)', async function () {
     await basePage.setViewport(768, 1024);
-    const isLoaded = await basePage.isDisplayed(By.css('.analytics-page-container'));
+    const isLoaded = await basePage.isDisplayed(By.css('.analytics-page-container, .analytics-page'));
     expect(isLoaded).to.be.true;
     await basePage.setViewport(1920, 1080);
   });

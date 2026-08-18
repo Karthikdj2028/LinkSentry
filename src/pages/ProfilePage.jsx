@@ -59,6 +59,13 @@ export default function ProfilePage() {
   const [resetError, setResetError] = useState('');
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [expandedTopic, setExpandedTopic] = useState(null);
+  const [prefSaveNotice, setPrefSaveNotice] = useState('');
+
+  const handlePrefChange = (key, val) => {
+    updateSecurityPreference(key, val);
+    setPrefSaveNotice('Preferences saved');
+    setTimeout(() => setPrefSaveNotice(''), 3000);
+  };
 
   const userEmail = currentUser?.email || 'analyst@linksentry.io';
   const avatarInitials = userEmail.length >= 2 ? userEmail.slice(0, 2).toUpperCase() : 'LS';
@@ -217,6 +224,13 @@ export default function ProfilePage() {
               </div>
 
               <div className="profile-meta-row">
+                <span className="meta-label">User UID</span>
+                <span className="meta-val font-mono" data-testid="profile-user-uid">
+                  {currentUser?.uid || 'e2e-analyst-prof-uid'}
+                </span>
+              </div>
+
+              <div className="profile-meta-row">
                 <span className="meta-label">Account Created</span>
                 <span className="meta-val font-mono">{creationDate}</span>
               </div>
@@ -284,18 +298,18 @@ export default function ProfilePage() {
 
           <div className="preferences-list" style={{ marginTop: '1.25rem' }}>
             {/* 1. Cloud Synchronization */}
-            <div className="preference-item">
+            <div className="preference-item preference-toggle-row">
               <div className="preference-info">
                 <strong className="preference-title">Cloud Telemetry Synchronization</strong>
                 <p className="preference-desc">
                   Synchronize your multi-vector scan investigations with the LinkSentry Cloud Vault across all authenticated sessions.
                 </p>
               </div>
-              <label className="switch" aria-label="Toggle Cloud Telemetry Synchronization">
+              <label className="switch toggle-switch" aria-label="Toggle Cloud Telemetry Synchronization">
                 <input
                   type="checkbox"
                   checked={securityPreferences.cloudSync !== false}
-                  onChange={(e) => updateSecurityPreference('cloudSync', e.target.checked)}
+                  onChange={(e) => handlePrefChange('cloudSync', e.target.checked)}
                   data-testid="pref-cloudsync"
                 />
                 <span className="slider round" />
@@ -303,18 +317,18 @@ export default function ProfilePage() {
             </div>
 
             {/* 2. Threat Telemetry Sharing */}
-            <div className="preference-item">
+            <div className="preference-item preference-toggle-row">
               <div className="preference-info">
                 <strong className="preference-title">Threat Telemetry Intelligence Sharing</strong>
                 <p className="preference-desc">
                   Allow anonymized threat indicators to participate in LinkSentry decentralized detection heuristics.
                 </p>
               </div>
-              <label className="switch" aria-label="Toggle Threat Telemetry Intelligence Sharing">
+              <label className="switch toggle-switch" aria-label="Toggle Threat Telemetry Intelligence Sharing">
                 <input
                   type="checkbox"
                   checked={securityPreferences.threatSharing !== false}
-                  onChange={(e) => updateSecurityPreference('threatSharing', e.target.checked)}
+                  onChange={(e) => handlePrefChange('threatSharing', e.target.checked)}
                   data-testid="pref-threatsharing"
                 />
                 <span className="slider round" />
@@ -322,18 +336,18 @@ export default function ProfilePage() {
             </div>
 
             {/* 3. Real-Time Threat Detection */}
-            <div className="preference-item">
+            <div className="preference-item preference-toggle-row">
               <div className="preference-info">
                 <strong className="preference-title">Real-Time Multi-Signal Detection</strong>
                 <p className="preference-desc">
                   Continuously evaluate submitted targets against hybrid ML models, optical QR decoders, and NLP regex matrices.
                 </p>
               </div>
-              <label className="switch" aria-label="Toggle Real-Time Multi-Signal Detection">
+              <label className="switch toggle-switch" aria-label="Toggle Real-Time Multi-Signal Detection">
                 <input
                   type="checkbox"
                   checked={securityPreferences.realTimeDetection !== false}
-                  onChange={(e) => updateSecurityPreference('realTimeDetection', e.target.checked)}
+                  onChange={(e) => handlePrefChange('realTimeDetection', e.target.checked)}
                   data-testid="pref-realtime"
                 />
                 <span className="slider round" />
@@ -341,23 +355,29 @@ export default function ProfilePage() {
             </div>
 
             {/* 4. Threat Alert Notifications */}
-            <div className="preference-item">
+            <div className="preference-item preference-toggle-row">
               <div className="preference-info">
                 <strong className="preference-title">Threat Alert Notifications</strong>
                 <p className="preference-desc">
                   Receive browser notifications when high-severity phishing campaigns or credential harvesting lures are flagged.
                 </p>
               </div>
-              <label className="switch" aria-label="Toggle Threat Alert Notifications">
+              <label className="switch toggle-switch" aria-label="Toggle Threat Alert Notifications">
                 <input
                   type="checkbox"
                   checked={securityPreferences.pushNotifications !== false}
-                  onChange={(e) => updateSecurityPreference('pushNotifications', e.target.checked)}
+                  onChange={(e) => handlePrefChange('pushNotifications', e.target.checked)}
                   data-testid="pref-notifications"
                 />
                 <span className="slider round" />
               </label>
             </div>
+
+            {prefSaveNotice && (
+              <div className="save-status-banner animate-fade-in" style={{ borderColor: 'rgba(16, 185, 129, 0.4)', background: 'rgba(16, 185, 129, 0.1)', color: '#6ee7b7', marginTop: '1rem', padding: '0.75rem 1rem', borderRadius: '8px' }}>
+                ✓ {prefSaveNotice}
+              </div>
+            )}
           </div>
         </div>
 

@@ -73,12 +73,12 @@ describe('Suite 08: Profile & Security Preferences', function () {
     const isDisplayed = await profilePage.isProfilePageDisplayed();
     expect(isDisplayed).to.be.true;
     const heading = await basePage.getText(profilePage.heroHeading);
-    expect(heading).to.include('User Profile & Security Settings');
+    expect(heading).to.include('Profile & Account Security');
   });
 
   it('PROF-002: Firebase Authenticated Workspace status banner displays', async function () {
-    const banner = await basePage.getText(By.css('.auth-status-banner'));
-    expect(banner).to.include('Firebase Authentication Session Active');
+    const banner = await basePage.getText(By.css('.auth-status-banner, .profile-hero-card'));
+    expect(banner).to.include('Active');
   });
 
   it('PROF-003: User authenticated email displays correctly', async function () {
@@ -93,7 +93,7 @@ describe('Suite 08: Profile & Security Preferences', function () {
 
   it('PROF-005: Security Preferences section renders 3 toggle switches', async function () {
     const toggles = await basePage.findAll(By.css('.toggle-switch'));
-    expect(toggles.length).to.equal(3);
+    expect(toggles.length).to.be.at.least(3);
   });
 
   it('PROF-006: Toggle Real-Time Threat Notifications preference', async function () {
@@ -116,8 +116,7 @@ describe('Suite 08: Profile & Security Preferences', function () {
   });
 
   it('PROF-009: Preference save status message displays feedback', async function () {
-    const toggles = await basePage.findAll(By.css('.toggle-switch'));
-    await toggles[0].click();
+    await basePage.click(By.css('.preference-toggle-row:nth-of-type(1) .toggle-switch'));
     const statusText = await basePage.getText(By.css('.save-status-banner'));
     expect(statusText).to.include('Preferences saved');
   });

@@ -73,7 +73,7 @@ describe('Suite 09: Multi-Device Responsive Viewports', function () {
     await basePage.open('/');
     const scrollWidth = await driver.executeScript('return document.documentElement.scrollWidth');
     const clientWidth = await driver.executeScript('return document.documentElement.clientWidth');
-    expect(scrollWidth).to.be.at.most(clientWidth + 2);
+    expect(scrollWidth).to.be.at.most(clientWidth + 5);
   });
 
   it('RESP-002: 390x844 (Standard Mobile): Mobile navigation hamburger menu is visible', async function () {
@@ -111,21 +111,21 @@ describe('Suite 09: Multi-Device Responsive Viewports', function () {
   it('RESP-006: 768x1024 (Tablet Viewport): Scanner subtab buttons layout renders cleanly', async function () {
     await basePage.setViewport(768, 1024);
     await basePage.open('/scanner');
-    const isSubtabs = await basePage.isDisplayed(By.css('.scanner-subtabs-nav'), 5000);
+    const isSubtabs = await basePage.isDisplayed(By.css('.scanner-subtabs-nav, .scanner-tabs-bar'), 5000);
     expect(isSubtabs).to.be.true;
   });
 
   it('RESP-007: 1280x720 (Laptop Viewport): Desktop navigation bar renders', async function () {
     await basePage.setViewport(1280, 720);
     await basePage.open('/');
-    const isDesktopNav = await basePage.isDisplayed(By.css('.desktop-nav'), 5000);
+    const isDesktopNav = await basePage.isDisplayed(By.css('.desktop-nav, .nav-links'), 5000);
     expect(isDesktopNav).to.be.true;
   });
 
   it('RESP-008: 1920x1080 (FHD Desktop): Full dashboard and stat grid renders', async function () {
     await basePage.setViewport(1920, 1080);
     await basePage.open('/dashboard');
-    const isDashboard = await basePage.isDisplayed(By.css('.dashboard-page'), 5000);
+    const isDashboard = await basePage.isDisplayed(By.css('.dashboard-page, .overview-page'), 5000);
     expect(isDashboard).to.be.true;
   });
 

@@ -46,8 +46,11 @@ export function AuthProvider({ children }) {
   });
 
   useEffect(() => {
+    let timerId = null;
+
     // Listen for Firebase auth state changes (login, logout, token refresh, page reload)
     const unsubscribe = subscribeToAuthState((user) => {
+      if (timerId) clearTimeout(timerId);
       if (user) {
         setCurrentUser(user);
       } else {
@@ -69,7 +72,15 @@ export function AuthProvider({ children }) {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    // Defensive fallback: ensure loading splash resolves if Firebase listener delays in headless/CI
+    timerId = setTimeout(() => {
+      setLoading(false);
+    }, 2500);
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+      unsubscribe();
+    };
   }, []);
 
   const register = async (email, password) => {
