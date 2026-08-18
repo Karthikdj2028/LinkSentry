@@ -7,27 +7,10 @@
 import { remote } from 'webdriverio';
 import { execSync } from 'child_process';
 import { AUTH_FIXTURES, URL_FIXTURES, MESSAGE_FIXTURES } from '../../selenium/data/fixtures.js';
+import { APPIUM_CONFIG } from '../config/appium.config.js';
 
-const APPIUM_OPTS = {
-  hostname: '127.0.0.1',
-  port: 4723,
-  path: '/',
-  capabilities: {
-    platformName: 'Android',
-    'appium:automationName': 'UiAutomator2',
-    'appium:deviceName': 'Samsung SM_E055F',
-    'appium:udid': 'R9ZY105SN5M',
-    'appium:appPackage': 'com.linksentry.app',
-    'appium:appActivity': 'com.linksentry.app.MainActivity',
-    'appium:noReset': true,
-    'appium:autoGrantPermissions': true,
-    'appium:newCommandTimeout': 300,
-    'appium:uiautomator2ServerInstallTimeout': 60000,
-    'appium:adbExecTimeout': 60000
-  }
-};
-
-const ADB_PATH = 'C:\\Users\\acer\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe';
+const APPIUM_OPTS = APPIUM_CONFIG;
+const ADB_PATH = process.env.ANDROID_ADB_PATH || 'adb';
 
 export async function runAppiumTestSuite() {
   console.log('=== STARTING REAL APPIUM 2.X AUTOMATION SUITE ON PHYSICAL DEVICE ===');
@@ -91,7 +74,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: 'Samsung SM_E055F (R9ZY105SN5M)'
+          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
         });
       } catch (err) {
         results.push({
@@ -125,7 +108,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: 'Samsung SM_E055F (R9ZY105SN5M)'
+          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
         });
       } catch (err) {
         results.push({
@@ -164,7 +147,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: 'Samsung SM_E055F (R9ZY105SN5M)'
+          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
         });
       } catch (err) {
         results.push({
@@ -196,7 +179,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: 'Samsung SM_E055F (R9ZY105SN5M)'
+          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
         });
       } catch (err) {
         results.push({
@@ -228,7 +211,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: 'Samsung SM_E055F (R9ZY105SN5M)'
+          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
         });
       } catch (err) {
         results.push({
@@ -262,7 +245,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: 'Samsung SM_E055F (R9ZY105SN5M)'
+          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
         });
       } catch (err) {
         results.push({
@@ -295,7 +278,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: 'Samsung SM_E055F (R9ZY105SN5M)'
+          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
         });
       } catch (err) {
         results.push({
@@ -339,7 +322,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: 'Samsung SM_E055F (R9ZY105SN5M)'
+          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
         });
       } catch (err) {
         results.push({

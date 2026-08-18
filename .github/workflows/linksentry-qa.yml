@@ -28,15 +28,30 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          npm --prefix e2e ci
 
-      - name: Run Selenium Web Tests
+      - name: Build Web Application
+        run: npm run build
+
+      - name: Serve Web Application on Port 4174
+        run: |
+          npx vite preview --port 4174 --host 127.0.0.1 &
+          sleep 5
+
+      - name: Verify Web Server Reachable
+        run: |
+          curl --fail http://127.0.0.1:4174
+
+      - name: Run Selenium Web E2E Suite
         env:
+          HEADLESS: "true"
+          E2E_BASE_URL: "http://127.0.0.1:4174"
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
-          SELENIUM_BASE_URL: https://linksentry-7e694.web.app
         run: |
-          node qa/selenium/tests/selenium-suite-runner.js
+          npm --prefix e2e test
 
 
   load-test:
@@ -69,13 +84,15 @@ jobs:
 
       - name: Start FastAPI Backend
         working-directory: backend
+        env:
+          PYTHONPATH: .
         run: |
           nohup python -m uvicorn main:app \
             --host 127.0.0.1 \
             --port 8000 \
             > /tmp/linksentry-api.log 2>&1 &
 
-          sleep 10
+          sleep 5
 
       - name: Verify Backend
         run: |
@@ -86,15 +103,22 @@ jobs:
           K6_BASE_URL: http://127.0.0.1:8000
         run: |
           node qa/k6/scenarios/k6-suite-runner.js
-          
+
+
   appium:
     name: Appium Android Tests
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Enable KVM for Android Emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm-nodes.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm || true
+          sudo chmod 666 /dev/kvm || true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -102,77 +126,29 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Configure Android Environment
-        shell: powershell
+      - name: Install dependencies & Appium UiAutomator2 driver
         run: |
-          $androidHome = "C:\Users\acer\AppData\Local\Android\Sdk"
+          npm ci
+          npx appium driver install uiautomator2 || true
 
-          if (-not (Test-Path "$androidHome\platform-tools\adb.exe")) {
-            throw "ADB not found at $androidHome\platform-tools\adb.exe"
-          }
-
-          "ANDROID_HOME=$androidHome" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "ANDROID_SDK_ROOT=$androidHome" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-          "$androidHome\platform-tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          "$androidHome\emulator" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-          Write-Host "Android SDK configured: $androidHome"
-
-      - name: Verify Android Device
-        shell: powershell
+      - name: Start Appium Server
         run: |
-          Write-Host "ADB location:"
-          where.exe adb
-
-          Write-Host "ADB version:"
-          adb version
-
-          Write-Host "Connected devices:"
-          adb devices
-
-          $deviceId = "R9ZY105SN5M"
-          $deviceState = (& adb devices) |
-            Select-String -Pattern "^\s*$deviceId\s+device\s*$"
-
-          if (-not $deviceState) {
-            Write-Host "ADB device list:"
-            adb devices
-            throw "Samsung device $deviceId is not connected or authorized."
-          }
-
-          Write-Host "Samsung device $deviceId detected successfully."
-
-          Write-Host "Device model:"
-          adb -s $deviceId shell getprop ro.product.model
-
-          Write-Host "Android API:"
-          adb -s $deviceId shell getprop ro.build.version.sdk
+          npx appium --address 127.0.0.1 --port 4723 --log /tmp/appium.log &
+          sleep 5
 
       - name: Verify Appium Server
-        shell: powershell
         run: |
-          $response = Invoke-WebRequest `
-            -Uri "http://127.0.0.1:4723/status" `
-            -UseBasicParsing
+          curl --fail http://127.0.0.1:4723/status
 
-          Write-Host $response.Content
-
-          if ($response.StatusCode -ne 200) {
-            throw "Appium server is not available."
-          }
-
-          Write-Host "Appium server is available."
-
-      - name: Verify Appium Driver
-        shell: powershell
-        run: |
-          npx appium driver list --installed
-
-      - name: Run Real Appium Tests
-        shell: powershell
-        run: |
-          node qa/appium/tests/appium-suite-runner.js
+      - name: Run Android Emulator & Appium Tests
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          profile: pixel_6
+          script: |
+            adb devices
+            ANDROID_SERIAL=$(adb devices | grep -m 1 'emulator' | awk '{print $1}')
+            echo "Detected Android Emulator Serial: $ANDROID_SERIAL"
+            ANDROID_SERIAL=${ANDROID_SERIAL:-emulator-5554} ANDROID_DEVICE_NAME="Android Emulator" APPIUM_HOST="127.0.0.1" APPIUM_PORT="4723" node qa/appium/tests/appium-suite-runner.js

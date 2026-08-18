@@ -9,5 +9,6 @@
     "json=true",
     "overwrite=true"
   ],
+  "require": "./utils/mochaHooks.js",
   "exit": true
 }
