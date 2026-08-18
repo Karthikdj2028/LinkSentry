@@ -8,8 +8,8 @@ export const APPIUM_CONFIG = {
   capabilities: {
     platformName: 'Android',
     'appium:automationName': 'UiAutomator2',
-    'appium:deviceName': process.env.ANDROID_DEVICE_NAME || 'Samsung SM_E055F',
-    'appium:udid': process.env.ANDROID_SERIAL || 'R9ZY105SN5M',
+    'appium:deviceName': process.env.ANDROID_DEVICE_NAME || 'Android Device',
+    'appium:udid': process.env.ANDROID_SERIAL || 'emulator-5554',
     'appium:appPackage': 'com.linksentry.app',
     'appium:appActivity': 'com.linksentry.app.MainActivity',
     'appium:app': process.env.ANDROID_APK_PATH || 'android/app/build/outputs/apk/debug/app-debug.apk',

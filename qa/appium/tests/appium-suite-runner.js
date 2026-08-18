@@ -1,6 +1,6 @@
 /**
  * LinkSentry Real Appium 2.x Test Suite Runner
- * Executes genuine UI interactions on connected physical Android device (Samsung SM_E055F, UDID: R9ZY105SN5M)
+ * Executes genuine UI interactions on connected Android device / emulator
  * via UiAutomator2 driver against package com.linksentry.app.
  */
 
@@ -9,14 +9,24 @@ import { execSync } from 'child_process';
 import { AUTH_FIXTURES, URL_FIXTURES, MESSAGE_FIXTURES } from '../../selenium/data/fixtures.js';
 import { APPIUM_CONFIG } from '../config/appium.config.js';
 
-const APPIUM_OPTS = APPIUM_CONFIG;
+const TARGET_SERIAL = process.env.ANDROID_SERIAL || 'emulator-5554';
+const TARGET_DEVICE_NAME = process.env.ANDROID_DEVICE_NAME || (TARGET_SERIAL.startsWith('emulator') ? 'Android Emulator' : 'Android Device');
 const ADB_PATH = process.env.ANDROID_ADB_PATH || 'adb';
 
+const APPIUM_OPTS = {
+  ...APPIUM_CONFIG,
+  capabilities: {
+    ...APPIUM_CONFIG.capabilities,
+    'appium:udid': TARGET_SERIAL,
+    'appium:deviceName': TARGET_DEVICE_NAME
+  }
+};
+
 export async function runAppiumTestSuite() {
-  console.log('=== STARTING REAL APPIUM 2.X AUTOMATION SUITE ON PHYSICAL DEVICE ===');
-  console.log('Target Device UDID: R9ZY105SN5M (Samsung SM_E055F, Android 16)');
-  console.log('Target Package:     com.linksentry.app (MainActivity)');
-  console.log('Appium Server URL:  http://127.0.0.1:4723');
+  console.log('=== STARTING REAL APPIUM 2.X AUTOMATION SUITE ===');
+  console.log(`Target Device Serial: ${TARGET_SERIAL} (${TARGET_DEVICE_NAME})`);
+  console.log('Target Package:       com.linksentry.app (MainActivity)');
+  console.log(`Appium Server URL:    http://${APPIUM_OPTS.hostname}:${APPIUM_OPTS.port}`);
 
   const results = [];
   let driver;
@@ -74,7 +84,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
+          device: `${TARGET_DEVICE_NAME} (${TARGET_SERIAL})`
         });
       } catch (err) {
         results.push({
@@ -108,7 +118,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
+          device: `${TARGET_DEVICE_NAME} (${TARGET_SERIAL})`
         });
       } catch (err) {
         results.push({
@@ -147,7 +157,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
+          device: `${TARGET_DEVICE_NAME} (${TARGET_SERIAL})`
         });
       } catch (err) {
         results.push({
@@ -179,7 +189,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
+          device: `${TARGET_DEVICE_NAME} (${TARGET_SERIAL})`
         });
       } catch (err) {
         results.push({
@@ -211,7 +221,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
+          device: `${TARGET_DEVICE_NAME} (${TARGET_SERIAL})`
         });
       } catch (err) {
         results.push({
@@ -245,7 +255,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
+          device: `${TARGET_DEVICE_NAME} (${TARGET_SERIAL})`
         });
       } catch (err) {
         results.push({
@@ -278,7 +288,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
+          device: `${TARGET_DEVICE_NAME} (${TARGET_SERIAL})`
         });
       } catch (err) {
         results.push({
@@ -302,8 +312,8 @@ export async function runAppiumTestSuite() {
       const payload = isSend ? `https://phish-link-${i}.xyz` : `Suspicious-SMS-text-${i}`;
 
       try {
-        // Execute real ADB intent start command on physical device with proper extra key
-        const cmd = `"${ADB_PATH}" -s R9ZY105SN5M shell am start -a ${action} -t text/plain --es ${extraKey} '${payload}' com.linksentry.app/.MainActivity`;
+        // Execute real ADB intent start command on target device with proper extra key
+        const cmd = `"${ADB_PATH}" -s ${TARGET_SERIAL} shell am start -a ${action} -t text/plain --es ${extraKey} '${payload}' com.linksentry.app/.MainActivity`;
         execSync(cmd, { stdio: 'ignore' });
         await new Promise(r => setTimeout(r, 400));
 
@@ -322,7 +332,7 @@ export async function runAppiumTestSuite() {
           durationMs: Date.now() - start,
           timestamp: new Date().toISOString(),
           sessionId,
-          device: `${APPIUM_CONFIG.capabilities['appium:deviceName']} (${APPIUM_CONFIG.capabilities['appium:udid']})`
+          device: `${TARGET_DEVICE_NAME} (${TARGET_SERIAL})`
         });
       } catch (err) {
         results.push({
