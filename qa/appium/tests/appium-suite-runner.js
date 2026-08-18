@@ -343,3 +343,11 @@ export async function runAppiumTestSuite() {
   console.log(`=== REAL APPIUM SUITE COMPLETE: ${results.length} EXECUTED, ${results.filter(r => r.status === 'PASS').length} PASSED ===`);
   return results;
 }
+
+if (process.argv[1] && process.argv[1].includes('appium-suite-runner.js')) {
+  runAppiumTestSuite().catch(err => {
+    console.error('Appium suite execution error:', err);
+    process.exit(1);
+  });
+}
+

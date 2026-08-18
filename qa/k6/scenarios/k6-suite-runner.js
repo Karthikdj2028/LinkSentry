@@ -177,3 +177,11 @@ export async function runK6ChecksSuite() {
   console.log(`\n=== K6 CHECKS SUITE COMPLETE: ${results.length} CHECKS EXECUTED, ${results.filter(r => r.status === 'PASS').length} PASSED ===`);
   return results;
 }
+
+if (process.argv[1] && process.argv[1].includes('k6-suite-runner.js')) {
+  runK6ChecksSuite().catch(err => {
+    console.error('k6 suite execution error:', err);
+    process.exit(1);
+  });
+}
+
