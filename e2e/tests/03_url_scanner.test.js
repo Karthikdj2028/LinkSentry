@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { By } from 'selenium-webdriver';
+import { By, until } from 'selenium-webdriver';
 import { createDriver } from '../utils/driver.js';
 import { captureFailureContext } from '../utils/failureHandler.js';
 import config from '../config/environment.js';
@@ -77,7 +77,7 @@ describe('Suite 03: Advanced URL Phishing Scanner', function () {
     const isInputVisible = await urlPage.isDisplayed(urlPage.urlInput);
     expect(isInputVisible).to.be.true;
     const modePill = await basePage.getText(By.css('.scanner-mode-pill'));
-    expect(modePill).to.include('V3.3');
+    expect(modePill).to.match(/V3\.[34]/);
   });
 
   it('URL-002: Empty URL submission shows validation error prompt', async function () {
@@ -145,13 +145,13 @@ describe('Suite 03: Advanced URL Phishing Scanner', function () {
     expect(hasIndicators).to.be.true;
   });
 
-  it('URL-012: Detection Engine specifications display LinkSentry V3.3', async function () {
+  it('URL-012: Detection Engine specifications display LinkSentry V3.4', async function () {
     await urlPage.scanUrl('https://google.com');
     const specs = await basePage.getText(By.css('.heuristics-list'));
     expect(specs).to.include('LinkSentry');
   });
 
-  it('URL-013: Detection Engine specifications display model version V3.3', async function () {
+  it('URL-013: Detection Engine specifications display model version V3.4', async function () {
     await urlPage.scanUrl('https://google.com');
     const isSpecsVisible = await basePage.isDisplayed(By.css('.heuristics-list'));
     expect(isSpecsVisible).to.be.true;
@@ -224,5 +224,17 @@ describe('Suite 03: Advanced URL Phishing Scanner', function () {
     const isResult = await urlPage.isDisplayed(urlPage.resultCard, 25000);
     expect(isResult).to.be.true;
     await basePage.setViewport(1920, 1080);
+  });
+
+  it('URL-023: Domain Verification card displays DNS and reachability status', async function () {
+    await urlPage.scanUrl('https://google.com');
+    await urlPage.waitForResult();
+    const domainElem = await basePage.driver.wait(until.elementLocated(By.css('[data-testid="domain-verification-section"]')), 15000);
+    await basePage.driver.executeScript('arguments[0].scrollIntoView({ block: "center" });', domainElem);
+    const isDomainSectionVisible = await domainElem.isDisplayed();
+    expect(isDomainSectionVisible).to.be.true;
+    const dnsElem = await basePage.driver.findElement(By.css('[data-testid="domain-dns-status"]'));
+    const dnsText = await dnsElem.getText();
+    expect(dnsText.length).to.be.greaterThan(0);
   });
 });

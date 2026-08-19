@@ -78,6 +78,30 @@ class AuthViewModel(private val authRepository: AuthRepository = AuthRepository(
         }
     }
 
+    fun signInWithGoogle(idToken: String) {
+        if (idToken.isBlank()) {
+            _uiState.value = _uiState.value.copy(errorMessage = "Invalid Google authentication token.")
+            return
+        }
+        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+        viewModelScope.launch {
+            val result = authRepository.signInWithGoogleCredential(idToken)
+            result.fold(
+                onSuccess = {
+                    _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
+                },
+                onFailure = { err ->
+                    val userFriendlyMsg = mapFirebaseErrorMessage(err.message ?: "")
+                    _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = userFriendlyMsg)
+                }
+            )
+        }
+    }
+
+    fun setGoogleError(message: String) {
+        _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = message)
+    }
+
     private fun mapFirebaseErrorMessage(raw: String): String {
         return when {
             raw.contains("INVALID_LOGIN_CREDENTIALS", ignoreCase = true) || raw.contains("wrong-password", ignoreCase = true) || raw.contains("user-not-found", ignoreCase = true) ->

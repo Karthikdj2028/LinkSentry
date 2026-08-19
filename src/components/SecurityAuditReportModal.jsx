@@ -446,7 +446,7 @@ export default function SecurityAuditReportModal({ scans = [], currentUser, onCl
               <strong>DISCLAIMER:</strong> This security audit report is generated automatically by LinkSentry based on client telemetry and multi-signal machine learning heuristic analysis. Posture evaluations and risk scores represent LinkSentry internal analytical metrics.
             </div>
             <div className="report-doc-signoff">
-              <span>LinkSentry Threat Intelligence Platform V3.3</span>
+              <span>LinkSentry Threat Intelligence Platform V3.4</span>
               <span>Page 1 of 1 • End of Audit Report</span>
             </div>
           </div>

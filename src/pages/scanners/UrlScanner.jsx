@@ -1,10 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ScanResultCard from '../../components/ScanResultCard';
+import UnderstandTheLink from '../../components/security/UnderstandTheLink';
 import { PRESET_SAMPLES } from '../../data/mockData';
 import { useAuth, useTheme } from '../../context';
 import { saveScan, mapBackendScanToFirestoreDoc } from '../../firebase';
-import { API_BASE_URL } from '../../config/api';
+import { getApiBaseUrl } from '../../config/api';
 import { saveLocalScan, createLocalTimestamp } from '../../utils/localHistory';
+
+const SCAN_STAGES = [
+  { id: 1, label: 'Parsing URL structure & syntax' },
+  { id: 2, label: 'Evaluating domain/brand signals' },
+  { id: 3, label: 'Verifying DNS & reachability' },
+  { id: 4, label: 'Synthesizing V3.4 decision fusion' },
+];
 
 export default function UrlScanner() {
   const { currentUser } = useAuth();
@@ -14,7 +22,19 @@ export default function UrlScanner() {
   const [validationError, setValidationError] = useState('');
   const [saveWarning, setSaveWarning] = useState('');
   const [isScanning, setIsScanning] = useState(false);
+  const [scanStageIndex, setScanStageIndex] = useState(0);
   const [scanResult, setScanResult] = useState(null);
+
+  useEffect(() => {
+    if (!isScanning) {
+      setScanStageIndex(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setScanStageIndex((prev) => (prev < SCAN_STAGES.length - 1 ? prev + 1 : prev));
+    }, 450);
+    return () => clearInterval(interval);
+  }, [isScanning]);
 
   // ------------------------------------------------------------
   // URL VALIDATION
@@ -68,12 +88,13 @@ export default function UrlScanner() {
     setScanResult(null);
 
     try {
+      const apiBase = getApiBaseUrl();
       console.log(
         '[LinkSentry] Sending URL to backend:',
-        `${API_BASE_URL}/api/scan/url`
+        `${apiBase}/api/scan/url`
       );
 
-      const response = await fetch(`${API_BASE_URL}/api/scan/url`, {
+      const response = await fetch(`${apiBase}/api/scan/url`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -159,7 +180,7 @@ export default function UrlScanner() {
           : [];
 
       // ----------------------------------------------------------
-      // V3.3 SECURITY DETAILS
+      // V3.4 SECURITY DETAILS
       // ----------------------------------------------------------
 
       const details = {
@@ -167,11 +188,11 @@ export default function UrlScanner() {
 
         detectionEngine:
           data.engine ||
-          'LinkSentry V3.3 Detection Engine',
+          'LinkSentry V3.4 Detection Engine',
 
         modelVersion:
           data.model_version ||
-          'V3.3',
+          'V3.4',
 
         mlPrediction:
           data.ml_prediction || 'N/A',
@@ -250,7 +271,13 @@ export default function UrlScanner() {
 
         details,
 
-        // Keep complete V3.3 backend analysis available
+        domainVerification:
+          data.domain_verification || null,
+
+        threatAnalysis:
+          data.threat_analysis || null,
+
+        // Keep complete V3.4 backend analysis available
         // for future UI components.
         backendAnalysis: {
           prediction: data.verdict,
@@ -277,6 +304,15 @@ export default function UrlScanner() {
           typosquatDomain:
             data.typosquat_domain,
 
+          potentialBrand:
+            data.potential_brand,
+
+          domainVerification:
+            data.domain_verification || null,
+
+          threatAnalysis:
+            data.threat_analysis || null,
+
           suspiciousSignals:
             suspiciousSignals,
 
@@ -286,7 +322,7 @@ export default function UrlScanner() {
             data.decision_scores,
 
           modelVersion:
-            data.model_version,
+            data.model_version || 'V3.4',
 
           engine:
             data.engine,
@@ -395,15 +431,14 @@ export default function UrlScanner() {
 
             <p className="scanner-description">
               Analyze suspicious links, shortened URLs,
-              brand impersonations, typosquatting,
-              and credential harvesting attempts
-              using the LinkSentry V3.3 detection pipeline.
+              brand impersonations, typosquatting, domain existence,
+              and reachability using the LinkSentry V3.4 pipeline.
             </p>
 
           </div>
 
           <span className="font-mono scanner-mode-pill">
-            V3.3: ML + RULE FUSION
+            V3.4: ML + REACHABILITY FUSION
           </span>
 
         </div>
@@ -456,7 +491,7 @@ export default function UrlScanner() {
                 disabled={isScanning}
                 autoComplete="off"
                 spellCheck="false"
-                data-testid="url-input"
+                data-testid="url-scan-input"
               />
 
               {urlInput && !isScanning && (
@@ -499,7 +534,7 @@ export default function UrlScanner() {
                   <span className="spinner-border" />
 
                   <span>
-                    Analyzing with LinkSentry V3.3...
+                    Analyzing with LinkSentry V3.4...
                   </span>
                 </>
               ) : (
@@ -556,7 +591,7 @@ export default function UrlScanner() {
       ====================================================== */}
 
       {isScanning && (
-        <div className="cyber-card scanning-in-progress animate-pulse">
+        <div className="cyber-card scanning-in-progress animate-pulse" role="status" aria-live="polite">
 
           <div className="scanning-radar-container">
             <div className="scanning-radar-sweep" />
@@ -566,16 +601,30 @@ export default function UrlScanner() {
 
           <div className="scanning-status-texts font-mono">
 
-            <p className="status-primary-text">
+            <p className="status-primary-text" style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}>
               INSPECTING TARGET: {urlInput}
             </p>
 
+            <div className="scanning-stages-timeline">
+              {SCAN_STAGES.map((stage, idx) => {
+                const isPassed = idx < scanStageIndex;
+                const isCurrent = idx === scanStageIndex;
+                return (
+                  <div
+                    key={stage.id}
+                    className={`scanning-stage-step ${isCurrent ? 'active' : ''} ${isPassed ? 'completed' : ''}`}
+                  >
+                    <span className="stage-num-badge">
+                      {isPassed ? '✓' : `0${stage.id}`}
+                    </span>
+                    <span className="stage-step-label">{stage.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+
             <p className="status-sub-text">
-              Querying LinkSentry V3.3 •
-              Running ML classifier •
-              Checking trusted domains •
-              Detecting typosquatting •
-              Applying decision-fusion rules...
+              Active Phase: {SCAN_STAGES[scanStageIndex]?.label} (LinkSentry V3.4 Engine)
             </p>
 
           </div>
@@ -617,6 +666,22 @@ export default function UrlScanner() {
           resultData={scanResult}
           scanType="URL"
           onReset={handleClear}
+        />
+      )}
+
+      {/* ======================================================
+          EDUCATIONAL MODULE: UNDERSTAND THE LINK
+      ====================================================== */}
+
+      {!isScanning && (
+        <UnderstandTheLink
+          currentScanUrl={scanResult?.target || ''}
+          scanAnalysisMetadata={scanResult?.backendAnalysis || null}
+          onSelectSampleUrl={(sampleUrl) => {
+            setUrlInput(sampleUrl);
+            setValidationError('');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
         />
       )}
 
@@ -679,7 +744,7 @@ export default function UrlScanner() {
               </div>
 
               <h4>
-                V3.3 ML Threat Classification
+                V3.4 ML Threat Classification
               </h4>
 
               <p>

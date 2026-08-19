@@ -121,8 +121,8 @@ export default function QrScanner() {
           const details = {
             qrPayloadCategory: 'Embedded Web Link (HTTP/HTTPS)',
             domain: data.domain || 'N/A',
-            detectionEngine: data.engine || 'LinkSentry V3.3 URL Threat Engine',
-            modelVersion: data.model_version || 'V3.3',
+            detectionEngine: data.engine || 'LinkSentry V3.4 URL Threat Engine',
+            modelVersion: data.model_version || 'V3.4',
             mlPrediction: data.ml_prediction || 'N/A',
             finalModelPrediction: data.model_prediction || data.prediction || data.verdict || 'N/A',
             trustedDomain: typeof data.trusted_domain === 'boolean' ? data.trusted_domain : false,
@@ -751,7 +751,7 @@ export default function QrScanner() {
           <div className="scanning-status-texts font-mono">
             <p className="status-primary-text">INSPECTING DECODED QR PAYLOAD...</p>
             <p className="status-sub-text">
-              Querying FastAPI V3.3 detection engine • Evaluating URL lexical rules • Analyzing heuristics...
+              Querying FastAPI V3.4 detection engine • Evaluating URL lexical rules • Analyzing heuristics...
             </p>
           </div>
         </div>

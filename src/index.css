@@ -43,6 +43,16 @@
   --status-phishing-border: rgba(239, 68, 68, 0.3);
   --status-phishing-text: #f87171;
 
+  --status-malware: #dc2626;
+  --status-malware-bg: rgba(220, 38, 38, 0.14);
+  --status-malware-border: rgba(220, 38, 38, 0.35);
+  --status-malware-text: #fca5a5;
+
+  --status-defacement: #8b5cf6;
+  --status-defacement-bg: rgba(139, 92, 246, 0.12);
+  --status-defacement-border: rgba(139, 92, 246, 0.3);
+  --status-defacement-text: #c4b5fd;
+
   --status-info: #0ea5e9;
   --status-info-bg: rgba(14, 165, 233, 0.12);
   --status-info-border: rgba(14, 165, 233, 0.3);
@@ -126,6 +136,16 @@
   --status-phishing-bg: #FEF2F2;
   --status-phishing-border: #FECACA;
   --status-phishing-text: #B91C1C;
+
+  --status-malware: #B91C1C;
+  --status-malware-bg: #FEF2F2;
+  --status-malware-border: #FECACA;
+  --status-malware-text: #991B1B;
+
+  --status-defacement: #7C3AED;
+  --status-defacement-bg: #F5F3FF;
+  --status-defacement-border: #DDD6FE;
+  --status-defacement-text: #6D28D9;
 
   --status-info: #0284C7;
   --status-info-bg: #F0F9FF;

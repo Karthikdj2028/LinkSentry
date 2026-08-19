@@ -107,7 +107,7 @@ export default function ScanDetailModal({ scan, onClose }) {
             </div>
             <div className="meta-card">
               <span className="meta-label">Detection Engine</span>
-              <span className="meta-value">{scan.engine || 'LinkSentry V3.3 ML Engine'}</span>
+              <span className="meta-value">{scan.engine || 'LinkSentry V3.4 ML Engine'}</span>
             </div>
             <div className="meta-card">
               <span className="meta-label">Logged Timestamp</span>

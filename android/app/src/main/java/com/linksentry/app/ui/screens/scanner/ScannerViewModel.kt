@@ -69,8 +69,8 @@ class ScannerViewModel(
                         riskScore = body.riskScore,
                         confidence = body.confidence,
                         indicators = body.indicators ?: emptyList(),
-                        engine = body.engine ?: "LinkSentry V3.3 URL ML Engine",
-                        modelVersion = body.modelVersion ?: "V3.3",
+                        engine = body.engine ?: "LinkSentry V3.4 URL ML Engine",
+                        modelVersion = body.modelVersion ?: "V3.4",
                         source = "android"
                     )
                     _uiState.value = _uiState.value.copy(isScanning = false, scanResult = record)
@@ -82,9 +82,15 @@ class ScannerViewModel(
                     )
                 }
             } catch (e: Exception) {
+                val currentBase = ApiClient.getBaseUrl()
+                val msg = if (currentBase.contains("192.168.") || currentBase.contains("10.0.2.2")) {
+                    "Development V3.4 backend unavailable: ${e.localizedMessage ?: "Connection failed"}. Verify development server is running at $currentBase."
+                } else {
+                    "Unable to connect to threat detection engine: ${e.localizedMessage ?: "Network error"}"
+                }
                 _uiState.value = _uiState.value.copy(
                     isScanning = false,
-                    errorMessage = "Unable to connect to threat detection engine: ${e.localizedMessage}"
+                    errorMessage = msg
                 )
             }
         }
@@ -113,7 +119,7 @@ class ScannerViewModel(
                         confidence = body.confidence,
                         indicators = body.indicators ?: emptyList(),
                         engine = body.engine ?: "LinkSentry Smishing Heuristic Engine",
-                        modelVersion = "v1.0",
+                        modelVersion = "V3.4",
                         source = "android"
                     )
                     _uiState.value = _uiState.value.copy(isScanning = false, scanResult = record)
@@ -169,7 +175,7 @@ class ScannerViewModel(
                             confidence = body.confidence,
                             indicators = body.indicators ?: emptyList(),
                             engine = body.engine ?: "LinkSentry QR/URL ML Engine",
-                            modelVersion = body.modelVersion ?: "V3.3",
+                            modelVersion = body.modelVersion ?: "V3.4",
                             source = "android"
                         )
                         _uiState.value = _uiState.value.copy(isScanning = false, scanResult = record)
@@ -191,7 +197,7 @@ class ScannerViewModel(
                         confidence = 0.85,
                         indicators = listOf("Non-URL QR payload detected (Text/Data)"),
                         engine = "LinkSentry QR Payload Analyzer",
-                        modelVersion = "V3.3",
+                        modelVersion = "V3.4",
                         source = "android"
                     )
                     _uiState.value = _uiState.value.copy(isScanning = false, scanResult = record)

@@ -421,7 +421,7 @@ export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
                         </td>
                         <td>
                           <span className="font-mono text-sm" style={{ color: 'var(--text-muted)' }}>
-                            {item.engine || 'V3.3 ML'}
+                            {item.engine || 'V3.4 ML'}
                           </span>
                         </td>
                         <td>

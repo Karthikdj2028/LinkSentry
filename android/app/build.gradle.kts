@@ -58,6 +58,7 @@ buildTypes {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

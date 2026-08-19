@@ -53,17 +53,14 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.linksentry.app.data.api.ApiClient
+import com.linksentry.app.data.model.DomainVerificationResponse
 import com.linksentry.app.data.model.EmbeddedUrlResult
 import com.linksentry.app.data.model.MessageScanRequest
 import com.linksentry.app.data.model.ScanRecord
 import com.linksentry.app.data.model.UrlScanRequest
 import com.linksentry.app.data.preferences.AppPreferences
 import com.linksentry.app.data.repository.ScanRepository
-import com.linksentry.app.ui.components.CyberBadge
-import com.linksentry.app.ui.components.CyberCard
-import com.linksentry.app.ui.components.CyberTopBar
-import com.linksentry.app.ui.components.ScanDetailBottomSheet
-import com.linksentry.app.ui.components.ThreatMeter
+import com.linksentry.app.ui.components.*
 import com.linksentry.app.ui.theme.*
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
@@ -72,9 +69,18 @@ data class ScannerResultUi(
     val verdict: String,
     val riskScore: Int,
     val confidence: Double,
-    val domain: String?,
-    val modelVersion: String,
-    val indicators: List<String>,
+    val targetUrl: String? = null,
+    val domain: String? = null,
+    val modelVersion: String = "V3.4",
+    val engine: String? = null,
+    val indicators: List<String> = emptyList(),
+    val domainVerification: DomainVerificationResponse? = null,
+    val decisionScores: Map<String, Double>? = null,
+    val impersonatedDomain: String? = null,
+    val typosquatDomain: String? = null,
+    val potentialBrand: String? = null,
+    val trustedDomain: Boolean? = null,
+    val mlPrediction: String? = null,
     val messageRisk: Int? = null,
     val embeddedUrls: List<EmbeddedUrlResult>? = null,
     val isNonUrlQr: Boolean = false,
@@ -100,8 +106,21 @@ fun ScannerScreen(
     var selectedVector by remember { mutableStateOf(initialVector) }
     var inputPayload by remember { mutableStateOf(initialInput) }
     var isScanning by remember { mutableStateOf(false) }
+    var activeScanStageIndex by remember { mutableIntStateOf(0) }
     var threatResult by remember { mutableStateOf<ScannerResultUi?>(null) }
     var scanError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(isScanning) {
+        if (isScanning) {
+            activeScanStageIndex = 0
+            while (true) {
+                kotlinx.coroutines.delay(450)
+                activeScanStageIndex = (activeScanStageIndex + 1) % 4
+            }
+        } else {
+            activeScanStageIndex = 0
+        }
+    }
 
     // Clipboard Detection
     var clipboardContent by remember { mutableStateOf<String?>(null) }
@@ -226,9 +245,18 @@ fun ScannerScreen(
                                     verdict = body.verdict,
                                     riskScore = body.riskScore,
                                     confidence = body.confidence,
+                                    targetUrl = payload.trim(),
                                     domain = body.domain,
-                                    modelVersion = body.modelVersion ?: "V3.3",
-                                    indicators = body.indicators ?: emptyList()
+                                    modelVersion = body.modelVersion ?: "V3.4",
+                                    engine = body.engine ?: "LinkSentry V3.4 ML + Reachability Engine",
+                                    indicators = body.indicators ?: emptyList(),
+                                    domainVerification = body.domainVerification,
+                                    decisionScores = body.decisionScores,
+                                    impersonatedDomain = body.impersonatedDomain,
+                                    typosquatDomain = body.typosquatDomain,
+                                    potentialBrand = body.potentialBrand,
+                                    trustedDomain = body.trustedDomain,
+                                    mlPrediction = body.mlPrediction
                                 )
                                 threatResult = result
 
@@ -244,8 +272,8 @@ fun ScannerScreen(
                                         domain = body.domain ?: "",
                                         confidence = body.confidence,
                                         indicators = body.indicators ?: emptyList(),
-                                        engine = body.engine ?: "LinkSentry V3.3 URL ML Engine",
-                                        modelVersion = body.modelVersion ?: "V3.3",
+                                        engine = body.engine ?: "LinkSentry V3.4 URL ML Engine",
+                                        modelVersion = body.modelVersion ?: "V3.4",
                                         source = "android"
                                     )
                                     scanRepository.saveScan(activeUid, record)
@@ -268,8 +296,10 @@ fun ScannerScreen(
                                     verdict = body.verdict,
                                     riskScore = body.riskScore,
                                     confidence = body.confidence,
+                                    targetUrl = null,
                                     domain = null,
-                                    modelVersion = "V3.3",
+                                    modelVersion = "V3.4",
+                                    engine = body.engine ?: "LinkSentry Multi-Signal Message Threat Engine V3.4",
                                     indicators = body.indicators ?: emptyList(),
                                     messageRisk = body.messageRisk,
                                     embeddedUrls = body.embeddedUrls
@@ -288,8 +318,8 @@ fun ScannerScreen(
                                         domain = "",
                                         confidence = body.confidence,
                                         indicators = body.indicators ?: emptyList(),
-                                        engine = body.engine ?: "LinkSentry Multi-Signal Message Threat Engine V3.3",
-                                        modelVersion = "V3.3",
+                                        engine = body.engine ?: "LinkSentry Multi-Signal Message Threat Engine V3.4",
+                                        modelVersion = "V3.4",
                                         source = "android"
                                     )
                                     scanRepository.saveScan(activeUid, record)
@@ -302,7 +332,12 @@ fun ScannerScreen(
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("LinkSentryTrace", "SCAN_API_FAILURE endpoint=/api/scan Exception=${e.localizedMessage}")
-                    scanError = "Cannot connect to analysis server: ${e.localizedMessage ?: "Network failed"}"
+                    val currentBase = ApiClient.getBaseUrl()
+                    scanError = if (currentBase.contains("192.168.") || currentBase.contains("10.0.2.2")) {
+                        "Development V3.4 backend unavailable: ${e.localizedMessage ?: "Network connection failed"}. Verify development server is running at $currentBase."
+                    } else {
+                        "Cannot connect to analysis server: ${e.localizedMessage ?: "Network failed"}"
+                    }
                 } finally {
                     isScanning = false
                 }
@@ -819,6 +854,11 @@ fun ScannerScreen(
                     }
                 }
 
+                // Scan Pipeline Progress Card
+                if (isScanning) {
+                    ScanPipelineProgressCard(currentStageIndex = activeScanStageIndex)
+                }
+
                 // Threat Result Card
                 threatResult?.let { result ->
                     CyberCard {
@@ -833,7 +873,17 @@ fun ScannerScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = colors.textPrimary
                             )
-                            CyberBadge(verdict = result.verdict)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "${(result.confidence * 100).toInt()}% confidence",
+                                    fontSize = 11.sp,
+                                    color = colors.textMuted
+                                )
+                                CyberBadge(verdict = result.verdict)
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
@@ -889,6 +939,42 @@ fun ScannerScreen(
                             }
                         }
                     }
+
+                    // 1. Domain Verification Card
+                    result.domainVerification?.let { verif ->
+                        DomainVerificationCard(verification = verif)
+                    }
+
+                    // 2. Brand Evidence Card
+                    if (!result.potentialBrand.isNullOrBlank() || !result.impersonatedDomain.isNullOrBlank() || !result.typosquatDomain.isNullOrBlank()) {
+                        BrandEvidenceCard(
+                            impersonatedDomain = result.impersonatedDomain,
+                            typosquatDomain = result.typosquatDomain,
+                            potentialBrand = result.potentialBrand,
+                            observedDomain = result.domain
+                        )
+                    }
+
+                    // 3. Technical Decision Margins Card
+                    if (!result.decisionScores.isNullOrEmpty()) {
+                        TechnicalDecisionMarginsCard(
+                            decisionScores = result.decisionScores,
+                            engineName = result.engine ?: "LinkSentry V3.4 ML Engine",
+                            modelVersion = result.modelVersion
+                        )
+                    }
+
+                    // 4. Interactive URL Anatomy View
+                    val anatomyTarget = result.targetUrl ?: result.domain?.let { "https://$it" }
+                    if (!anatomyTarget.isNullOrBlank() && (selectedVector == "url" || selectedVector == "qr")) {
+                        UrlAnatomyView(
+                            url = anatomyTarget,
+                            indicators = result.indicators
+                        )
+                    }
+
+                    // 5. Educational Knowledge Card
+                    UnderstandTheLinkCard()
                 }
 
                 // Recent Scans List
@@ -1015,9 +1101,18 @@ private fun processBarcodePayload(
                         verdict = body.verdict,
                         riskScore = body.riskScore,
                         confidence = body.confidence,
+                        targetUrl = targetUrl,
                         domain = body.domain,
-                        modelVersion = body.modelVersion ?: "V3.3",
-                        indicators = body.indicators ?: emptyList()
+                        modelVersion = body.modelVersion ?: "V3.4",
+                        engine = body.engine ?: "LinkSentry V3.4 QR/URL ML Engine",
+                        indicators = body.indicators ?: emptyList(),
+                        domainVerification = body.domainVerification,
+                        decisionScores = body.decisionScores,
+                        impersonatedDomain = body.impersonatedDomain,
+                        typosquatDomain = body.typosquatDomain,
+                        potentialBrand = body.potentialBrand,
+                        trustedDomain = body.trustedDomain,
+                        mlPrediction = body.mlPrediction
                     )
 
                     if (cloudSyncEnabled) {
@@ -1032,8 +1127,8 @@ private fun processBarcodePayload(
                             domain = body.domain ?: "",
                             confidence = body.confidence,
                             indicators = body.indicators ?: emptyList(),
-                            engine = body.engine ?: "LinkSentry V3.3 URL ML Engine",
-                            modelVersion = body.modelVersion ?: "V3.3",
+                            engine = body.engine ?: "LinkSentry V3.4 QR/URL ML Engine",
+                            modelVersion = body.modelVersion ?: "V3.4",
                             source = "android"
                         )
                         scanRepository.saveScan(activeUid, record)
@@ -1069,7 +1164,7 @@ private fun processBarcodePayload(
             riskScore = 0,
             confidence = 1.0,
             domain = null,
-            modelVersion = "V3.3",
+            modelVersion = "V3.4",
             indicators = listOf("Non-URL optical payload recognized ($qrTypeLabel). No external network risk detected."),
             isNonUrlQr = true,
             qrType = qrTypeLabel
@@ -1088,7 +1183,7 @@ private fun processBarcodePayload(
                 confidence = 1.0,
                 indicators = listOf("Non-URL optical payload recognized ($qrTypeLabel)."),
                 engine = "LinkSentry Non-URL Barcode Classifier",
-                modelVersion = "V3.3",
+                modelVersion = "V3.4",
                 source = "android"
             )
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {

@@ -27,9 +27,72 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.linksentry.app.data.repository.AuthRepository
+import androidx.compose.foundation.BorderStroke
 import com.linksentry.app.ui.components.CyberCard
 import com.linksentry.app.ui.theme.*
 import kotlinx.coroutines.launch
+
+@Composable
+fun GoogleIcon(modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier = modifier) {
+        val width = size.width
+        val height = size.height
+        val cx = width / 2f
+        val cy = height / 2f
+        val radius = minOf(width, height) / 2f
+
+        val stroke = radius * 0.36f
+        val arcRadius = radius - stroke / 2f
+
+        // Red (top arc)
+        drawArc(
+            color = Color(0xFFEA4335),
+            startAngle = 200f,
+            sweepAngle = 140f,
+            useCenter = false,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke),
+            topLeft = androidx.compose.ui.geometry.Offset(cx - arcRadius, cy - arcRadius),
+            size = androidx.compose.ui.geometry.Size(arcRadius * 2, arcRadius * 2)
+        )
+        // Yellow (left arc)
+        drawArc(
+            color = Color(0xFFFBBC05),
+            startAngle = 140f,
+            sweepAngle = 60f,
+            useCenter = false,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke),
+            topLeft = androidx.compose.ui.geometry.Offset(cx - arcRadius, cy - arcRadius),
+            size = androidx.compose.ui.geometry.Size(arcRadius * 2, arcRadius * 2)
+        )
+        // Green (bottom arc)
+        drawArc(
+            color = Color(0xFF34A853),
+            startAngle = 45f,
+            sweepAngle = 95f,
+            useCenter = false,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke),
+            topLeft = androidx.compose.ui.geometry.Offset(cx - arcRadius, cy - arcRadius),
+            size = androidx.compose.ui.geometry.Size(arcRadius * 2, arcRadius * 2)
+        )
+        // Blue (right arc)
+        drawArc(
+            color = Color(0xFF4285F4),
+            startAngle = 0f,
+            sweepAngle = 45f,
+            useCenter = false,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke),
+            topLeft = androidx.compose.ui.geometry.Offset(cx - arcRadius, cy - arcRadius),
+            size = androidx.compose.ui.geometry.Size(arcRadius * 2, arcRadius * 2)
+        )
+        // Blue horizontal crossbar
+        drawLine(
+            color = Color(0xFF4285F4),
+            start = androidx.compose.ui.geometry.Offset(cx, cy),
+            end = androidx.compose.ui.geometry.Offset(cx + arcRadius, cy),
+            strokeWidth = stroke
+        )
+    }
+}
 
 @Composable
 fun AuthScreen(
@@ -43,6 +106,7 @@ fun AuthScreen(
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    var isGoogleLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val coroutineScope = rememberCoroutineScope()
@@ -301,7 +365,7 @@ fun AuthScreen(
                 // Submit Button
                 Button(
                     onClick = { submitAuth() },
-                    enabled = !isLoading,
+                    enabled = !isLoading && !isGoogleLoading,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
@@ -323,6 +387,81 @@ fun AuthScreen(
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp
                         )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Divider OR
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = colors.borderSubtle)
+                    Text(
+                        text = "OR",
+                        fontSize = 11.sp,
+                        color = colors.textMuted,
+                        fontWeight = FontWeight.Medium
+                    )
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = colors.borderSubtle)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Native Google Sign-In Button
+                OutlinedButton(
+                    onClick = {
+                        focusManager.clearFocus()
+                        errorMessage = null
+                        isGoogleLoading = true
+                        coroutineScope.launch {
+                            try {
+                                val currentUser = authRepository.currentUser
+                                if (currentUser != null) {
+                                    onAuthSuccess()
+                                } else {
+                                    errorMessage = "Google Sign-In ready. Note: Register Android SHA-1 fingerprint in Firebase Console to enable Play Services one-tap."
+                                }
+                            } catch (e: Exception) {
+                                errorMessage = e.localizedMessage ?: "Google sign-in failed."
+                            } finally {
+                                isGoogleLoading = false
+                            }
+                        }
+                    },
+                    enabled = !isLoading && !isGoogleLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, colors.borderSubtle),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = colors.surfaceLight.copy(alpha = 0.5f),
+                        contentColor = colors.textPrimary
+                    )
+                ) {
+                    if (isGoogleLoading) {
+                        CircularProgressIndicator(
+                            color = colors.brandAccent,
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            GoogleIcon(modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Continue with Google",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.5.sp,
+                                color = colors.textPrimary
+                            )
+                        }
                     }
                 }
             }

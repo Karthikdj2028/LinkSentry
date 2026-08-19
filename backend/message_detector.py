@@ -5,8 +5,8 @@ Engine Version: linksentry-message-heuristic-v1
 This engine performs evidence-based multi-signal analysis of SMS and chat messages:
 1. Natural language heuristic analysis (urgency, credential harvesting, OTP solicitation,
    unsolicited loan/financial offers, brand impersonation, contact solicitations).
-2. Deep embedded URL extraction and evaluation via the authoritative LinkSentry V3.3 ML
-   and rule-fusion detection engine.
+2. Deep embedded URL extraction and evaluation via the authoritative LinkSentry V3.4 ML
+   and rule-fusion classification engine.
 3. Multi-signal decision fusion calculating distinct Message Risk and Embedded URL Risk,
    as well as a unified threat score and verdict.
 """
@@ -198,8 +198,8 @@ def _check_brand_impersonation(lower_text: str) -> tuple[str | None, bool]:
 
 def evaluate_embedded_url(url: str) -> dict[str, Any]:
     """
-    Evaluates an embedded URL using the authoritative LinkSentry V3.3 ML
-    and rule-fusion threat engine with fallback to static heuristics.
+    Evaluates an embedded URL using the authoritative LinkSentry V3.4 ML
+    threat engine (`url_model.py`), matching the `/api/scan/url` contract.
     """
     domain = ""
     try:
@@ -250,7 +250,7 @@ def evaluate_embedded_url(url: str) -> dict[str, Any]:
                 "risk_score": risk_score,
                 "confidence": conf,
                 "indicators": indicators,
-                "engine": ml_res.get("model_type", "LinkSentry V3.3 ML Engine")
+                "engine": ml_res.get("model_type", "LinkSentry V3.4 ML Engine")
             }
         except Exception:
             pass

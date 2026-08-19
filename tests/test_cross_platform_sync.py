@@ -161,7 +161,7 @@ class TestCrossPlatformUnifiedArchitecture:
             data = json.loads(resp.read().decode())
             assert data["verdict"] == "safe"
             assert data["risk_score"] <= 20
-            assert "V3.3" in data.get("model_version", "")
+            assert "V3.4" in data.get("model_version", "")
 
         # 2. Phishing brand impersonation target
         req_phish = urllib.request.Request(

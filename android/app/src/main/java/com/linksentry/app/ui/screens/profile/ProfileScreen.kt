@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -64,8 +65,7 @@ fun ProfileScreen(
 
     var apiUrlInput by remember { mutableStateOf(ApiClient.getBaseUrl()) }
     var isProbing by remember { mutableStateOf(false) }
-    var probeStatus by remember { mutableStateOf<String?>(null) }
-    var probeSuccess by remember { mutableStateOf<Boolean?>(null) }
+    var probeResult by remember { mutableStateOf<com.linksentry.app.data.api.BackendProbeResult?>(null) }
     var showDevDiagnostics by rememberSaveable { mutableStateOf(false) }
     var showAccountDetails by rememberSaveable { mutableStateOf(false) }
     var showHelpAndSupport by rememberSaveable { mutableStateOf(false) }
@@ -73,13 +73,7 @@ fun ProfileScreen(
 
     LaunchedEffect(Unit) {
         isProbing = true
-        val result = ApiClient.probeHealth()
-        probeSuccess = result.isSuccess
-        probeStatus = if (result.isSuccess) {
-            "Connected • ${result.getOrNull()?.service ?: "LinkSentry API"} v${result.getOrNull()?.version ?: "0.5.0"}"
-        } else {
-            result.exceptionOrNull()?.localizedMessage ?: "Server unreachable"
-        }
+        probeResult = ApiClient.probeDetailedHealth()
         isProbing = false
     }
 
@@ -89,21 +83,15 @@ fun ProfileScreen(
         apiUrlInput = sanitized
         ApiClient.setBaseUrl(sanitized)
         isProbing = true
-        probeStatus = null
-        probeSuccess = null
+        probeResult = null
 
         coroutineScope.launch {
-            val result = ApiClient.probeHealth()
-            probeSuccess = result.isSuccess
-            probeStatus = if (result.isSuccess) {
-                "Connected • ${result.getOrNull()?.service ?: "LinkSentry API"} v${result.getOrNull()?.version ?: "0.5.0"}"
-            } else {
-                result.exceptionOrNull()?.localizedMessage ?: "Server unreachable"
-            }
+            val result = ApiClient.probeDetailedHealth()
+            probeResult = result
             isProbing = false
             Toast.makeText(
                 context,
-                if (result.isSuccess) "Backend URL updated and verified" else "Saved, but backend unreachable",
+                if (result.isSuccess) "Backend verified: ${result.modelVersion ?: "Online"}" else "Saved, but backend unreachable",
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -508,32 +496,54 @@ fun ProfileScreen(
                                 )
                             )
 
+                            // Environment Info & Presets
+                            val currentBase = ApiClient.getBaseUrl()
+                            val envLabel = when {
+                                currentBase == ApiClient.DEFAULT_LAN_BASE_URL -> "DEV LAN (Local V3.4)"
+                                currentBase == ApiClient.EMULATOR_BASE_URL -> "ANDROID EMULATOR"
+                                currentBase == ApiClient.PRODUCTION_BASE_URL -> "PRODUCTION CLOUD (Render)"
+                                else -> "CUSTOM ENDPOINT"
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Active Target:", fontSize = 11.sp, color = colors.textSecondary)
+                                Text(
+                                    text = envLabel,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (envLabel.contains("V3.4") || envLabel.contains("EMULATOR")) colors.brandAccent else colors.textPrimary
+                                )
+                            }
+
                             // Quick Presets
-                            Text("Presets:", fontSize = 11.sp, color = colors.textSecondary)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 PresetButton(
-                                    label = "Production Cloud",
-                                    onClick = {
-                                        apiUrlInput = ApiClient.PRODUCTION_BASE_URL
-                                        handleSaveAndProbe()
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                )
-                                PresetButton(
-                                    label = "Dev LAN",
+                                    label = "Dev LAN (V3.4)",
                                     onClick = {
                                         apiUrlInput = ApiClient.DEFAULT_LAN_BASE_URL
                                         handleSaveAndProbe()
                                     },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1.1f)
                                 )
                                 PresetButton(
                                     label = "Emulator",
                                     onClick = {
                                         apiUrlInput = ApiClient.EMULATOR_BASE_URL
+                                        handleSaveAndProbe()
+                                    },
+                                    modifier = Modifier.weight(0.9f)
+                                )
+                                PresetButton(
+                                    label = "Production",
+                                    onClick = {
+                                        apiUrlInput = ApiClient.PRODUCTION_BASE_URL
                                         handleSaveAndProbe()
                                     },
                                     modifier = Modifier.weight(1f)
@@ -552,30 +562,64 @@ fun ProfileScreen(
                                 if (isProbing) {
                                     CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Testing...", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("Probing Endpoint...", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                 } else {
-                                    Text("Save & Test Connection", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("Update & Test Backend", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                 }
                             }
 
-                            probeStatus?.let { status ->
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            // Detailed Probe Result Card
+                            probeResult?.let { res ->
+                                val statusColor = if (res.isSuccess) {
+                                    if (res.isLegacyV33) colors.suspicious else colors.safe
+                                } else {
+                                    colors.phishing
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(statusColor.copy(alpha = 0.08f))
+                                        .border(1.dp, statusColor.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                                        .padding(10.dp)
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(if (probeSuccess == true) colors.safe else colors.phishing)
-                                    )
-                                    Text(
-                                        text = status,
-                                        color = if (probeSuccess == true) colors.safe else colors.phishing,
-                                        fontSize = 11.sp,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(8.dp)
+                                                    .clip(CircleShape)
+                                                    .background(statusColor)
+                                            )
+                                            Text(
+                                                text = if (res.isSuccess) {
+                                                    if (res.isLegacyV33) "LEGACY BACKEND — V3.3" else "LINK SENTRY V3.4 BACKEND ONLINE"
+                                                } else {
+                                                    "BACKEND UNREACHABLE"
+                                                },
+                                                color = statusColor,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 11.5.sp
+                                            )
+                                        }
+
+                                        if (res.isSuccess) {
+                                            Text(
+                                                text = "Model: ${res.modelVersion ?: "V3.4"} • Latency: ${res.latencyMs}ms • Engine: ${res.engine ?: "LinkSentry Engine"}",
+                                                color = colors.textSecondary,
+                                                fontSize = 11.sp
+                                            )
+                                        } else {
+                                            Text(
+                                                text = res.errorMessage ?: "Unable to connect to host",
+                                                color = colors.phishing,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

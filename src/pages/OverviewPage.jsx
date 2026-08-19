@@ -224,7 +224,7 @@ export default function OverviewPage({ onNavigateToScanner, onSelectTab }) {
       icon: '🌐',
       title: 'URL Phishing Scanner',
       desc: 'Analyze suspicious links, brand lookalikes, homoglyphs, and zero-day phishing kits in real time.',
-      badge: 'V3.3 Engine'
+      badge: 'V3.4 Engine'
     },
     {
       type: 'qr',
@@ -684,7 +684,7 @@ export default function OverviewPage({ onNavigateToScanner, onSelectTab }) {
 
                     <div className="alert-feed-body">
                       <span className="alert-vector-tag font-mono">
-                        Vector: {(scanItem.type || 'url').toUpperCase()} • Engine: {scanItem.engine || 'V3.3 ML'}
+                        Vector: {(scanItem.type || 'url').toUpperCase()} • Engine: {scanItem.engine || 'V3.4 ML'}
                       </span>
                     </div>
                   </div>

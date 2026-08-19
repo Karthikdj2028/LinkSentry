@@ -195,35 +195,43 @@ def normalize_domain(domain: str) -> str:
     return domain
 
 
+TWO_PART_TLD_SUFFIXES = {
+    "co.uk", "co.in", "com.au", "co.jp", "com.br", "co.za", "co.nz", "com.mx",
+    "co.id", "com.tr", "com.pk", "com.eg", "com.sa", "com.ar", "com.co", "com.ph",
+    "com.ng", "com.vn", "com.hk", "co.th", "com.my", "com.tw", "org.uk", "gov.in",
+    "edu.au", "gov.uk", "ac.uk", "net.au", "org.in", "net.in", "ac.in", "gov.au"
+}
+
+
 def get_registrable_domain(hostname: str) -> str:
     """
-    Lightweight registrable-domain extraction.
+    Lightweight registrable-domain extraction supporting standard and multi-part ccTLDs.
 
     Examples:
-
-        www.google.com
-            -> google.com
-
-        login.accounts.google.com
-            -> google.com
-
-        google.com.evil.xyz
-            -> evil.xyz
-
-    This intentionally avoids trusting arbitrary subdomains.
+        www.google.com -> google.com
+        login.accounts.google.com -> google.com
+        www.google.co.in -> google.co.in
+        www.amazon.co.uk -> amazon.co.uk
+        google.com.evil.xyz -> evil.xyz
     """
-
     hostname = normalize_domain(hostname)
-
     if not hostname:
         return ""
 
     parts = hostname.split(".")
-
     if len(parts) < 2:
         return hostname
 
+    # Check for known 2-part ccTLDs (e.g. .co.in, .co.uk)
+    if len(parts) >= 3:
+        two_part_tld = f"{parts[-2]}.{parts[-1]}"
+        if two_part_tld in TWO_PART_TLD_SUFFIXES or (
+            parts[-2] in {"co", "com", "org", "gov", "edu", "net", "ac"} and len(parts[-1]) == 2
+        ):
+            return ".".join(parts[-3:])
+
     return ".".join(parts[-2:])
+
 
 def detect_trusted_brand_impersonation(
     hostname: str,
@@ -237,6 +245,7 @@ def detect_trusted_brand_impersonation(
         accounts.google.com
         login.microsoft.com
         github.com
+        google.co.in
 
     Suspicious:
         google.com.evil.xyz
@@ -248,51 +257,36 @@ def detect_trusted_brand_impersonation(
     labels, and the actual registrable domain must be
     different.
     """
-
     hostname = normalize_domain(hostname)
-    registrable_domain = normalize_domain(
-        registrable_domain
-    )
+    registrable_domain = normalize_domain(registrable_domain)
 
     if not hostname or not registrable_domain:
         return None
 
     labels = hostname.split(".")
 
-    # Check every possible multi-label hostname component.
-    #
-    # Example:
-    # google.com.evil.xyz
-    #
-    # candidates:
-    # google.com
-    # google.com.evil
-    # com.evil
-    # evil.xyz
-    #
-    # We only care about candidates that are trusted domains.
-
     for start in range(len(labels)):
         for end in range(
             start + 2,
             len(labels) + 1,
         ):
-            candidate = ".".join(
-                labels[start:end]
-            )
+            candidate = ".".join(labels[start:end])
 
             if candidate not in trusted_domains:
                 continue
 
-            # Legitimate subdomain:
+            # Legitimate domain or legitimate subdomain:
             # accounts.google.com -> candidate = google.com, registrable = google.com
-            # Therefore this is NOT impersonation.
-            if registrable_domain == candidate:
+            # google.co.in -> candidate = google.co.in, registrable = google.co.in
+            if (
+                registrable_domain == candidate
+                or hostname == candidate
+                or hostname.endswith("." + candidate)
+            ):
                 return None
 
             # Trusted brand appears inside a different registrable domain:
             # google.com.evil.xyz -> candidate = google.com, registrable = evil.xyz
-            # Therefore this IS impersonation.
             return candidate
 
     # Check for brand deceptive domain compositions
@@ -301,29 +295,13 @@ def detect_trusted_brand_impersonation(
         "security", "alert", "login", "verify", "account", "support",
         "update", "auth", "portal", "service", "signin", "banking", "help"
     }
-    
-    protected_brands = {
-        "google": "google.com",
-        "microsoft": "microsoft.com",
-        "apple": "apple.com",
-        "paypal": "paypal.com",
-        "amazon": "amazon.com",
-        "netflix": "netflix.com",
-        "chase": "chase.com",
-        "wellsfargo": "wellsfargo.com",
-        "bankofamerica": "bankofamerica.com",
-        "meta": "meta.com",
-        "facebook": "facebook.com",
-        "instagram": "instagram.com",
-        "whatsapp": "whatsapp.com",
-        "binance": "binance.com",
-        "coinbase": "coinbase.com",
-        "github": "github.com",
-    }
 
     first_label = labels[0] if labels else ""
-    for brand, canonical_domain in protected_brands.items():
+    for brand, canonical_domain in PROTECTED_BRANDS.items():
         if registrable_domain == canonical_domain:
+            continue
+        known_family = LEGITIMATE_BRAND_DOMAINS.get(brand, set())
+        if registrable_domain in known_family or any(registrable_domain.endswith("." + kd) for kd in known_family):
             continue
         if brand in first_label:
             # If label has brand name and a hyphen or keyword
@@ -337,6 +315,181 @@ def detect_trusted_brand_impersonation(
                 return canonical_domain
 
     return None
+
+
+def _levenshtein_distance(s1: str, s2: str) -> int:
+    """Calculates Levenshtein edit distance between two strings."""
+    if len(s1) < len(s2):
+        return _levenshtein_distance(s2, s1)
+    if len(s2) == 0:
+        return len(s1)
+
+    previous_row = list(range(len(s2) + 1))
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    return previous_row[-1]
+
+
+PROTECTED_BRANDS = {
+    "google": "google.com",
+    "microsoft": "microsoft.com",
+    "apple": "apple.com",
+    "paypal": "paypal.com",
+    "amazon": "amazon.com",
+    "netflix": "netflix.com",
+    "chase": "chase.com",
+    "wellsfargo": "wellsfargo.com",
+    "bankofamerica": "bankofamerica.com",
+    "meta": "meta.com",
+    "facebook": "facebook.com",
+    "instagram": "instagram.com",
+    "whatsapp": "whatsapp.com",
+    "binance": "binance.com",
+    "coinbase": "coinbase.com",
+    "github": "github.com",
+}
+
+LEGITIMATE_BRAND_DOMAINS: dict[str, set[str]] = {
+    "google": {
+        "google.com", "google.co.in", "google.co.uk", "google.ca", "google.de",
+        "google.fr", "google.it", "google.es", "google.nl", "google.com.au",
+        "google.com.br", "google.co.jp", "google.ru", "google.com.mx",
+        "google.co.id", "google.com.tr", "google.pl", "google.com.pk",
+        "google.com.eg", "google.com.sa", "google.co.za", "google.com.ar",
+        "google.com.co", "google.com.ph", "google.com.ng", "google.com.vn",
+        "google.ch", "google.se", "google.be", "google.at", "google.cz",
+        "google.pt", "google.gr", "google.ro", "google.hu", "google.dk",
+        "google.fi", "google.no", "google.ie", "google.co.nz", "google.sg",
+        "google.com.hk", "google.co.th", "google.com.my", "google.com.tw",
+        "googlevideo.com", "googleusercontent.com", "gstatic.com", "googleapis.com",
+        "youtube.com", "youtu.be", "gmail.com", "android.com"
+    },
+    "amazon": {
+        "amazon.com", "amazon.in", "amazon.co.uk", "amazon.de", "amazon.fr",
+        "amazon.it", "amazon.es", "amazon.ca", "amazon.com.au", "amazon.com.br",
+        "amazon.co.jp", "amazon.com.mx", "amazon.nl", "amazon.pl", "amazon.se",
+        "amazon.com.tr", "amazon.ae", "amazon.sa", "amazon.sg", "amazon.eg",
+        "amazonaws.com", "media-amazon.com", "ssl-images-amazon.com", "primevideo.com"
+    },
+    "microsoft": {
+        "microsoft.com", "microsoftonline.com", "live.com", "office.com",
+        "office365.com", "outlook.com", "azure.com", "bing.com", "msn.com",
+        "windows.com", "xbox.com", "skype.com", "visualstudio.com",
+        "microsoft.co.uk", "microsoft.de", "microsoft.fr", "microsoft.in"
+    },
+    "apple": {
+        "apple.com", "icloud.com", "apple.co.uk", "apple.de", "apple.fr",
+        "apple.it", "apple.es", "apple.ca", "apple.com.au", "apple.co.jp",
+        "apple.in", "mzstatic.com", "apple-dns.net"
+    },
+    "paypal": {
+        "paypal.com", "paypal.me", "paypal-community.com", "paypal.co.uk",
+        "paypal.de", "paypal.fr", "paypal.it", "paypal.es", "paypal.ca",
+        "paypal.com.au", "paypal.in"
+    },
+    "meta": {
+        "meta.com", "about.meta.com", "metacareers.com"
+    },
+    "facebook": {
+        "facebook.com", "fb.com", "fbcdn.net", "messenger.com"
+    },
+    "instagram": {
+        "instagram.com", "cdninstagram.com"
+    },
+    "whatsapp": {
+        "whatsapp.com", "whatsapp.net"
+    },
+    "netflix": {
+        "netflix.com", "nflxext.com", "nflximg.net", "nflxvideo.net"
+    },
+    "github": {
+        "github.com", "github.io", "githubusercontent.com", "githubassets.com"
+    },
+    "linkedin": {
+        "linkedin.com", "licdn.com"
+    },
+    "chase": {
+        "chase.com"
+    },
+    "wellsfargo": {
+        "wellsfargo.com"
+    },
+    "bankofamerica": {
+        "bankofamerica.com", "bofa.com"
+    },
+    "binance": {
+        "binance.com", "binance.us", "binance.me", "binance.org"
+    },
+    "coinbase": {
+        "coinbase.com", "coinbase.net"
+    }
+}
+
+
+def detect_typosquatting_domain(
+    registrable_domain: str,
+    trusted_domains: set | None = None
+) -> tuple[str | None, str | None]:
+    """
+    Evidence-based detection of typosquatting, character omissions, or homoglyphs
+    resembling known protected brands.
+    Returns (canonical_brand_domain, brand_name) or (None, None).
+    """
+    if not registrable_domain or "." not in registrable_domain:
+        return None, None
+
+    clean_domain = normalize_domain(registrable_domain)
+
+    # 1. If clean_domain is already in the trusted domain database, it's not a typosquat
+    if trusted_domains is not None and clean_domain in trusted_domains:
+        return None, None
+
+    domain_base = clean_domain.split(".")[0].lower()
+
+    HOMOGLYPH_MAP = {
+        '0': 'o', '1': 'l', 'i': 'l', '5': 's', '8': 'b',
+        'vv': 'w', 'rn': 'm', 'cl': 'd'
+    }
+
+    homo_base = domain_base
+    for k, v in HOMOGLYPH_MAP.items():
+        homo_base = homo_base.replace(k, v)
+
+    for brand, canonical_domain in PROTECTED_BRANDS.items():
+        # Check canonical domain
+        if clean_domain == canonical_domain or clean_domain.endswith("." + canonical_domain):
+            continue
+
+        # Check known legitimate brand domain family
+        known_family = LEGITIMATE_BRAND_DOMAINS.get(brand, set())
+        if clean_domain in known_family or any(clean_domain.endswith("." + kd) for kd in known_family):
+            continue
+
+        # If domain_base is EXACTLY the brand name (e.g. amazon on amazon.in or google on google.co.in)
+        # This is a regional/ccTLD brand use, NOT a spelling mistake / typosquat.
+        if domain_base == brand:
+            continue
+
+        # 1. Homoglyph substitution match (e.g. micros0ft, app1e, paypa1, g00gle)
+        if homo_base == brand and domain_base != brand:
+            return canonical_domain, brand
+
+        # 2. Levenshtein edit distance check (typo / missing letter e.g. ggle vs google, gooogle vs google, goolge vs google)
+        dist = _levenshtein_distance(domain_base, brand)
+        if 1 <= dist <= 2:
+            if len(brand) >= 5 and abs(len(domain_base) - len(brand)) <= 2:
+                if domain_base[0] == brand[0] and domain_base[-1] == brand[-1]:
+                    return canonical_domain, brand
+            elif len(brand) < 5 and dist == 1:
+                return canonical_domain, brand
+
+    return None, None
 
 # ============================================================
 # STRUCTURAL FEATURES
@@ -510,10 +663,10 @@ class URLMLModel:
             )
         )
 
-        self.model_version = "V3.3"
+        self.model_version = "V3.4"
 
         self.model_type = (
-            "LinkSentry V3.3 LinearSVC + "
+            "LinkSentry V3.4 LinearSVC + "
             "hard-negative training + "
             "decision-fusion layer"
         )
@@ -635,9 +788,17 @@ class URLMLModel:
             hostname
         )
 
+        is_brand_legit = any(
+            registrable in family
+            or hostname in family
+            or any(hostname.endswith("." + d) for d in family)
+            for family in LEGITIMATE_BRAND_DOMAINS.values()
+        )
+
         trusted = (
-            registrable
-            in self.trusted_domains
+            registrable in self.trusted_domains
+            or hostname in self.trusted_domains
+            or is_brand_legit
         )
 
         return {
@@ -835,6 +996,22 @@ class URLMLModel:
             )
 
         # ----------------------------------------------------
+        # Typosquatting / brand similarity detection
+        # ----------------------------------------------------
+
+        typosquat_domain, potential_brand = (
+            detect_typosquatting_domain(
+                domain_info["registrable_domain"],
+                self.trusted_domains,
+            )
+        )
+
+        if typosquat_domain:
+            suspicious_signals.append(
+                "typosquatting_brand"
+            )
+
+        # ----------------------------------------------------
         # Final prediction
         # ----------------------------------------------------
 
@@ -960,6 +1137,14 @@ class URLMLModel:
 
             "impersonated_domain": (
                 impersonated_domain
+            ),
+
+            "typosquat_domain": (
+                typosquat_domain
+            ),
+
+            "potential_brand": (
+                potential_brand
             ),
 
             "suspicious_signals": (

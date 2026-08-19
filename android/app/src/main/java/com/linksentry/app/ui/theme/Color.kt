@@ -13,6 +13,8 @@ val CyberAmber = Color(0xFFF59E0B)
 val CyberAmberDark = Color(0xFFD97706)
 val CyberRed = Color(0xFFEF4444)
 val CyberRedDark = Color(0xFFDC2626)
+val CyberPurple = Color(0xFF8B5CF6)
+val CyberPurpleDark = Color(0xFF7C3AED)
 
 // Dark Theme Surfaces & Text
 val CyberDarkBg = Color(0xFF090D16)
@@ -57,7 +59,10 @@ data class LinkSentryColors(
     val brandAccent: Color,
     val safe: Color,
     val suspicious: Color,
-    val phishing: Color
+    val phishing: Color,
+    val malware: Color = CyberRedDark,
+    val defacement: Color = CyberPurple,
+    val info: Color = CyberCyan
 )
 
 val LocalAppColors = staticCompositionLocalOf {
@@ -74,6 +79,9 @@ val LocalAppColors = staticCompositionLocalOf {
         brandAccent = CyberCyan,
         safe = CyberEmerald,
         suspicious = CyberAmber,
-        phishing = CyberRed
+        phishing = CyberRed,
+        malware = CyberRedDark,
+        defacement = CyberPurple,
+        info = CyberCyan
     )
 }

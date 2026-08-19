@@ -65,7 +65,7 @@ export default function MessageScanner() {
       const formattedVerdict = rawVerdict.charAt(0).toUpperCase() + rawVerdict.slice(1);
 
       const details = {
-        detectionEngine: data.engine || 'LinkSentry Multi-Signal Message Threat Engine V3.3',
+        detectionEngine: data.engine || 'LinkSentry Multi-Signal Message Threat Engine V3.4',
         threatIndicators: Array.isArray(data.indicators) && data.indicators.length > 0
           ? data.indicators
           : ['No threat indicators detected'],
@@ -255,7 +255,7 @@ export default function MessageScanner() {
           <div className="scanning-status-texts font-mono">
             <p className="status-primary-text">EVALUATING MESSAGE INTENT & THREAT SIGNALS...</p>
             <p className="status-sub-text">
-              Querying FastAPI V3.3 threat engine • Detecting smishing heuristics • Detonating embedded URLs...
+              Querying FastAPI V3.4 threat engine • Detecting smishing heuristics • Detonating embedded URLs...
             </p>
           </div>
         </div>
@@ -305,7 +305,7 @@ export default function MessageScanner() {
             <div className="guide-item">
               <div className="guide-step-num font-mono">03</div>
               <h4>Embedded Threat Link Detonation</h4>
-              <p>Isolates and inspects every embedded URL through the LinkSentry V3.3 ML & rule-fusion engine.</p>
+              <p>Isolates and inspects every embedded URL through the LinkSentry V3.4 ML & rule-fusion engine.</p>
             </div>
           </div>
         </div>

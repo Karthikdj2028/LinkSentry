@@ -43,6 +43,17 @@ class AuthRepository(private val auth: FirebaseAuth = FirebaseAuth.getInstance()
         }
     }
 
+    suspend fun signInWithGoogleCredential(idToken: String): Result<FirebaseUser> {
+        return try {
+            val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
+            val result = auth.signInWithCredential(credential).await()
+            val user = result.user ?: throw Exception("Google authentication returned empty user session.")
+            Result.success(user)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     fun signOut() {
         auth.signOut()
     }

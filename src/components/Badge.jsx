@@ -15,6 +15,14 @@ export default function Badge({ status, size = 'md', pulse = false, children }) 
       case 'critical':
       case 'malicious':
         return 'badge-phishing';
+      case 'non_existent':
+      case 'non-existent':
+      case 'non existent':
+        return 'badge-non-existent';
+      case 'unreachable':
+        return 'badge-unreachable';
+      case 'invalid':
+        return 'badge-invalid';
       case 'info':
         return 'badge-info';
       default:

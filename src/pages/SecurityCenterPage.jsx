@@ -99,7 +99,7 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
         status: 'Active',
         statusType: 'safe',
         icon: '🧠',
-        metric: 'V3.3 Hybrid'
+        metric: 'V3.4 Hybrid'
       },
       {
         id: 'qr_radar',

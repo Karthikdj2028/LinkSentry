@@ -84,8 +84,8 @@ export function mapBackendScanToFirestoreDoc(userId, input, backendResponse = {}
     riskScore: typeof backendResponse.risk_score === 'number' ? backendResponse.risk_score : 0,
     confidence: typeof backendResponse.confidence === 'number' ? backendResponse.confidence : 0.7,
     indicators: Array.isArray(backendResponse.indicators) ? backendResponse.indicators : [],
-    engine: backendResponse.engine || (scanType === 'message' ? 'linksentry-message-heuristic-v1' : 'LinkSentry V3.3 URL ML Engine'),
-    modelVersion: backendResponse.model_version || (scanType === 'message' ? 'v1.0' : 'V3.3'),
+    engine: backendResponse.engine || (scanType === 'message' ? 'linksentry-message-heuristic-v1' : 'LinkSentry V3.4 URL ML Engine'),
+    modelVersion: backendResponse.model_version || (scanType === 'message' ? 'v1.0' : 'V3.4'),
     source: 'web',
     createdAt: serverTimestamp()
   };
@@ -129,8 +129,8 @@ export async function saveScan(userId, scanData) {
     riskScore: typeof scanData.riskScore === 'number' ? scanData.riskScore : (typeof scanData.risk_score === 'number' ? scanData.risk_score : 0),
     confidence: typeof scanData.confidence === 'number' ? scanData.confidence : 0.7,
     indicators: Array.isArray(scanData.indicators) ? scanData.indicators : [],
-    engine: scanData.engine || 'LinkSentry V3.3 URL ML Engine',
-    modelVersion: scanData.modelVersion || scanData.model_version || 'V3.3',
+    engine: scanData.engine || 'LinkSentry V3.4 URL ML Engine',
+    modelVersion: scanData.modelVersion || scanData.model_version || 'V3.4',
     source: scanData.source || 'web',
     createdAt: validCreatedAt
   };

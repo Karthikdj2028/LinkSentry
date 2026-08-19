@@ -57,7 +57,7 @@ export default function Footer({ onSelectTab }) {
             <h4 className="footer-heading">Security Architecture</h4>
             <ul className="footer-roadmap-list font-mono">
               <li className="roadmap-current">
-                <span className="roadmap-bullet">🛡️</span> V3.3 ML + Rule Fusion Engine
+                <span className="roadmap-bullet">🛡️</span> V3.4 ML + Rule Fusion Engine
               </li>
               <li className="roadmap-current">
                 <span className="roadmap-bullet">🔐</span> Firebase 256-Bit Auth Security
@@ -77,7 +77,7 @@ export default function Footer({ onSelectTab }) {
             © {new Date().getFullYear()} LinkSentry CyberDefense Technologies. All rights reserved.
           </p>
           <div className="footer-badges font-mono">
-            <span className="footer-badge">FASTAPI + V3.3 ML</span>
+            <span className="footer-badge">FASTAPI + V3.4 ML</span>
             <span className="footer-badge">FIRESTORE CLUSTER</span>
             <span className="footer-badge">ENTERPRISE SOC</span>
           </div>

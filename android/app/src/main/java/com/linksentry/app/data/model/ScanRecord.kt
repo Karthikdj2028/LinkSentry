@@ -42,10 +42,10 @@ data class ScanRecord(
     var indicators: List<String> = emptyList(),
 
     @PropertyName("engine")
-    var engine: String = "LinkSentry V3.3 URL ML Engine",
+    var engine: String = "LinkSentry V3.4 URL ML Engine",
 
     @PropertyName("modelVersion")
-    var modelVersion: String = "V3.3",
+    var modelVersion: String = "V3.4",
 
     @PropertyName("source")
     var source: String = "android", // "web" | "android"

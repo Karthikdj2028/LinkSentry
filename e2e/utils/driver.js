@@ -25,6 +25,9 @@ export async function createDriver() {
     options.addArguments('--no-sandbox');
     options.addArguments('--disable-dev-shm-usage');
     options.addArguments('--disable-gpu');
+    options.addArguments('--disable-cache');
+    options.addArguments('--disk-cache-size=0');
+    options.addArguments('--incognito');
     options.addArguments('--use-fake-ui-for-media-stream');
     options.addArguments('--use-fake-device-for-media-stream');
 

@@ -69,7 +69,10 @@ fun LinkSentryTheme(
             brandAccent = CyberCyan,
             safe = CyberEmerald,
             suspicious = CyberAmber,
-            phishing = CyberRed
+            phishing = CyberRed,
+            malware = CyberRedDark,
+            defacement = CyberPurple,
+            info = CyberCyan
         )
     } else {
         LinkSentryColors(
@@ -85,7 +88,10 @@ fun LinkSentryTheme(
             brandAccent = CyberCyanLight,
             safe = CyberEmeraldDark,
             suspicious = CyberAmberDark,
-            phishing = CyberRedDark
+            phishing = CyberRedDark,
+            malware = CyberRedDark,
+            defacement = CyberPurpleDark,
+            info = CyberCyanLight
         )
     }
 

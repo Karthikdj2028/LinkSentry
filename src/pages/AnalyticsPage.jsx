@@ -315,7 +315,7 @@ export default function AnalyticsPage() {
       `"${(s.verdict || 'Safe').toUpperCase()}"`,
       s.riskScore ?? s.risk_score ?? 0,
       `"${s.confidence || '95%'}"`,
-      `"${s.engine || 'LinkSentry V3.3 ML'}"`
+      `"${s.engine || 'LinkSentry V3.4 ML'}"`
     ]);
 
     const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -420,7 +420,7 @@ export default function AnalyticsPage() {
             value={`${metrics.avgRiskScore}/100`}
             icon="⚡"
             subtitle="Multi-signal composite score"
-            badge="V3.3 Fusion"
+            badge="V3.4 Fusion"
             variant="amber"
           />
         </div>
@@ -483,7 +483,7 @@ export default function AnalyticsPage() {
               </div>
               <div className="health-check-row">
                 <span className="check-icon" style={{ color: 'var(--status-safe)' }}>✓</span>
-                <span>Multi-Vector Detection Engines: <strong>V3.3 Hybrid Inference Active</strong></span>
+                <span>Multi-Vector Detection Engines: <strong>V3.4 Hybrid Inference Active</strong></span>
               </div>
             </div>
           </div>

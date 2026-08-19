@@ -17,8 +17,8 @@ class ScanRecordTest {
         assertEquals(0, record.riskScore)
         assertEquals(0.0, record.confidence, 0.001)
         assertEquals("android", record.source)
-        assertEquals("LinkSentry V3.3 URL ML Engine", record.engine)
-        assertEquals("V3.3", record.modelVersion)
+        assertEquals("LinkSentry V3.4 URL ML Engine", record.engine)
+        assertEquals("V3.4", record.modelVersion)
         assertNotNull(record.formattedDate)
     }
 
@@ -35,8 +35,8 @@ class ScanRecordTest {
             riskScore = 95,
             confidence = 0.98,
             indicators = listOf("Typosquatting detected", "Suspicious TLD"),
-            engine = "LinkSentry V3.3 URL ML Engine",
-            modelVersion = "V3.3",
+            engine = "LinkSentry V3.4 URL ML Engine",
+            modelVersion = "V3.4",
             source = "android"
         )
 
@@ -49,5 +49,14 @@ class ScanRecordTest {
         assertEquals(0.98, record.confidence, 0.001)
         assertEquals(2, record.indicators.size)
         assertEquals("android", record.source)
+    }
+
+    @Test
+    fun testScanRecordHistoryInvariantNoDecisionScores() {
+        val recordClass = ScanRecord::class.java
+        val fields = recordClass.declaredFields.map { it.name }
+        // Ensure raw LinearSVC decision scores and temporary telemetry are not stored
+        org.junit.Assert.assertFalse("ScanRecord must not store decisionScores", fields.contains("decisionScores"))
+        org.junit.Assert.assertFalse("ScanRecord must not store domainVerification", fields.contains("domainVerification"))
     }
 }

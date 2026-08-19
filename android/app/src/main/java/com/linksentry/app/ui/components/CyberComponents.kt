@@ -71,6 +71,11 @@ fun CyberBadge(
         "safe" -> Triple(colors.safe, "Safe", Icons.Filled.CheckCircle)
         "suspicious" -> Triple(colors.suspicious, "Suspicious", Icons.Filled.Warning)
         "phishing" -> Triple(colors.phishing, "Phishing", Icons.Filled.Dangerous)
+        "malware" -> Triple(colors.malware, "Malware", Icons.Filled.BugReport)
+        "defacement" -> Triple(colors.defacement, "Defacement", Icons.Filled.Brush)
+        "unreachable" -> Triple(colors.suspicious, "Unreachable", Icons.Filled.CloudOff)
+        "non_existent" -> Triple(colors.phishing, "NXDOMAIN", Icons.Filled.SearchOff)
+        "invalid" -> Triple(colors.textSecondary, "Invalid", Icons.Filled.ErrorOutline)
         else -> Triple(colors.textSecondary, verdict.replaceFirstChar { it.uppercase() }, Icons.AutoMirrored.Filled.HelpOutline)
     }
 
