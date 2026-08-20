@@ -289,7 +289,9 @@ export default function OverviewPage({ onNavigateToScanner, onSelectTab }) {
               </strong>
             </div>
             <p className="status-body">
-              {totalScans === 0
+              {error
+                ? `${error}. Local scan telemetry remains fully functional.`
+                : totalScans === 0
                 ? 'No scans recorded yet. Use the scanners below to begin building your threat history.'
                 : `${totalScans} verified scan record${totalScans === 1 ? '' : 's'} unified across your threat defense workspace.`}
             </p>
@@ -305,13 +307,6 @@ export default function OverviewPage({ onNavigateToScanner, onSelectTab }) {
             {loading ? 'Refreshing...' : '🔄 Refresh Data'}
           </button>
         </div>
-
-        {/* Error Notice */}
-        {error && (
-          <div className="cyber-error-card" style={{ marginBottom: '2rem' }}>
-            <span>⚠️ {error}</span>
-          </div>
-        )}
 
         {/* 1. Primary Security KPI Grid */}
         <div className="grid grid-cols-4 dashboard-metrics-grid" style={{ marginBottom: '2rem' }}>

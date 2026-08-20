@@ -599,23 +599,23 @@ export default function UrlScanner() {
             <div className="scanning-radar-crosshair" />
           </div>
 
-          <div className="scanning-status-texts font-mono">
-
-            <p className="status-primary-text" style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}>
-              INSPECTING TARGET: {urlInput}
+          <div className="scanning-status-wrapper">
+            <span className="inspecting-label font-mono">INSPECTING TARGET:</span>
+            <p className="status-primary-target font-mono" title={urlInput}>
+              {urlInput}
             </p>
 
-            <div className="scanning-stages-timeline">
+            <div className="scanning-stages-timeline font-mono">
               {SCAN_STAGES.map((stage, idx) => {
                 const isPassed = idx < scanStageIndex;
                 const isCurrent = idx === scanStageIndex;
                 return (
                   <div
                     key={stage.id}
-                    className={`scanning-stage-step ${isCurrent ? 'active' : ''} ${isPassed ? 'completed' : ''}`}
+                    className={`scanning-stage-step ${isCurrent ? 'active' : ''} ${isPassed ? 'completed' : ''} ${idx > scanStageIndex ? 'pending' : ''}`}
                   >
-                    <span className="stage-num-badge">
-                      {isPassed ? '✓' : `0${stage.id}`}
+                    <span className="stage-status-icon" aria-hidden="true">
+                      {isPassed ? '✔' : isCurrent ? '○' : '○'}
                     </span>
                     <span className="stage-step-label">{stage.label}</span>
                   </div>
@@ -623,10 +623,9 @@ export default function UrlScanner() {
               })}
             </div>
 
-            <p className="status-sub-text">
-              Active Phase: {SCAN_STAGES[scanStageIndex]?.label} (LinkSentry V3.4 Engine)
+            <p className="status-sub-text font-mono">
+              Active Phase: <span className="active-phase-name">{SCAN_STAGES[scanStageIndex]?.label}</span> (LinkSentry V3.4 Engine)
             </p>
-
           </div>
 
         </div>

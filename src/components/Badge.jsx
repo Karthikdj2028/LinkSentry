@@ -2,7 +2,7 @@
  * Reusable Threat Status Badge
  * Variants: 'Safe' | 'Suspicious' | 'Phishing' | 'Info' | 'Neutral'
  */
-export default function Badge({ status, size = 'md', pulse = false, children }) {
+export default function Badge({ status, size = 'md', pulse = false, children, ...rest }) {
   const normalized = (status || 'neutral').toLowerCase();
 
   const getStyleClass = () => {
@@ -31,7 +31,7 @@ export default function Badge({ status, size = 'md', pulse = false, children }) 
   };
 
   return (
-    <span className={`cyber-badge ${getStyleClass()} badge-${size}`}>
+    <span className={`cyber-badge ${getStyleClass()} badge-${size}`} {...rest}>
       {pulse && <span className="cyber-badge-dot pulse" />}
       {children || status}
     </span>

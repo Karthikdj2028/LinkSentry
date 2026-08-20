@@ -90,7 +90,7 @@ export default function SecurityAuditReportModal({ scans = [], currentUser, onCl
   // Posture Evaluation
   const getPostureEvaluation = () => {
     if (totalScans === 0) {
-      return { grade: 'N/A', label: 'Baseline Ready', color: '#64748b', summary: 'No scan records available to evaluate defense posture. Begin auditing URLs, QR codes, or SMS text to establish baseline security profile.' };
+      return { grade: 'A', label: 'Optimal Baseline Posture', color: '#10b981', summary: 'Baseline security posture ready for active threat monitoring. No active threats detected.' };
     }
     if (avgRiskScore <= 15) {
       return { grade: 'A+', label: 'Optimal Defense Posture', color: '#10b981', summary: 'Exceptional defense posture with minimal threat exposure. The vast majority of audited artifacts are benign with verified infrastructure.' };
@@ -216,18 +216,18 @@ export default function SecurityAuditReportModal({ scans = [], currentUser, onCl
               <div className="report-logo font-mono">
                 LINK<span style={{ color: 'var(--brand-cyan)' }}>SENTRY</span>
               </div>
-              <span className="report-doc-tagline font-mono">EXECUTIVE CYBERSECURITY INTELLIGENCE AUDIT</span>
+              <span className="report-doc-tagline">EXECUTIVE CYBERSECURITY INTELLIGENCE AUDIT</span>
             </div>
 
             {/* 2-Column Structured Metadata Grid */}
-            <div className="report-meta-grid font-mono">
+            <div className="report-meta-grid">
               <div className="report-meta-item">
                 <span className="report-meta-label">Report ID:</span>
-                <span className="report-meta-value">{reportId}</span>
+                <span className="report-meta-value font-mono">{reportId}</span>
               </div>
               <div className="report-meta-item">
                 <span className="report-meta-label">Generated:</span>
-                <span className="report-meta-value">{generatedDate}</span>
+                <span className="report-meta-value font-mono">{generatedDate}</span>
               </div>
               <div className="report-meta-item">
                 <span className="report-meta-label">Scope:</span>
@@ -235,7 +235,7 @@ export default function SecurityAuditReportModal({ scans = [], currentUser, onCl
               </div>
               <div className="report-meta-item">
                 <span className="report-meta-label">Classification:</span>
-                <span className="report-meta-value">RESTRICTED / CLIENT AUDIT</span>
+                <span className="report-meta-value font-mono">RESTRICTED / CLIENT AUDIT</span>
               </div>
             </div>
           </div>
@@ -244,7 +244,7 @@ export default function SecurityAuditReportModal({ scans = [], currentUser, onCl
 
           {/* Section 1: Executive Summary & Security Posture */}
           <div className="report-section">
-            <h4 className="report-section-title font-mono">1. EXECUTIVE SUMMARY & POSTURE EVALUATION</h4>
+            <h4 className="report-section-title">1. Executive Summary & Defense Posture</h4>
             <div className="report-posture-card">
               <div className="report-posture-grade font-mono" style={{ backgroundColor: posture.color }}>
                 {posture.grade}
@@ -256,7 +256,7 @@ export default function SecurityAuditReportModal({ scans = [], currentUser, onCl
                 <p className="report-posture-desc">
                   {posture.summary}
                 </p>
-                <div className="report-posture-sub font-mono">
+                <div className="report-posture-sub">
                   Analysis based on {totalScans} target investigations with an average threat risk index of {avgRiskScore}/100.
                 </div>
               </div>
@@ -265,40 +265,40 @@ export default function SecurityAuditReportModal({ scans = [], currentUser, onCl
 
           {/* Section 2: Key Telemetry Metrics (4-Column KPI Grid) */}
           <div className="report-section">
-            <h4 className="report-section-title font-mono">2. CORE TELEMETRY METRICS</h4>
+            <h4 className="report-section-title">2. Core Telemetry Metrics</h4>
             <div className="report-metrics-grid">
               <div className="report-metric-box">
-                <span className="report-metric-label font-mono">TOTAL AUDITS</span>
+                <span className="report-metric-label">TOTAL AUDITS</span>
                 <span className="report-metric-value font-mono">{totalScans}</span>
-                <span className="report-metric-sub">Multi-vector payload targets</span>
+                <span className="report-metric-sub">Multi-vector targets</span>
               </div>
               <div className="report-metric-box">
-                <span className="report-metric-label font-mono">BENIGN / SAFE RATIO</span>
+                <span className="report-metric-label">BENIGN / SAFE RATIO</span>
                 <span className="report-metric-value font-mono" style={{ color: 'var(--status-safe)' }}>
                   {safePercentage}%
                 </span>
-                <span className="report-metric-sub">{safeScans} verified clean payloads</span>
+                <span className="report-metric-sub">{safeScans} verified clean</span>
               </div>
               <div className="report-metric-box">
-                <span className="report-metric-label font-mono">THREATS FLAGGED</span>
+                <span className="report-metric-label">THREATS FLAGGED</span>
                 <span className="report-metric-value font-mono" style={{ color: threatsDetected > 0 ? 'var(--status-phishing)' : 'var(--text-primary)' }}>
                   {threatsDetected}
                 </span>
                 <span className="report-metric-sub">{phishingScans} phishing • {suspiciousScans} suspicious</span>
               </div>
               <div className="report-metric-box">
-                <span className="report-metric-label font-mono">THREAT EXPOSURE RATE</span>
+                <span className="report-metric-label">THREAT EXPOSURE</span>
                 <span className="report-metric-value font-mono" style={{ color: threatPercentage > 20 ? 'var(--status-phishing)' : 'var(--status-suspicious)' }}>
                   {threatPercentage}%
                 </span>
-                <span className="report-metric-sub">Overall risk concentration</span>
+                <span className="report-metric-sub">Risk concentration</span>
               </div>
             </div>
           </div>
 
           {/* Section 3: Attack Vector Breakdown (Full-Width Proportional Table) */}
           <div className="report-section">
-            <h4 className="report-section-title font-mono">3. MULTI-VECTOR ATTACK SURFACE ANALYSIS</h4>
+            <h4 className="report-section-title">3. Multi-Vector Attack Surface Analysis</h4>
             <table className="report-table">
               <thead>
                 <tr>
@@ -334,40 +334,40 @@ export default function SecurityAuditReportModal({ scans = [], currentUser, onCl
 
           {/* Section 4: Verdict Classification Distribution (3-Column Grid Cards) */}
           <div className="report-section">
-            <h4 className="report-section-title font-mono">4. VERDICT CLASSIFICATION DISTRIBUTION</h4>
+            <h4 className="report-section-title">4. Verdict Classification Distribution</h4>
             <div className="report-classification-grid">
               <div className="report-class-card safe">
                 <div className="report-class-header">
                   <span className="report-class-dot safe" />
-                  <span className="report-class-name font-mono">CLEAN / BENIGN</span>
+                  <span className="report-class-name">CLEAN / BENIGN</span>
                 </div>
                 <div className="report-class-val font-mono">{safePercentage}%</div>
-                <div className="report-class-sub font-mono">{safeScans} verified clean scan{safeScans === 1 ? '' : 's'}</div>
+                <div className="report-class-sub">{safeScans} verified clean scan{safeScans === 1 ? '' : 's'}</div>
               </div>
 
               <div className="report-class-card suspicious">
                 <div className="report-class-header">
                   <span className="report-class-dot suspicious" />
-                  <span className="report-class-name font-mono">SUSPICIOUS RISK</span>
+                  <span className="report-class-name">SUSPICIOUS RISK</span>
                 </div>
                 <div className="report-class-val font-mono">{suspiciousPercentage}%</div>
-                <div className="report-class-sub font-mono">{suspiciousScans} suspicious scan{suspiciousScans === 1 ? '' : 's'}</div>
+                <div className="report-class-sub">{suspiciousScans} suspicious scan{suspiciousScans === 1 ? '' : 's'}</div>
               </div>
 
               <div className="report-class-card phishing">
                 <div className="report-class-header">
                   <span className="report-class-dot phishing" />
-                  <span className="report-class-name font-mono">CRITICAL PHISHING</span>
+                  <span className="report-class-name">CRITICAL PHISHING</span>
                 </div>
                 <div className="report-class-val font-mono">{phishingPercentage}%</div>
-                <div className="report-class-sub font-mono">{phishingScans} critical hazard{phishingScans === 1 ? '' : 's'}</div>
+                <div className="report-class-sub">{phishingScans} critical hazard{phishingScans === 1 ? '' : 's'}</div>
               </div>
             </div>
           </div>
 
           {/* Section 5: Top Targeted Infrastructure (Full-Width Proportional Table) */}
           <div className="report-section">
-            <h4 className="report-section-title font-mono">5. TOP TARGETED HOSTNAMES & INFRASTRUCTURE</h4>
+            <h4 className="report-section-title">5. Top Targeted Hostnames & Infrastructure</h4>
             {topInfrastructure.length === 0 ? (
               <p className="font-mono text-sm" style={{ color: 'var(--text-muted)' }}>
                 No hostname telemetry recorded in this reporting period.

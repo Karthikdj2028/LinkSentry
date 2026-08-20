@@ -210,7 +210,7 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
           <div className="soc-hero-content">
             <div className="soc-score-block">
               <span className="soc-score-label font-mono">WORKSPACE SECURITY DEFENSE RATING</span>
-              <div className="soc-score-display">
+              <div className="soc-score-display" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.625rem' }}>
                 <span className="soc-score-number font-mono" style={{ color: socData.scoreStatus.color }}>
                   {socData.calculatedScore}
                 </span>
@@ -220,10 +220,16 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
                 </span>
               </div>
               <p className="soc-score-desc">
-                {socData.totalScans === 0
-                  ? 'Baseline security posture ready. Execute scans across link, QR, or message channels to establish your threat profile.'
-                  : `Real-time multi-signal defense evaluation derived from ${socData.totalScans} investigations across Link, QR, and SMS vectors for account `}
-                <strong className="font-mono" style={{ color: 'var(--brand-cyan)' }}>{currentUser?.email || 'Authenticated Workspace User'}</strong>.
+                {socData.totalScans === 0 ? (
+                  <>
+                    Baseline security posture ready for workspace <strong className="font-mono" style={{ color: 'var(--brand-cyan)' }}>{currentUser?.email || 'Authenticated Workspace User'}</strong>. Execute scans across link, QR, or message channels to establish your threat profile.
+                  </>
+                ) : (
+                  <>
+                    Real-time multi-signal defense evaluation derived from {socData.totalScans} investigation{socData.totalScans === 1 ? '' : 's'} across Link, QR, and SMS vectors for account{' '}
+                    <strong className="font-mono" style={{ color: 'var(--brand-cyan)' }}>{currentUser?.email || 'Authenticated Workspace User'}</strong>.
+                  </>
+                )}
               </p>
             </div>
 
@@ -234,6 +240,7 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
                 onClick={handleExportAudit}
                 disabled={scans.length === 0}
                 data-testid="security-center-export-btn"
+                title={scans.length === 0 ? 'No scans to export' : 'Export CSV log'}
               >
                 📊 Export CSV Audit Log
               </button>
@@ -241,7 +248,6 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={() => setShowAuditModal(true)}
-                disabled={scans.length === 0}
                 data-testid="security-center-print-btn"
               >
                 📄 Generate Security Audit Report

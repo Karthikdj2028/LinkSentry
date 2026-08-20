@@ -36,10 +36,22 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
     typosquatDomain,
     potentialBrand,
     suspiciousSignals,
-    decisionScores,
+    decisionScores: rawBackendScores,
     modelVersion,
     engine,
   } = backendAnalysis;
+
+  let rawDecisionScores = rawBackendScores || resultData.decisionScores || threatAnalysis?.decision_scores || threatAnalysis?.decision_margins || details.decisionScores || null;
+  let decisionScores = null;
+  if (rawDecisionScores && typeof rawDecisionScores === 'object') {
+    decisionScores = rawDecisionScores;
+  } else if (typeof rawDecisionScores === 'string' && rawDecisionScores !== 'N/A') {
+    try {
+      decisionScores = JSON.parse(rawDecisionScores);
+    } catch {
+      decisionScores = null;
+    }
+  }
 
   const domainVerification = directDomainVerification || backendAnalysis.domainVerification || details.domainVerification || null;
   const threatAnalysis = directThreatAnalysis || backendAnalysis.threatAnalysis || null;
@@ -185,9 +197,14 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
         {/* LEFT COLUMN */}
         <div className="scan-verdict-pane">
           <div className="verdict-banner-box">
-            <span className="verdict-label-sub">
-              Security Verdict
-            </span>
+            <div className="verdict-header-row">
+              <span className="verdict-label-sub">
+                Final Security Verdict
+              </span>
+              <span className="verdict-engine-tag font-mono">
+                Multi-Signal Fusion
+              </span>
+            </div>
 
             <div className="verdict-main-row">
               <Badge
@@ -206,6 +223,10 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
 
             <p className="verdict-description-text">
               {getVerdictDescription()}
+            </p>
+
+            <p className="verdict-engine-note font-mono">
+              Determined by LinkSentry's multi-signal fusion engine combining ML heuristics, DNS, reachability, and brand reputation.
             </p>
           </div>
 
@@ -506,22 +527,22 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <h4 className="heuristics-title" style={{ margin: 0 }}>
-                    Technical Model Decision Signals
+                    Technical ML Decision Margins
                   </h4>
                   <span className="font-mono text-cyan" style={{ fontSize: '0.75rem' }}>
                     {showTechnicalAnalysis ? '▲' : '▼'}
                   </span>
                 </div>
 
-                <span className="signal-note-pill font-mono" title="LinearSVC decision scores represent raw class margin distances from the hyperplanes, not independent probabilities.">
-                  ℹ Hyperplane Margins
+                <span className="signal-note-pill font-mono" title="LinearSVC decision scores represent relative class margin distances from hyperplanes, not independent probabilities.">
+                  ℹ Relative Margins (Not Probabilities)
                 </span>
               </div>
 
               {showTechnicalAnalysis && (
                 <div className="signals-collapsible-body animate-fade-in">
                   <p className="signals-subtext">
-                    Model decision scores represent the classifier's relative decision signal. They are not probabilities.
+                    These values are relative classifier decision margins, not probabilities. The final verdict combines ML evidence with domain, DNS, TLS, reachability, reputation, and brand-impersonation signals.
                   </p>
 
                   <div className="decision-meters-list">
@@ -535,29 +556,38 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
                       // LinearSVC margins generally fall between -5.0 and +2.0
                       const normalizedWidth = Math.max(8, Math.min(95, Math.round(((numVal + 5) / 7.5) * 85) + 10));
 
-                      let signalClass = 'signal-neutral';
+                      let dotClass = 'dot-neutral';
+                      let barColor = 'var(--text-muted)';
                       if (key.toLowerCase() === 'benign') {
-                        signalClass = isPositive ? 'signal-safe' : 'signal-dim';
-                      } else if (key.toLowerCase() === 'phishing' || key.toLowerCase() === 'malware') {
-                        signalClass = isPositive ? 'signal-danger' : 'signal-dim';
+                        dotClass = 'dot-benign';
+                        barColor = 'var(--status-safe)';
                       } else if (key.toLowerCase() === 'defacement') {
-                        signalClass = isPositive ? 'signal-warning' : 'signal-dim';
+                        dotClass = 'dot-defacement';
+                        barColor = 'var(--status-warning)';
+                      } else if (key.toLowerCase() === 'malware') {
+                        dotClass = 'dot-malware';
+                        barColor = 'var(--status-suspicious)';
+                      } else if (key.toLowerCase() === 'phishing') {
+                        dotClass = 'dot-phishing';
+                        barColor = 'var(--status-phishing)';
                       }
 
                       return (
-                        <div key={key} className={`decision-meter-item ${isLeading ? 'leading-signal' : ''}`}>
-                          <div className="meter-label-row font-mono">
-                            <span className="meter-key">{formatKey(key)}</span>
-                            <span className={`meter-val ${isPositive ? 'text-positive' : 'text-negative'}`}>
-                              {formattedVal}
-                            </span>
+                        <div key={key} className={`decision-meter-row ${isLeading ? 'leading-signal' : ''}`}>
+                          <div className="meter-class-group">
+                            <span className={`meter-dot ${dotClass}`} />
+                            <span className="meter-class-label">{formatKey(key)}</span>
                           </div>
 
                           <div className="meter-track" role="progressbar" aria-valuenow={numVal} aria-valuetext={`${key}: ${formattedVal}`}>
                             <div
-                              className={`meter-bar ${signalClass}`}
-                              style={{ width: `${normalizedWidth}%` }}
+                              className="meter-bar"
+                              style={{ width: `${normalizedWidth}%`, backgroundColor: barColor }}
                             />
+                          </div>
+
+                          <div className={`meter-score-val font-mono ${isPositive ? 'score-positive' : 'score-negative'}`}>
+                            {formattedVal}
                           </div>
                         </div>
                       );

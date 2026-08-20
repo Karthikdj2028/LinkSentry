@@ -1,0 +1,49 @@
+{
+  "timestamp": "2026-08-20T01:30:26.231Z",
+  "viewportsAudited": [
+    "320_small_mobile",
+    "375_standard_mobile",
+    "412_large_mobile",
+    "768_small_tablet",
+    "1024_tablet",
+    "1366_laptop",
+    "1440_desktop",
+    "1920_large_desktop"
+  ],
+  "routesVerified": [
+    "auth_portal",
+    "02_overview",
+    "03_scanner_url",
+    "03_scanner_qr",
+    "03_scanner_msg",
+    "04_history",
+    "05_analytics",
+    "06_security_center",
+    "07_profile",
+    "security_audit_modal"
+  ],
+  "liveScansVerified": [
+    {
+      "url": "https://google.com",
+      "renderedVerdict": "SAFE",
+      "expectedVerdict": "SAFE",
+      "passed": true
+    },
+    {
+      "url": "https://www.ggle.com",
+      "renderedVerdict": "SUSPICIOUS",
+      "expectedVerdict": "SUSPICIOUS",
+      "passed": true
+    },
+    {
+      "url": "https://www.micros0ft.com",
+      "renderedVerdict": "SUSPICIOUS",
+      "expectedVerdict": "SUSPICIOUS",
+      "passed": true
+    }
+  ],
+  "overflowAudit": [],
+  "themeContrastAudit": [],
+  "testPassCount": 3,
+  "testFailCount": 0
+}

@@ -44,7 +44,7 @@ object ApiClient {
         }
         return when {
             isEmulator() -> EMULATOR_BASE_URL
-            isDebug -> DEFAULT_LAN_BASE_URL
+            isDebug -> PRODUCTION_BASE_URL
             else -> PRODUCTION_BASE_URL
         }
     }

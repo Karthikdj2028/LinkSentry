@@ -1,0 +1,131 @@
+{
+  "decisionSignalsData": null,
+  "ggleDecisionSignals": [
+    {
+      "classLabel": "Benign",
+      "fullText": "Benign+0.4800",
+      "scoreVal": "+0.4800",
+      "trackWidth": 585.5625
+    },
+    {
+      "classLabel": "Defacement",
+      "fullText": "Defacement-5.0868",
+      "scoreVal": "-5.0868",
+      "trackWidth": 585.5625
+    },
+    {
+      "classLabel": "Malware",
+      "fullText": "Malware-1.7793",
+      "scoreVal": "-1.7793",
+      "trackWidth": 585.5625
+    },
+    {
+      "classLabel": "Phishing",
+      "fullText": "Phishing-1.1995",
+      "scoreVal": "-1.1995",
+      "trackWidth": 585.5625
+    }
+  ],
+  "anatomyData": {
+    "category": "REGISTERED DOMAIN",
+    "scope": "DOMAIN",
+    "segments": [
+      {
+        "badge": "Scheme",
+        "text": "http://"
+      },
+      {
+        "badge": "Subdomain",
+        "text": "login-verify-account-security-update."
+      },
+      {
+        "badge": "Domain",
+        "text": "example"
+      },
+      {
+        "badge": "TLD",
+        "text": ".com"
+      },
+      {
+        "badge": "Path",
+        "text": "/resetPath"
+      }
+    ],
+    "title": "Primary Domain Identity (SLD)",
+    "whatIsIt": "The actual name registered by an individual or organization controlling the website."
+  },
+  "viewportResults": [
+    {
+      "viewport": "320_small_mobile",
+      "width": 320,
+      "height": 700,
+      "hasOverflow": false,
+      "maxScroll": 320,
+      "winWidth": 320,
+      "overflowingElements": []
+    },
+    {
+      "viewport": "375_mobile",
+      "width": 375,
+      "height": 812,
+      "hasOverflow": false,
+      "maxScroll": 375,
+      "winWidth": 375,
+      "overflowingElements": []
+    },
+    {
+      "viewport": "412_large_mobile",
+      "width": 412,
+      "height": 915,
+      "hasOverflow": false,
+      "maxScroll": 412,
+      "winWidth": 412,
+      "overflowingElements": []
+    },
+    {
+      "viewport": "768_tablet",
+      "width": 768,
+      "height": 1024,
+      "hasOverflow": false,
+      "maxScroll": 768,
+      "winWidth": 768,
+      "overflowingElements": []
+    },
+    {
+      "viewport": "1024_desktop_small",
+      "width": 1024,
+      "height": 768,
+      "hasOverflow": false,
+      "maxScroll": 1017,
+      "winWidth": 1024,
+      "overflowingElements": []
+    },
+    {
+      "viewport": "1366_laptop",
+      "width": 1366,
+      "height": 768,
+      "hasOverflow": false,
+      "maxScroll": 1359,
+      "winWidth": 1366,
+      "overflowingElements": []
+    },
+    {
+      "viewport": "1440_desktop",
+      "width": 1440,
+      "height": 900,
+      "hasOverflow": false,
+      "maxScroll": 1433,
+      "winWidth": 1440,
+      "overflowingElements": []
+    },
+    {
+      "viewport": "1920_fhd",
+      "width": 1920,
+      "height": 1080,
+      "hasOverflow": false,
+      "maxScroll": 1913,
+      "winWidth": 1920,
+      "overflowingElements": []
+    }
+  ]
+}

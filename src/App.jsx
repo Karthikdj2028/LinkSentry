@@ -72,11 +72,17 @@ function MainContent() {
       return;
     }
 
-    // New login or registration -> always open Overview page
+    // New login or session restoration -> retain deep link if valid, else default to overview
     if (!prevUserRef.current && currentUser) {
-      setActiveTab('overview');
-      if (window.location.pathname !== '/') {
-        window.history.replaceState({ tab: 'overview' }, '', '/');
+      const currentPath = window.location.pathname;
+      const targetTab = getTabFromPath(currentPath);
+      if (targetTab && currentPath !== '/') {
+        setActiveTab(targetTab);
+      } else {
+        setActiveTab('overview');
+        if (window.location.pathname !== '/') {
+          window.history.replaceState({ tab: 'overview' }, '', '/');
+        }
       }
     }
 

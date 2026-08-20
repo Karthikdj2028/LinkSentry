@@ -243,16 +243,14 @@ export default function UrlAnatomy({
       {/* DETAIL CONTEXT CARD */}
       <div className="url-segment-card animate-fade-in" role="article">
         <div className="segment-card-header">
-          <div className="segment-badge-row">
-            <span className="segment-icon-pill">{activeDef.icon}</span>
-            <div>
-              <span className="segment-title-main font-mono">{activeDef.title.toUpperCase()}</span>
-              <span className="segment-subtitle-sub">{activeDef.subtitle}</span>
-            </div>
+          <div className="segment-icon-box" aria-hidden="true">
+            {activeDef.icon}
           </div>
-          <span className="segment-scope-tag font-mono">
-            {activeSegmentKey.toUpperCase()}
-          </span>
+          <div className="segment-header-text">
+            <span className="segment-category-label">{activeDef.title.toUpperCase()}</span>
+            <h4 className="segment-main-title">{activeDef.subtitle}</h4>
+            <span className="segment-scope-pill font-mono">{activeSegmentKey.toUpperCase()}</span>
+          </div>
         </div>
 
         {/* ACTIVE LIVE SECURITY ALERT IF PRESENT */}

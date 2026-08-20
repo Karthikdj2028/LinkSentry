@@ -1,0 +1,230 @@
+[
+  {
+    "url": "https://google.com",
+    "label": "Safe_Google",
+    "backendML": "benign",
+    "backendFusionVerdict": "safe",
+    "backendRiskScore": 0,
+    "frontendVerdict": "SAFE",
+    "frontendScore": "0",
+    "consistent": true,
+    "decisionRows": [
+      {
+        "isLeading": true,
+        "label": "Benign",
+        "score": "+0.1014"
+      },
+      {
+        "isLeading": false,
+        "label": "Defacement",
+        "score": "-7.3486"
+      },
+      {
+        "isLeading": false,
+        "label": "Malware",
+        "score": "-1.0372"
+      },
+      {
+        "isLeading": false,
+        "label": "Phishing",
+        "score": "-0.4849"
+      }
+    ],
+    "backendDecisionScores": {
+      "benign": 0.101382,
+      "defacement": -7.348625,
+      "malware": -1.037157,
+      "phishing": -0.484948
+    }
+  },
+  {
+    "url": "https://amazon.in",
+    "label": "Safe_Regional_Amazon",
+    "backendML": "phishing",
+    "backendFusionVerdict": "safe",
+    "backendRiskScore": 0,
+    "frontendVerdict": "SAFE",
+    "frontendScore": "0",
+    "consistent": true,
+    "decisionRows": [
+      {
+        "isLeading": false,
+        "label": "Benign",
+        "score": "-0.3991"
+      },
+      {
+        "isLeading": false,
+        "label": "Defacement",
+        "score": "-5.9530"
+      },
+      {
+        "isLeading": false,
+        "label": "Malware",
+        "score": "-1.3707"
+      },
+      {
+        "isLeading": true,
+        "label": "Phishing",
+        "score": "+0.1312"
+      }
+    ],
+    "backendDecisionScores": {
+      "benign": -0.399062,
+      "defacement": -5.952979,
+      "malware": -1.370689,
+      "phishing": 0.131175
+    }
+  },
+  {
+    "url": "https://www.ggle.com",
+    "label": "Typosquat_ggle",
+    "backendML": "benign",
+    "backendFusionVerdict": "suspicious",
+    "backendRiskScore": 60,
+    "frontendVerdict": "SUSPICIOUS",
+    "frontendScore": "60",
+    "consistent": true,
+    "decisionRows": [
+      {
+        "isLeading": true,
+        "label": "Benign",
+        "score": "+0.4800"
+      },
+      {
+        "isLeading": false,
+        "label": "Defacement",
+        "score": "-5.0868"
+      },
+      {
+        "isLeading": false,
+        "label": "Malware",
+        "score": "-1.7793"
+      },
+      {
+        "isLeading": false,
+        "label": "Phishing",
+        "score": "-1.1995"
+      }
+    ],
+    "backendDecisionScores": {
+      "benign": 0.480002,
+      "defacement": -5.086799,
+      "malware": -1.779274,
+      "phishing": -1.199497
+    }
+  },
+  {
+    "url": "https://www.micros0ft.com",
+    "label": "Typosquat_micros0ft",
+    "backendML": "benign",
+    "backendFusionVerdict": "suspicious",
+    "backendRiskScore": 60,
+    "frontendVerdict": "SUSPICIOUS",
+    "frontendScore": "60",
+    "consistent": true,
+    "decisionRows": [
+      {
+        "isLeading": true,
+        "label": "Benign",
+        "score": "+0.2975"
+      },
+      {
+        "isLeading": false,
+        "label": "Defacement",
+        "score": "-5.9518"
+      },
+      {
+        "isLeading": false,
+        "label": "Malware",
+        "score": "-0.6473"
+      },
+      {
+        "isLeading": false,
+        "label": "Phishing",
+        "score": "-1.0310"
+      }
+    ],
+    "backendDecisionScores": {
+      "benign": 0.297503,
+      "defacement": -5.951755,
+      "malware": -0.647299,
+      "phishing": -1.031019
+    }
+  },
+  {
+    "url": "http://login-verify-account-security-update.example.com/resetPath",
+    "label": "NXDOMAIN_Suspicious",
+    "backendML": "phishing",
+    "backendFusionVerdict": "non_existent",
+    "backendRiskScore": 45,
+    "frontendVerdict": "NON_EXISTENT",
+    "frontendScore": "45",
+    "consistent": true,
+    "decisionRows": [
+      {
+        "isLeading": false,
+        "label": "Benign",
+        "score": "-3.9086"
+      },
+      {
+        "isLeading": false,
+        "label": "Defacement",
+        "score": "-3.6828"
+      },
+      {
+        "isLeading": false,
+        "label": "Malware",
+        "score": "-1.5326"
+      },
+      {
+        "isLeading": true,
+        "label": "Phishing",
+        "score": "+2.5067"
+      }
+    ],
+    "backendDecisionScores": {
+      "benign": -3.908605,
+      "defacement": -3.682785,
+      "malware": -1.532609,
+      "phishing": 2.506668
+    }
+  },
+  {
+    "url": "http://chase-bank-online-security-auth--check.xyz/login.php",
+    "label": "Phishing_Clone",
+    "backendML": "phishing",
+    "backendFusionVerdict": "phishing",
+    "backendRiskScore": 100,
+    "frontendVerdict": "PHISHING",
+    "frontendScore": "100",
+    "consistent": true,
+    "decisionRows": [
+      {
+        "isLeading": false,
+        "label": "Benign",
+        "score": "-4.3046"
+      },
+      {
+        "isLeading": false,
+        "label": "Defacement",
+        "score": "-4.4257"
+      },
+      {
+        "isLeading": false,
+        "label": "Malware",
+        "score": "-2.4325"
+      },
+      {
+        "isLeading": true,
+        "label": "Phishing",
+        "score": "+3.5059"
+      }
+    ],
+    "backendDecisionScores": {
+      "benign": -4.304604,
+      "defacement": -4.425654,
+      "malware": -2.432547,
+      "phishing": 3.505899
+    }
+  }
+]

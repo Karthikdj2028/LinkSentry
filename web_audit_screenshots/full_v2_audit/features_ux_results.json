@@ -1,0 +1,42 @@
+{
+  "tabs": {
+    "qrCode": "PASS",
+    "message": "PASS"
+  },
+  "themeSwitching": {
+    "lightMode": "PASS",
+    "darkMode": "PASS"
+  },
+  "modalsAndDrawers": {},
+  "accessibility": {
+    "keyboardFocusable": "PASS"
+  },
+  "consoleErrors": [
+    "http://localhost:5173/src/firebase/firestore.js 229:10 \"Failed to get user settings from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 229:10 \"Failed to get user settings from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 229:10 \"Failed to get user settings from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 268:10 \"Settings snapshot error:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 173:10 \"Real-time scan subscription error:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/context/ScanContext.jsx 50:11 \"Failed to stream scans from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 173:10 \"Real-time scan subscription error:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/context/ScanContext.jsx 50:11 \"Failed to stream scans from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 229:10 \"Failed to get user settings from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 229:10 \"Failed to get user settings from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 229:10 \"Failed to get user settings from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 268:10 \"Settings snapshot error:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 250:10 \"Failed to save user settings to Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 250:10 \"Failed to save user settings to Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 229:10 \"Failed to get user settings from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 229:10 \"Failed to get user settings from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 229:10 \"Failed to get user settings from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 268:10 \"Settings snapshot error:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 173:10 \"Real-time scan subscription error:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/context/ScanContext.jsx 50:11 \"Failed to stream scans from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 173:10 \"Real-time scan subscription error:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/context/ScanContext.jsx 50:11 \"Failed to stream scans from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 229:10 \"Failed to get user settings from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 229:10 \"Failed to get user settings from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 229:10 \"Failed to get user settings from Firestore:\" FirebaseError: Missing or insufficient permissions.",
+    "http://localhost:5173/src/firebase/firestore.js 268:10 \"Settings snapshot error:\" FirebaseError: Missing or insufficient permissions."
+  ]
+}
