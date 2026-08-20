@@ -67,6 +67,9 @@ DEFAULT_ALLOWED_ORIGINS = [
     "http://192.168.29.123:4173",
     "http://192.168.29.123:4174",
     "http://192.168.29.123:3000",
+    "https://linksentry-7e694.web.app",
+    "https://linksentry-7e694.firebaseapp.com",
+    "https://linksentry-api.onrender.com",
 ]
 
 # Safe regular expression to match localhost, loopback, and LAN private network ports.
@@ -78,6 +81,9 @@ CORS_ORIGIN_REGEX = (
     r"|192\.168\.\d{1,3}\.\d{1,3}"
     r"|10\.\d{1,3}\.\d{1,3}\.\d{1,3}"
     r"|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}"
+    r"|linksentry-7e694\.web\.app"
+    r"|linksentry-7e694\.firebaseapp\.com"
+    r"|linksentry-api\.onrender\.com"
     r")(:\d+)?$"
 )
 
@@ -211,6 +217,20 @@ class MessageScanRequest(BaseModel):
 # -----------------------------------------------------------------------------
 # API Endpoints
 # -----------------------------------------------------------------------------
+@app.get("/")
+def root() -> dict[str, str]:
+    """
+    Root health check endpoint for monitoring, load balancers, and container probes.
+    """
+    return {
+        "status": "ok",
+        "service": "LinkSentry API",
+        "version": "0.5.0",
+        "model_version": "V3.4",
+        "engine": "LinkSentry V3.4 ML + Reachability Engine",
+    }
+
+@app.get("/health")
 @app.get("/api/health")
 def health_check() -> dict[str, str]:
     """

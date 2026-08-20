@@ -23,9 +23,30 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.linksentry.app.data.model.DomainVerificationResponse
+import com.linksentry.app.ui.screens.scanner.ScannerResultUi
 import com.linksentry.app.ui.theme.LocalAppColors
 import java.net.URI
 import java.util.Locale
+
+/**
+ * Converts snake_case and backend heuristic identifiers into human-readable text.
+ */
+fun formatIndicator(raw: String): String {
+    val trimmed = raw.trim()
+    return when {
+        trimmed.equals("typosquatting_brand", ignoreCase = true) -> "Typosquatting brand detected"
+        trimmed.equals("domain_verified_reachable_http_200", ignoreCase = true) -> "Domain verified reachable (HTTP 200)"
+        trimmed.equals("https_tls_active", ignoreCase = true) -> "HTTPS / TLS transport layer active"
+        trimmed.equals("trusted_domain", ignoreCase = true) -> "Trusted domain recognized by LinkSentry trusted-domain layer"
+        trimmed.equals("nxdomain_host_not_found", ignoreCase = true) -> "Domain lookup failed (NXDOMAIN)"
+        trimmed.equals("unreachable_host", ignoreCase = true) -> "Host unreachable or connection timed out"
+        trimmed.equals("high_risk_phishing_lure", ignoreCase = true) -> "High-risk credential lure keywords detected"
+        trimmed.contains("_") && !trimmed.contains(" ") -> {
+            trimmed.replace("_", " ").replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.US) else it.toString() }
+        }
+        else -> trimmed
+    }
+}
 
 /**
  * Multi-Stage Scan Pipeline Progress Card (V3.4)
@@ -33,6 +54,7 @@ import java.util.Locale
 @Composable
 fun ScanPipelineProgressCard(
     currentStageIndex: Int,
+    targetUrl: String? = null,
     modifier: Modifier = Modifier
 ) {
     val colors = LocalAppColors.current
@@ -54,11 +76,39 @@ fun ScanPipelineProgressCard(
                 strokeWidth = 2.dp
             )
             Text(
-                text = "LinkSentry V3.4 Multi-Signal Pipeline",
+                text = "Active Scan Analysis",
                 fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 color = colors.textPrimary
             )
+        }
+
+        if (!targetUrl.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.surfaceLight.copy(alpha = 0.6f))
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = "INSPECTING TARGET",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 0.5.sp,
+                    color = colors.textMuted
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = targetUrl,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = colors.brandAccent,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -71,7 +121,8 @@ fun ScanPipelineProgressCard(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Surface(
                         shape = RoundedCornerShape(4.dp),
@@ -79,7 +130,7 @@ fun ScanPipelineProgressCard(
                         border = BorderStroke(1.dp, if (isActive) colors.brandAccent.copy(alpha = 0.4f) else colors.borderSubtle)
                     ) {
                         Text(
-                            text = "0${idx + 1}",
+                            text = if (isCompleted) "✓" else "0${idx + 1}",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace,
@@ -91,8 +142,231 @@ fun ScanPipelineProgressCard(
                         text = stageName,
                         fontSize = 11.sp,
                         fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (isActive) colors.textPrimary else colors.textSecondary
+                        color = if (isActive) colors.textPrimary else colors.textSecondary,
+                        modifier = Modifier.weight(1f)
                     )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Active Phase: ${stages.getOrElse(currentStageIndex) { "Completing Analysis" }}",
+            fontSize = 10.sp,
+            color = colors.textMuted,
+            fontFamily = FontFamily.Monospace
+        )
+    }
+}
+
+/**
+ * Final Security Verdict Card (V2.1 Parity)
+ * Highlights Multi-Signal Fusion engine decision, threat risk index, and indicators.
+ */
+@Composable
+fun FinalSecurityVerdictCard(
+    result: ScannerResultUi,
+    modifier: Modifier = Modifier
+) {
+    val colors = LocalAppColors.current
+    val normalizedVerdict = result.verdict.lowercase(Locale.US)
+
+    val verdictDescription = when (normalizedVerdict) {
+        "safe" -> "SAFE: Domain is verified reachable and no malicious indicators were detected by the LinkSentry decision-fusion engine."
+        "suspicious" -> "WARNING: Suspicious characteristics, brand lookalikes, or coercive lures were detected. Exercise extreme caution."
+        "phishing" -> "CRITICAL THREAT: High-confidence phishing attack detected. Do not enter credentials or download attachments."
+        "non_existent" -> "DOMAIN NOT FOUND: DNS lookup failed (NXDOMAIN). The domain does not currently exist on public name servers."
+        "unreachable" -> "UNREACHABLE: Target server did not respond or connection timed out."
+        "invalid" -> "INVALID: The target URL format is invalid or malformed."
+        else -> "Analysis complete. Review threat indicators and verification signals below."
+    }
+
+    CyberCard(modifier = modifier) {
+        // 1. Header: FINAL SECURITY VERDICT & MULTI-SIGNAL FUSION TAG (Adaptive Stacked Layout)
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            if (maxWidth < 380.dp) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "FINAL SECURITY VERDICT",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp,
+                        color = colors.textMuted
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = colors.brandAccent.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, colors.brandAccent.copy(alpha = 0.35f))
+                    ) {
+                        Text(
+                            text = "MULTI-SIGNAL FUSION",
+                            color = colors.brandAccent,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "FINAL SECURITY VERDICT",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp,
+                        color = colors.textMuted
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = colors.brandAccent.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, colors.brandAccent.copy(alpha = 0.35f))
+                    ) {
+                        Text(
+                            text = "MULTI-SIGNAL FUSION",
+                            color = colors.brandAccent,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // 2. Verdict Badge & Confidence
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CyberBadge(verdict = result.verdict)
+            Text(
+                text = "Confidence: ${(result.confidence * 100).toInt()}%",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = colors.textSecondary
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 3. Verdict Description
+        Text(
+            text = verdictDescription,
+            color = colors.textPrimary,
+            fontSize = 12.sp,
+            lineHeight = 16.sp
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // 4. Fusion Engine Note
+        Text(
+            text = "Determined by LinkSentry's multi-signal fusion engine combining ML heuristics, DNS, TLS, reachability, reputation, and brand-impersonation signals.",
+            color = colors.textMuted,
+            fontSize = 10.sp,
+            lineHeight = 14.sp
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 5. Threat Score Meter
+        ThreatMeter(riskScore = result.riskScore)
+
+        // 6. Registrable Domain & Embedded URLs
+        if (!result.domain.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.surfaceLight.copy(alpha = 0.5f))
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Text("Registrable Domain", color = colors.textMuted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = result.domain,
+                    color = colors.textPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        if (!result.embeddedUrls.isNullOrEmpty()) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text("Embedded Links (${result.embeddedUrls.size}):", color = colors.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(4.dp))
+            result.embeddedUrls.forEach { emb ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = emb.domain ?: emb.url,
+                        color = colors.textPrimary,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    CyberBadge(verdict = emb.verdict)
+                }
+            }
+        }
+
+        // 7. Human-Readable Observed Risk Indicators
+        if (result.indicators.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "Observed Risk Indicators",
+                color = colors.textSecondary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                result.indicators.forEach { ind ->
+                    Row(
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Warning,
+                            contentDescription = null,
+                            tint = colors.suspicious,
+                            modifier = Modifier
+                                .size(13.dp)
+                                .padding(top = 2.dp)
+                        )
+                        Text(
+                            text = formatIndicator(ind),
+                            color = colors.textPrimary,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
         }
@@ -111,7 +385,7 @@ fun DomainVerificationCard(
     val colors = LocalAppColors.current
     var showIps by remember { mutableStateOf(false) }
 
-    val status = verification.status?.lowercase() ?: "unknown"
+    val status = verification.status?.lowercase(Locale.US) ?: "unknown"
     val dnsResolved = verification.dnsResolved ?: (status != "non_existent" && status != "invalid")
     val isDnsOk = dnsResolved && status != "non_existent"
     val isReachable = verification.httpReachable == true || status == "reachable"
@@ -125,7 +399,8 @@ fun DomainVerificationCard(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f, fill = false)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Dns,
@@ -134,14 +409,18 @@ fun DomainVerificationCard(
                     modifier = Modifier.size(16.dp)
                 )
                 Text(
-                    text = "Domain Verification",
-                    fontSize = 14.sp,
+                    text = "Domain Existence & Reachability",
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = colors.textPrimary
+                    color = colors.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
-            // Overall Status Pill
+            Spacer(modifier = Modifier.width(6.dp))
+
+            // Overall Status Pill (compact, nowrap)
             val (pillColor, pillText) = when (status) {
                 "reachable" -> Pair(colors.safe, "Reachable")
                 "unreachable" -> Pair(colors.suspicious, "Unreachable")
@@ -159,6 +438,8 @@ fun DomainVerificationCard(
                     color = pillColor,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false,
                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
                 )
             }
@@ -291,7 +572,8 @@ fun DomainVerificationCard(
                             text = "• $ip",
                             fontSize = 11.sp,
                             color = colors.textSecondary,
-                            fontFamily = FontFamily.Monospace
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
@@ -351,6 +633,7 @@ private fun VerificationMetricPill(
 
 /**
  * Brand Impersonation & Typosquatting Evidence Card (V3.4)
+ * Uses separate full-width blocks to guarantee domain strings never split character-by-character.
  */
 @Composable
 fun BrandEvidenceCard(
@@ -399,38 +682,61 @@ fun BrandEvidenceCard(
         }
 
         if (!observedDomain.isNullOrBlank() || !typosquatDomain.isNullOrBlank() || !impersonatedDomain.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(8.dp))
-            if (!observedDomain.isNullOrBlank()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Scanned Domain:", color = colors.textMuted, fontSize = 11.sp)
-                    Text(
-                        text = observedDomain,
-                        color = colors.phishing,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp
-                    )
+            Spacer(modifier = Modifier.height(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!observedDomain.isNullOrBlank()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(colors.surfaceLight.copy(alpha = 0.5f))
+                            .padding(horizontal = 10.dp, vertical = 7.dp)
+                    ) {
+                        Text(
+                            text = "Scanned Domain",
+                            color = colors.textMuted,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.4.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = observedDomain,
+                            color = colors.phishing,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
-            }
-            val legitimateTarget = impersonatedDomain ?: typosquatDomain
-            if (!legitimateTarget.isNullOrBlank()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Possible Legitimate Domain:", color = colors.textMuted, fontSize = 11.sp)
-                    Text(
-                        text = legitimateTarget,
-                        color = colors.safe,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp
-                    )
+
+                val legitimateTarget = impersonatedDomain ?: typosquatDomain
+                if (!legitimateTarget.isNullOrBlank()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(colors.surfaceLight.copy(alpha = 0.5f))
+                            .padding(horizontal = 10.dp, vertical = 7.dp)
+                    ) {
+                        Text(
+                            text = "Possible Legitimate Domain",
+                            color = colors.textMuted,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.4.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = legitimateTarget,
+                            color = colors.safe,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
         }
@@ -438,7 +744,7 @@ fun BrandEvidenceCard(
 }
 
 /**
- * Collapsible LinearSVC Technical Decision Margins Card (V3.4)
+ * Collapsible LinearSVC Technical Decision Margins Card (V3.4 / V2.1 Parity)
  * Displays raw model hyperplane scores without fabricating probabilities.
  */
 @Composable
@@ -465,7 +771,8 @@ fun TechnicalDecisionMarginsCard(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f, fill = false)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Analytics,
@@ -474,24 +781,39 @@ fun TechnicalDecisionMarginsCard(
                     modifier = Modifier.size(16.dp)
                 )
                 Text(
-                    text = "Technical Model Decision Margins",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.textPrimary
+                    text = "TECHNICAL ML DECISION MARGINS",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-            Icon(
-                imageVector = if (isExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                contentDescription = null,
-                tint = colors.brandAccent,
-                modifier = Modifier.size(18.dp)
-            )
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = colors.brandAccent.copy(alpha = 0.10f),
+                border = BorderStroke(1.dp, colors.brandAccent.copy(alpha = 0.25f))
+            ) {
+                Text(
+                    text = "ℹ Relative Margins",
+                    color = colors.brandAccent,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.Monospace,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
         }
 
         AnimatedVisibility(visible = isExpanded) {
             Column(modifier = Modifier.padding(top = 10.dp)) {
                 Text(
-                    text = "Classifier hyperplane decision margins from LinearSVC. Positive values indicate active classification alignment; negative values indicate distance from class boundary. Values are raw margins, not probabilities.",
+                    text = "These values are relative classifier decision margins, not probabilities. The final verdict combines ML evidence with domain, DNS, TLS, reachability, reputation, and brand-impersonation signals.",
                     fontSize = 11.sp,
                     color = colors.textSecondary,
                     lineHeight = 15.sp
@@ -585,14 +907,18 @@ private fun DecisionMarginBar(
 }
 
 /**
- * Native Android Interactive URL Anatomy Breakdown (V3.4)
+ * Native Android Interactive URL Anatomy Breakdown (V3.4 / V2.1 Parity)
  */
 data class UrlSegment(
     val type: String, // "Scheme", "Subdomain", "Domain", "TLD", "Path", "Query", "Fragment"
     val value: String,
     val explanation: String,
     val securityTip: String,
-    val isSuspicious: Boolean = false
+    val isSuspicious: Boolean = false,
+    val categoryLabel: String = "URL Component",
+    val whatIsIt: String = "",
+    val whyItMatters: String = "",
+    val whatLinkSentryChecks: String = ""
 )
 
 fun parseUrlAnatomyNative(rawUrl: String, indicators: List<String> = emptyList()): List<UrlSegment> {
@@ -614,8 +940,12 @@ fun parseUrlAnatomyNative(rawUrl: String, indicators: List<String> = emptyList()
                 type = "Scheme",
                 value = "$scheme://",
                 explanation = "Specifies the communication protocol for transferring data.",
-                securityTip = if (isHttp) "Warning: HTTP sends data in unencrypted plaintext." else "HTTPS encrypts the transit layer, but does not guarantee the site is benign.",
-                isSuspicious = isHttp
+                securityTip = if (isHttp) "Warning: HTTP sends data in unencrypted plaintext." else "HTTPS encrypts transit, but does not guarantee the site is benign.",
+                isSuspicious = isHttp,
+                categoryLabel = "Network Protocol",
+                whatIsIt = "Defines how data is transferred between your browser and the server.",
+                whyItMatters = "Insecure HTTP exposes credentials to interception on local networks.",
+                whatLinkSentryChecks = "Validates encryption state, TLS certificate status, and cipher strength."
             )
         )
 
@@ -646,19 +976,27 @@ fun parseUrlAnatomyNative(rawUrl: String, indicators: List<String> = emptyList()
                             value = "$subValue.",
                             explanation = "A prefix specifying a section of the domain controlled by the owner.",
                             securityTip = if (hasStacked) "Caution: Attackers frequently stack brand names into subdomains." else "Always verify the main registered domain following the subdomain.",
-                            isSuspicious = hasStacked
+                            isSuspicious = hasStacked,
+                            categoryLabel = "Host Prefix",
+                            whatIsIt = "A designated sub-section of the website managed by the domain owner.",
+                            whyItMatters = "Phishing links frequently insert trusted names here e.g. login.microsoft.com.attacker.xyz.",
+                            whatLinkSentryChecks = "Inspects for brand stacking, homoglyph character spoofing, and excessive depth."
                         )
                     )
                 }
 
-                val hasTyposquat = indicators.any { it.contains("resembles", ignoreCase = true) || it.contains("impersonation", ignoreCase = true) }
+                val hasTyposquat = indicators.any { it.contains("resembles", ignoreCase = true) || it.contains("impersonation", ignoreCase = true) || it.contains("typosquat", ignoreCase = true) }
                 segments.add(
                     UrlSegment(
                         type = "Registered Domain",
                         value = domainName,
                         explanation = "The unique brand identifier registered with a domain registrar.",
                         securityTip = "This determines who legally operates the website.",
-                        isSuspicious = hasTyposquat
+                        isSuspicious = hasTyposquat,
+                        categoryLabel = "Brand Identity",
+                        whatIsIt = "The core registered name identifying the entity operating this web property.",
+                        whyItMatters = "Attackers register typosquats like 'ggle.com' to deceive users.",
+                        whatLinkSentryChecks = "Runs Levenshtein string distance and brand protection heuristics."
                     )
                 )
 
@@ -669,7 +1007,11 @@ fun parseUrlAnatomyNative(rawUrl: String, indicators: List<String> = emptyList()
                         value = ".$tld",
                         explanation = "The top-level domain suffix managing the namespace.",
                         securityTip = if (isSuspiciousTld) "This TLD is statistically common in short-lived phishing campaigns." else "Common TLD managed by official registry.",
-                        isSuspicious = isSuspiciousTld
+                        isSuspicious = isSuspiciousTld,
+                        categoryLabel = "Domain Extension",
+                        whatIsIt = "The suffix at the end of the domain managed by registries.",
+                        whyItMatters = "Cheap or disposable TLDs are heavily abused for short-lived disposable lures.",
+                        whatLinkSentryChecks = "Cross-references TLD risk reputation tables and registrar history."
                     )
                 )
             } else {
@@ -678,7 +1020,11 @@ fun parseUrlAnatomyNative(rawUrl: String, indicators: List<String> = emptyList()
                         type = "Host",
                         value = host,
                         explanation = "Target hostname.",
-                        securityTip = "Direct host or IP address without standard domain hierarchy."
+                        securityTip = "Direct host or IP address without standard domain hierarchy.",
+                        categoryLabel = "Network Host",
+                        whatIsIt = "Direct server endpoint address.",
+                        whyItMatters = "Raw IP hosts bypass standard domain reputation systems.",
+                        whatLinkSentryChecks = "Performs reverse DNS and IP reputation lookup."
                     )
                 )
             }
@@ -693,7 +1039,11 @@ fun parseUrlAnatomyNative(rawUrl: String, indicators: List<String> = emptyList()
                     value = path,
                     explanation = "Specifies the specific page, directory, or endpoint on the server.",
                     securityTip = if (hasLogin) "Credential lure keywords detected in path." else "Standard server resource route.",
-                    isSuspicious = hasLogin
+                    isSuspicious = hasLogin,
+                    categoryLabel = "Resource Endpoint",
+                    whatIsIt = "The hierarchical route pointing to a specific file or handler on the server.",
+                    whyItMatters = "Attackers embed fake authentication screens under convincing path names.",
+                    whatLinkSentryChecks = "Scans for login, credential capture, and password reset keyword patterns."
                 )
             )
         }
@@ -705,7 +1055,11 @@ fun parseUrlAnatomyNative(rawUrl: String, indicators: List<String> = emptyList()
                     type = "Query",
                     value = "?$query",
                     explanation = "Key-value parameters passed to the application.",
-                    securityTip = "Check for hidden redirect targets e.g. ?redirect_url=."
+                    securityTip = "Check for hidden redirect targets e.g. ?redirect_url=.",
+                    categoryLabel = "Query Parameters",
+                    whatIsIt = "Key-value pairs supplied to the web application.",
+                    whyItMatters = "Open redirect attacks hide the final phishing destination inside parameters.",
+                    whatLinkSentryChecks = "Analyzes parameter keys for nested URLs and redirection targets."
                 )
             )
         }
@@ -717,7 +1071,11 @@ fun parseUrlAnatomyNative(rawUrl: String, indicators: List<String> = emptyList()
                     type = "Fragment",
                     value = "#$fragment",
                     explanation = "Client-side anchor referencing a section within the document.",
-                    securityTip = "Processed directly by the client browser."
+                    securityTip = "Processed directly by the client browser.",
+                    categoryLabel = "Document Anchor",
+                    whatIsIt = "An internal page anchor handled locally by the browser.",
+                    whyItMatters = "Can be used to trigger client-side scripts or obfuscate target state.",
+                    whatLinkSentryChecks = "Validates fragment syntax and client routing structures."
                 )
             )
         }
@@ -728,7 +1086,11 @@ fun parseUrlAnatomyNative(rawUrl: String, indicators: List<String> = emptyList()
                 type = "Raw Target",
                 value = rawUrl,
                 explanation = "Unparsed URL string.",
-                securityTip = "Format contains non-standard URI syntax."
+                securityTip = "Format contains non-standard URI syntax.",
+                categoryLabel = "Raw String",
+                whatIsIt = "Unparsed raw address input.",
+                whyItMatters = "Non-standard syntax may indicate obfuscation.",
+                whatLinkSentryChecks = "Applies defensive regex normalization."
             )
         )
     }
@@ -775,12 +1137,12 @@ fun UrlAnatomyView(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Horizontal Segment Chips
+        // Horizontal Segment Chips (min 44dp touch target height)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             segments.forEach { segment ->
                 val isSelected = selectedSegment?.type == segment.type
@@ -791,20 +1153,28 @@ fun UrlAnatomyView(
                     shape = RoundedCornerShape(8.dp),
                     color = if (isSelected) chipColor.copy(alpha = 0.20f) else colors.surfaceLight,
                     border = BorderStroke(1.dp, if (isSelected) chipColor else colors.borderSubtle),
-                    modifier = Modifier.height(34.dp)
+                    modifier = Modifier.defaultMinSize(minHeight = 44.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(
-                            text = segment.value,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            fontFamily = FontFamily.Monospace,
-                            color = if (segment.isSuspicious) colors.phishing else colors.textPrimary
-                        )
+                        Column {
+                            Text(
+                                text = segment.type.uppercase(Locale.US),
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (segment.isSuspicious) colors.phishing else colors.textMuted
+                            )
+                            Text(
+                                text = segment.value,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                fontFamily = FontFamily.Monospace,
+                                color = if (segment.isSuspicious) colors.phishing else colors.textPrimary
+                            )
+                        }
                         if (segment.isSuspicious) {
                             Icon(
                                 imageVector = Icons.Filled.Warning,
@@ -818,7 +1188,7 @@ fun UrlAnatomyView(
             }
         }
 
-        // Active Segment Detail Card
+        // Active Segment Detail Card (V2.1 Structured Q&A)
         selectedSegment?.let { seg ->
             Spacer(modifier = Modifier.height(10.dp))
             Surface(
@@ -827,39 +1197,51 @@ fun UrlAnatomyView(
                 border = BorderStroke(1.dp, colors.borderSubtle),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(10.dp)) {
+                Column(modifier = Modifier.padding(12.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = seg.type.uppercase(Locale.US),
+                            text = "${seg.categoryLabel.uppercase(Locale.US)}: ${seg.type}",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (seg.isSuspicious) colors.phishing else colors.brandAccent
                         )
-                        Text(
-                            text = seg.value,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = colors.textPrimary
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = (if (seg.isSuspicious) colors.phishing else colors.safe).copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, (if (seg.isSuspicious) colors.phishing else colors.safe).copy(alpha = 0.35f))
+                        ) {
+                            Text(
+                                text = if (seg.isSuspicious) "SUSPICIOUS" else "VERIFIED",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (seg.isSuspicious) colors.phishing else colors.safe,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = seg.explanation,
-                        fontSize = 11.sp,
-                        color = colors.textPrimary,
-                        lineHeight = 15.sp
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Security Tip: ${seg.securityTip}",
-                        fontSize = 10.sp,
-                        color = if (seg.isSuspicious) colors.phishing else colors.textMuted,
-                        lineHeight = 14.sp
-                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    if (seg.whatIsIt.isNotBlank()) {
+                        Text("WHAT IS IT?", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = colors.textMuted, letterSpacing = 0.5.sp)
+                        Text(seg.whatIsIt, fontSize = 11.sp, color = colors.textPrimary, lineHeight = 15.sp)
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+
+                    if (seg.whyItMatters.isNotBlank()) {
+                        Text("WHY DOES IT MATTER?", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = colors.textMuted, letterSpacing = 0.5.sp)
+                        Text(seg.whyItMatters, fontSize = 11.sp, color = colors.textPrimary, lineHeight = 15.sp)
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+
+                    if (seg.whatLinkSentryChecks.isNotBlank()) {
+                        Text("WHAT LINKSENTRY CHECKS", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = colors.brandAccent, letterSpacing = 0.5.sp)
+                        Text(seg.whatLinkSentryChecks, fontSize = 11.sp, color = colors.textSecondary, lineHeight = 15.sp)
+                    }
                 }
             }
         }

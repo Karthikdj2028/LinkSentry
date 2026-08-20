@@ -50,9 +50,12 @@ class TestRouteNotFound:
         response = client.get("/api/nonexistent-endpoint")
         assert response.status_code == 404
 
-    def test_root_path_returns_404(self):
+    def test_root_path_returns_200_health(self):
         response = client.get("/")
-        assert response.status_code == 404
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert data["service"] == "LinkSentry API"
 
     def test_wrong_scanner_path_returns_404(self):
         response = client.post("/api/scanner", json={"url": "https://example.com"})

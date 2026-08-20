@@ -79,21 +79,27 @@ fun ProfileScreen(
 
     val handleSaveAndProbe = {
         focusManager.clearFocus()
-        val sanitized = ApiClient.sanitizeUrl(apiUrlInput)
-        apiUrlInput = sanitized
-        ApiClient.setBaseUrl(sanitized)
-        isProbing = true
-        probeResult = null
+        val normResult = ApiClient.validateAndNormalizeUrl(apiUrlInput)
+        if (normResult.isFailure) {
+            val err = normResult.exceptionOrNull()?.message ?: "Invalid backend URL"
+            Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+        } else {
+            val normalized = normResult.getOrThrow()
+            apiUrlInput = normalized
+            ApiClient.setBaseUrl(normalized)
+            isProbing = true
+            probeResult = null
 
-        coroutineScope.launch {
-            val result = ApiClient.probeDetailedHealth()
-            probeResult = result
-            isProbing = false
-            Toast.makeText(
-                context,
-                if (result.isSuccess) "Backend verified: ${result.modelVersion ?: "Online"}" else "Saved, but backend unreachable",
-                Toast.LENGTH_SHORT
-            ).show()
+            coroutineScope.launch {
+                val result = ApiClient.probeDetailedHealth()
+                probeResult = result
+                isProbing = false
+                Toast.makeText(
+                    context,
+                    if (result.isSuccess) "Backend verified: ${result.modelVersion ?: "Online"}" else "Saved, but probe failed",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
     }
 

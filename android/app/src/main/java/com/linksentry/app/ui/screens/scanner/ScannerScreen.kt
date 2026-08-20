@@ -856,89 +856,15 @@ fun ScannerScreen(
 
                 // Scan Pipeline Progress Card
                 if (isScanning) {
-                    ScanPipelineProgressCard(currentStageIndex = activeScanStageIndex)
+                    ScanPipelineProgressCard(
+                        currentStageIndex = activeScanStageIndex,
+                        targetUrl = if (inputPayload.isNotBlank()) inputPayload else null
+                    )
                 }
 
-                // Threat Result Card
+                // Threat Result Card (Final Security Verdict - V2.1 Parity)
                 threatResult?.let { result ->
-                    CyberCard {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Analysis results",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = colors.textPrimary
-                            )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "${(result.confidence * 100).toInt()}% confidence",
-                                    fontSize = 11.sp,
-                                    color = colors.textMuted
-                                )
-                                CyberBadge(verdict = result.verdict)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        ThreatMeter(riskScore = result.riskScore)
-
-                        if (result.domain != null) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Domain:", color = colors.textSecondary, fontSize = 12.sp)
-                                Text(result.domain, color = colors.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                            }
-                        }
-
-                        if (!result.embeddedUrls.isNullOrEmpty()) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text("Embedded links:", color = colors.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            result.embeddedUrls.forEach { emb ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = emb.domain ?: emb.url,
-                                        color = colors.textPrimary,
-                                        fontSize = 11.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    CyberBadge(verdict = emb.verdict)
-                                }
-                            }
-                        }
-
-                        if (result.indicators.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text("Indicators:", color = colors.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            result.indicators.forEach { ind ->
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(Icons.Filled.Warning, contentDescription = null, tint = colors.suspicious, modifier = Modifier.size(13.dp))
-                                    Text(ind, color = colors.textPrimary, fontSize = 11.sp)
-                                }
-                            }
-                        }
-                    }
+                    FinalSecurityVerdictCard(result = result)
 
                     // 1. Domain Verification Card
                     result.domainVerification?.let { verif ->
