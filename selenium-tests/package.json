@@ -1,0 +1,16 @@
+{
+  "name": "linksentry-selenium-tests",
+  "version": "1.0.0",
+  "description": "Selenium WebDriver E2E test suite for LinkSentry",
+  "type": "module",
+  "scripts": {
+    "test": "node run-web-tests.js",
+    "test:headed": "HEADLESS=false node run-web-tests.js",
+    "report": "node generate-excel-report.js",
+    "inventory": "node generate-test-case-inventory.js"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "selenium-webdriver": "^4.47.0"
+  }
+}

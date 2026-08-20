@@ -1,7 +1,7 @@
 {
   "name": "linksentry",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.5.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,22 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:rules": "firebase emulators:exec --only firestore \"node --test tests-firestore/firestore.rules.test.js\"",
-    "test:e2e": "npm --prefix e2e run test:headless"
+    "test:e2e": "npm --prefix e2e run test:headless",
+    "test:web": "node selenium-tests/run-web-tests.js",
+    "test:web:headed": "HEADLESS=false node selenium-tests/run-web-tests.js",
+    "test:web:report": "node selenium-tests/generate-excel-report.js",
+    "test:web:inventory": "node selenium-tests/generate-test-case-inventory.js",
+    "test:mobile": "node frontend/appium-tests/run-mobile-tests.js",
+    "test:mobile:report": "node frontend/appium-tests/generate-excel-report.js",
+    "test:mobile:inventory": "node frontend/appium-tests/generate-test-case-inventory.js",
+    "test:load": "node load-tests/run-load-tests.js",
+    "test:load:baseline-300": "node load-tests/baseline-300-users.js",
+    "test:load:report": "node load-tests/generate-load-excel-report.js",
+    "test:load:inventory": "node load-tests/load-test-inventory.js",
+    "test:security": "node vulnerability-tests/scripts/security-runner.js",
+    "test:security:report": "node vulnerability-tests/generate-security-report.js",
+    "test:security:inventory": "node vulnerability-tests/generate-security-inventory.js",
+    "test:inventory": "node scripts/generate-complete-inventory.js"
   },
   "dependencies": {
     "firebase": "^12.17.1",

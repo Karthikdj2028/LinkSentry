@@ -1,0 +1,17 @@
+{
+  "name": "linksentry-appium-mobile-tests",
+  "version": "1.0.0",
+  "description": "Appium Mobile E2E test suite for LinkSentry Android Application",
+  "type": "module",
+  "scripts": {
+    "test": "node run-mobile-tests.js",
+    "report": "node generate-excel-report.js",
+    "inventory": "node generate-test-case-inventory.js"
+  },
+  "dependencies": {
+    "appium": "^3.6.0",
+    "appium-uiautomator2-driver": "^8.4.0",
+    "exceljs": "^4.4.0",
+    "webdriverio": "^9.30.1"
+  }
+}

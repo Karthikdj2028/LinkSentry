@@ -1,0 +1,103 @@
+name: LinkSentry Web E2E Testing
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      headless:
+        description: 'Run tests in headless mode'
+        required: true
+        default: 'true'
+        type: boolean
+
+jobs:
+  web-e2e:
+    name: Selenium Web E2E (300+ Tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt pytest httpx uvicorn
+
+      - name: Install Root & Test Dependencies
+        run: |
+          npm ci
+          cd selenium-tests && npm install && cd ..
+
+      - name: Start LinkSentry FastAPI Backend
+        run: |
+          python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+
+      - name: Verify Backend Health Check
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://127.0.0.1:8000/api/health; then
+              echo "Backend is ready!"
+              break
+            fi
+            echo "Waiting for backend..."
+            sleep 1
+          done
+
+      - name: Build and Start Web Frontend
+        run: |
+          npm run build
+          npm run preview -- --port 5173 --host 0.0.0.0 &
+          for i in {1..30}; do
+            if curl -sf http://127.0.0.1:5173/; then
+              echo "Frontend is ready!"
+              break
+            fi
+            echo "Waiting for frontend..."
+            sleep 1
+          done
+
+      - name: Setup Google Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Execute 300+ Selenium Web E2E Tests
+        run: |
+          npm run test:web
+
+      - name: Generate Web Excel Report & Inventory
+        if: always()
+        run: |
+          npm run test:web:report
+          npm run test:web:inventory
+
+      - name: Upload Web Test Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-e2e-reports
+          path: |
+            test-reports/web/Web_Test_Report.xlsx
+            selenium-tests/reports/
+            selenium-tests/screenshots/
+            selenium-tests/logs/
+            selenium-tests/raw-test-results/
+          retention-days: 14

@@ -1,0 +1,32 @@
+{
+  "targetEndpoint": "http://127.0.0.1:8000/api/health",
+  "virtualUsersReached": 300,
+  "steadyStateSustainedForOneMinute": true,
+  "rampUpDurationSeconds": 10,
+  "steadyStateDurationSeconds": 60,
+  "rampDownDurationSeconds": 5,
+  "totalDurationSeconds": "75.80",
+  "totalRequests": 19000,
+  "successfulRequests": 19000,
+  "failedRequests": 0,
+  "requestsPerSecond": "250.65",
+  "failureRatePercentage": "0.00%",
+  "latencyMetricsMs": {
+    "min": 5,
+    "avg": "1101.83",
+    "median": 1032,
+    "p90": 1514,
+    "p95": 1710,
+    "p99": 3062,
+    "max": 3512
+  },
+  "dataTransfer": {
+    "dataReceivedBytes": 2565000,
+    "dataSentBytes": 2280000,
+    "throughputKBps": "62.42"
+  },
+  "statusDistribution": {
+    "200": 19000
+  },
+  "timestamp": "2026-08-20T06:19:51.986Z"
+}
