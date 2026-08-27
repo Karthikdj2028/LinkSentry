@@ -9,8 +9,8 @@ import { saveLocalScan, createLocalTimestamp } from '../../utils/localHistory';
 
 const SCAN_STAGES = [
   { id: 1, label: 'Parsing URL structure & syntax' },
-  { id: 2, label: 'Evaluating domain/brand signals' },
-  { id: 3, label: 'Verifying DNS & reachability' },
+  { id: 2, label: 'Evaluating domain & brand reputation' },
+  { id: 3, label: 'Probing DNS & live reachability' },
   { id: 4, label: 'Synthesizing V3.4 decision fusion' },
 ];
 
@@ -42,7 +42,7 @@ export default function UrlScanner() {
 
   const validateUrl = (value) => {
     if (!value || value.trim() === '') {
-      return 'Please enter a URL to scan.';
+      return 'Please enter a URL or domain to scan.';
     }
 
     const trimmed = value.trim();
@@ -55,7 +55,7 @@ export default function UrlScanner() {
       const parsed = new URL(normalized);
 
       if (!parsed.hostname || !parsed.hostname.includes('.')) {
-        return 'Please enter a valid domain or URL.';
+        return 'Please enter a valid domain or URL (e.g. example.com).';
       }
 
       return '';
@@ -221,6 +221,9 @@ export default function UrlScanner() {
         typosquatDomain:
           data.typosquat_domain || 'None',
 
+        potentialBrand:
+          data.potential_brand || 'None',
+
         suspiciousSignals:
           suspiciousSignals.length > 0
             ? suspiciousSignals
@@ -278,7 +281,6 @@ export default function UrlScanner() {
           data.threat_analysis || null,
 
         // Keep complete V3.4 backend analysis available
-        // for future UI components.
         backendAnalysis: {
           prediction: data.verdict,
 
@@ -373,7 +375,7 @@ export default function UrlScanner() {
       setValidationError(
         err?.message?.includes('HTTP')
           ? `Backend error: ${err.message}`
-          : 'Unable to connect to LinkSentry backend.'
+          : 'Unable to connect to LinkSentry backend. Please check network connectivity.'
       );
 
       setScanResult(null);
@@ -409,7 +411,7 @@ export default function UrlScanner() {
   // ------------------------------------------------------------
 
   return (
-    <div className="scanner-tab-content">
+    <div className="scanner-tab-content animate-fade-in">
 
       {/* ======================================================
           SCANNER CONTROL BOX
@@ -422,7 +424,7 @@ export default function UrlScanner() {
           <div className="scanner-title-group">
 
             <h2 className="scanner-title">
-              <span className="scanner-icon">
+              <span className="scanner-icon" aria-hidden="true">
                 🔍
               </span>
 
@@ -430,7 +432,7 @@ export default function UrlScanner() {
             </h2>
 
             <p className="scanner-description">
-              Analyze suspicious links, shortened URLs,
+              Analyze suspicious web links, shortened URLs,
               brand impersonations, typosquatting, domain existence,
               and reachability using the LinkSentry V3.4 pipeline.
             </p>
@@ -463,7 +465,7 @@ export default function UrlScanner() {
 
             <div className="input-with-button-wrapper">
 
-              <div className="input-icon-prefix">
+              <div className="input-icon-prefix" aria-hidden="true">
                 🔗
               </div>
 
@@ -488,6 +490,11 @@ export default function UrlScanner() {
                     setSaveWarning('');
                   }
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    handleClear();
+                  }
+                }}
                 disabled={isScanning}
                 autoComplete="off"
                 spellCheck="false"
@@ -499,7 +506,8 @@ export default function UrlScanner() {
                   type="button"
                   className="input-clear-btn"
                   onClick={handleClear}
-                  title="Clear input"
+                  title="Clear input (Esc)"
+                  aria-label="Clear input"
                   data-testid="url-scan-clear"
                 >
                   ×

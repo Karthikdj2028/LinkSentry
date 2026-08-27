@@ -15,7 +15,6 @@ export const LOCAL_API_URL = 'http://127.0.0.1:8000';
 export const DEVELOPMENT_LAN_URL = 'http://192.168.137.238:8000';
 
 export function getApiBaseUrl() {
-  if (rawEnvUrl) return rawEnvUrl.replace(/\/+$/, '');
   if (typeof window !== 'undefined' && window.location) {
     const hostname = window.location.hostname;
     if (
@@ -23,10 +22,14 @@ export function getApiBaseUrl() {
       hostname === '127.0.0.1' ||
       hostname === '0.0.0.0'
     ) {
+      if (rawEnvUrl && (rawEnvUrl.includes('localhost') || rawEnvUrl.includes('127.0.0.1') || rawEnvUrl.includes('0.0.0.0'))) {
+        return rawEnvUrl.replace(/\/+$/, '');
+      }
       return LOCAL_API_URL;
     }
   }
-  return (isProd ? PRODUCTION_API_URL : DEVELOPMENT_LAN_URL).replace(/\/+$/, '');
+  if (rawEnvUrl) return rawEnvUrl.replace(/\/+$/, '');
+  return (isProd ? PRODUCTION_API_URL : LOCAL_API_URL).replace(/\/+$/, '');
 }
 
 export const API_BASE_URL = getApiBaseUrl();

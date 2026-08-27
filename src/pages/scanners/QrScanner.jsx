@@ -7,6 +7,13 @@ import { saveScan, mapBackendScanToFirestoreDoc } from '../../firebase';
 import { API_BASE_URL } from '../../config/api';
 import { saveLocalScan, createLocalTimestamp } from '../../utils/localHistory';
 
+const QR_ANALYSIS_STAGES = [
+  { id: 1, label: 'Decoding optical matrix & verifying Reed-Solomon blocks' },
+  { id: 2, label: 'Evaluating URL lexical rules & brand impersonation' },
+  { id: 3, label: 'Probing DNS resolution & live destination reachability' },
+  { id: 4, label: 'Synthesizing LinkSentry V3.4 multi-signal decision fusion' },
+];
+
 export default function QrScanner() {
   const { currentUser } = useAuth();
   const { securityPreferences } = useTheme();
@@ -14,12 +21,17 @@ export default function QrScanner() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [activeScanMode, setActiveScanMode] = useState('upload'); // 'upload' | 'camera'
+  const [isDragging, setIsDragging] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [isScanning, setIsScanning] = useState(false);
+  const [activeStageIndex, setActiveStageIndex] = useState(0);
+  const [decodedPayload, setDecodedPayload] = useState(null);
   const [validationError, setValidationError] = useState('');
   const [saveWarning, setSaveWarning] = useState('');
   const [scanResult, setScanResult] = useState(null);
+  const [activePresetIndex, setActivePresetIndex] = useState(null);
+  const [copiedPayload, setCopiedPayload] = useState(false);
 
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
@@ -31,6 +43,25 @@ export default function QrScanner() {
     !window.isSecureContext &&
     window.location.hostname !== 'localhost' &&
     window.location.hostname !== '127.0.0.1';
+
+  // Staged progress tracker while analysis is in flight
+  useEffect(() => {
+    let timer;
+    if (isScanning) {
+      setActiveStageIndex(0);
+      timer = setInterval(() => {
+        setActiveStageIndex((prev) => {
+          if (prev < QR_ANALYSIS_STAGES.length - 1) {
+            return prev + 1;
+          }
+          return prev;
+        });
+      }, 350);
+    } else {
+      setActiveStageIndex(0);
+    }
+    return () => clearInterval(timer);
+  }, [isScanning]);
 
   // ============================================================
   // CAMERA CLEANUP
@@ -76,12 +107,13 @@ export default function QrScanner() {
   const classifyAndAnalyzePayload = useCallback(
     async (rawPayload) => {
       if (!rawPayload || typeof rawPayload !== 'string' || !rawPayload.trim()) {
-        setValidationError('Decoded QR payload is empty or invalid.');
+        setValidationError('Decoded QR payload is empty or unreadable.');
         setIsScanning(false);
         return;
       }
 
       const payload = rawPayload.trim();
+      setDecodedPayload(payload);
       setValidationError('');
       setSaveWarning('');
       setScanResult(null);
@@ -170,7 +202,6 @@ export default function QrScanner() {
           if (currentUser?.uid && securityPreferences?.cloudSync !== false) {
             try {
               await saveScan(currentUser.uid, scanDoc);
-              console.log('[LinkSentry] QR scan synchronized to Cloud Firestore.');
             } catch (saveErr) {
               console.error('Cloud Firestore QR scan save error:', saveErr);
               setSaveWarning('QR scan stored locally, but cloud synchronization failed.');
@@ -178,7 +209,7 @@ export default function QrScanner() {
           }
         } catch (err) {
           console.error('QR URL scan backend error:', err);
-          setValidationError('Unable to connect to LinkSentry backend.');
+          setValidationError('Unable to connect to LinkSentry threat engine. Please ensure backend service is running.');
           setScanResult(null);
         } finally {
           setIsScanning(false);
@@ -198,7 +229,7 @@ export default function QrScanner() {
             qrPayloadCategory: 'Email Destination (mailto:)',
             extractedRecipient: emailAddress || payload,
             threatClassification: 'Non-URL Optical Payload (Email Link)',
-            threatIndicators: ['Non-URL email trigger. No network execution.'],
+            threatIndicators: ['Direct email client dispatch. No browser navigation executed.'],
             sslStatus: 'N/A (Local Email Dispatch)',
             detectionEngine: 'LinkSentry Non-URL Barcode Classifier',
           },
@@ -219,7 +250,7 @@ export default function QrScanner() {
             qrPayloadCategory: 'Telephone Dial String (tel:)',
             extractedPhoneNumbers: phoneNumber || payload,
             threatClassification: 'Non-URL Optical Payload (Telephone)',
-            threatIndicators: ['Direct phone dialer shortcut.'],
+            threatIndicators: ['Direct phone dialer shortcut. No web navigation executed.'],
             sslStatus: 'N/A (Local Phone Dispatch)',
             detectionEngine: 'LinkSentry Non-URL Barcode Classifier',
           },
@@ -257,7 +288,7 @@ export default function QrScanner() {
           details: {
             qrPayloadCategory: 'SMS Text Dispatcher (sms:)',
             threatClassification: 'Non-URL Optical Payload (Direct SMS)',
-            threatIndicators: ['Direct SMS messaging trigger.'],
+            threatIndicators: ['Direct SMS messaging trigger. No web navigation executed.'],
             sslStatus: 'N/A (Local SMS Dispatch)',
             detectionEngine: 'LinkSentry Non-URL Barcode Classifier',
           },
@@ -332,18 +363,18 @@ export default function QrScanner() {
   }, []);
 
   // File Upload Handlers
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
+  const processImageFile = async (file) => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setValidationError('Please upload a valid image file (PNG, JPG, WEBP).');
+      setValidationError('Please upload a valid image file (PNG, JPG, WEBP, SVG).');
       return;
     }
 
     setValidationError('');
     setSaveWarning('');
     setSelectedFile(file);
+    setActivePresetIndex(null);
     setScanResult(null);
 
     const reader = new FileReader();
@@ -357,53 +388,39 @@ export default function QrScanner() {
         await classifyAndAnalyzePayload(decoded);
       } catch (decodeErr) {
         console.warn('[LinkSentry] QR decode warning:', decodeErr);
-        setValidationError('No readable QR code detected in this image. Please ensure the QR matrix is clear and unobstructed.');
+        setValidationError('No readable QR code detected in this image. Please ensure the QR matrix is clear, well-lit, and unobstructed.');
         setIsScanning(false);
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) processImageFile(file);
   };
 
   const handleDragOver = (e) => {
     e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
+    setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setValidationError('Please upload a valid image file (PNG, JPG, WEBP).');
-      return;
-    }
-
-    setValidationError('');
-    setSaveWarning('');
-    setSelectedFile(file);
-    setScanResult(null);
-
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = reader.result;
-      setFilePreview(dataUrl);
-
-      try {
-        setIsScanning(true);
-        const decoded = await decodeQrFromImageData(dataUrl);
-        await classifyAndAnalyzePayload(decoded);
-      } catch (decodeErr) {
-        console.warn('[LinkSentry] QR drop decode warning:', decodeErr);
-        setValidationError('No readable QR code detected in this image.');
-        setIsScanning(false);
-      }
-    };
-    reader.readAsDataURL(file);
+    if (file) processImageFile(file);
   };
 
-  const handlePresetSelect = (preset) => {
+  const handlePresetSelect = (preset, idx) => {
     stopCamera();
     setActiveScanMode('upload');
+    setActivePresetIndex(idx);
     setSelectedFile({ name: preset.name, size: 'Preset Sample' });
     setFilePreview('preset');
     setValidationError('');
@@ -418,6 +435,7 @@ export default function QrScanner() {
   const startCameraMode = async () => {
     stopCamera();
     setActiveScanMode('camera');
+    setActivePresetIndex(null);
     setValidationError('');
     setSaveWarning('');
     setCameraError('');
@@ -543,7 +561,9 @@ export default function QrScanner() {
     setActiveScanMode('upload');
     setSelectedFile(null);
     setFilePreview(null);
+    setDecodedPayload(null);
     setScanResult(null);
+    setActivePresetIndex(null);
     setValidationError('');
     setSaveWarning('');
     setCameraError('');
@@ -552,11 +572,19 @@ export default function QrScanner() {
     }
   };
 
+  const handleCopyPayload = () => {
+    if (decodedPayload && navigator.clipboard) {
+      navigator.clipboard.writeText(decodedPayload);
+      setCopiedPayload(true);
+      setTimeout(() => setCopiedPayload(false), 2000);
+    }
+  };
+
   return (
     <div className="scanner-tab-content">
       {/* Insecure Context Notice Banner */}
       {isInsecureHttp && (
-        <div className="auth-error-alert animate-fade-in" style={{ borderColor: 'rgba(0, 242, 254, 0.4)', background: 'rgba(0, 242, 254, 0.08)', color: '#67e8f9', marginBottom: '1.25rem' }}>
+        <div className="auth-error-alert animate-fade-in" style={{ borderColor: 'rgba(16, 185, 129, 0.4)', background: 'rgba(16, 185, 129, 0.08)', color: '#6ee7b7', marginBottom: '1.25rem' }}>
           <span className="error-icon">ℹ</span>
           <span className="error-text">
             <strong>LAN HTTP Environment:</strong> Camera access is restricted by browsers over unencrypted HTTP. Use the drag-and-drop <strong>Image Upload Mode</strong> below or the Android app for camera scanning.
@@ -565,24 +593,24 @@ export default function QrScanner() {
       )}
 
       {/* Scanner Box */}
-      <div className="cyber-card scanner-box">
+      <div className="cyber-card scanner-box qr-scanner-box">
         <div className="scanner-header-row">
           <div className="scanner-title-group">
             <h2 className="scanner-title">
-              <span className="scanner-icon">📷</span> QR Code Phishing (Quishing) Scanner
+              <span className="scanner-icon qr-emerald-icon">📷</span> QR Code Phishing (Quishing) Scanner
             </h2>
             <p className="scanner-description">
               Upload or capture QR matrices to detect deceptive URLs, rogue payment links, shortened redirect cloaks, and malicious downloads.
             </p>
           </div>
-          <span className="font-mono scanner-mode-pill">OPTICAL DETONATION • ZERO-DAY SHIELD</span>
+          <span className="font-mono scanner-mode-pill qr-mode-pill">OPTICAL DETONATION • ZERO-DAY SHIELD</span>
         </div>
 
         {/* Scan Mode Switcher */}
         <div className="qr-mode-switch-row">
           <button
             type="button"
-            className={`btn btn-sm ${activeScanMode === 'upload' ? 'btn-primary' : 'btn-secondary'}`}
+            className={`btn btn-sm ${activeScanMode === 'upload' ? 'btn-emerald-active' : 'btn-secondary'}`}
             onClick={() => {
               stopCamera();
               setActiveScanMode('upload');
@@ -595,7 +623,7 @@ export default function QrScanner() {
 
           <button
             type="button"
-            className={`btn btn-sm ${activeScanMode === 'camera' ? 'btn-primary' : 'btn-secondary'}`}
+            className={`btn btn-sm ${activeScanMode === 'camera' ? 'btn-emerald-active' : 'btn-secondary'}`}
             onClick={startCameraMode}
             data-testid="qr-mode-camera"
           >
@@ -606,8 +634,9 @@ export default function QrScanner() {
         {/* IMAGE UPLOAD DROPZONE */}
         {activeScanMode === 'upload' && (
           <div
-            className={`qr-dropzone ${filePreview ? 'has-file' : ''} ${validationError ? 'dropzone-error' : ''}`}
+            className={`qr-dropzone ${filePreview ? 'has-file' : ''} ${isDragging ? 'is-dragging' : ''} ${validationError ? 'dropzone-error' : ''}`}
             onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
             role="button"
@@ -623,7 +652,7 @@ export default function QrScanner() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/*"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml,image/*"
               className="hidden-file-input"
               onChange={handleFileChange}
               data-testid="qr-file-input"
@@ -632,18 +661,34 @@ export default function QrScanner() {
 
             {filePreview ? (
               <div className="qr-preview-container">
-                <div className="qr-preview-icon">🖼️</div>
+                {filePreview !== 'preset' ? (
+                  <img src={filePreview} alt="Uploaded QR Matrix" className="qr-preview-thumbnail" />
+                ) : (
+                  <div className="qr-preview-icon">🖼️</div>
+                )}
                 <div className="qr-preview-info">
                   <span className="qr-preview-filename font-mono">
                     {selectedFile?.name || 'Uploaded_QR_Matrix.png'}
                   </span>
-                  <span className="qr-preview-sub">Click or drag a new image to replace</span>
+                  <span className="qr-preview-sub">Click or drop a new image to replace</span>
                 </div>
+                <button
+                  type="button"
+                  className="qr-clear-file-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleReset();
+                  }}
+                  title="Clear file"
+                  aria-label="Clear file"
+                >
+                  ×
+                </button>
               </div>
             ) : (
               <div className="qr-dropzone-prompt">
-                <div className="dropzone-icon">
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <div className="dropzone-icon qr-emerald-drop-icon">
+                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <rect x="3" y="3" width="7" height="7" rx="1" />
                     <rect x="14" y="3" width="7" height="7" rx="1" />
                     <rect x="3" y="14" width="7" height="7" rx="1" />
@@ -653,8 +698,8 @@ export default function QrScanner() {
                     <rect x="18" y="18" width="3" height="3" />
                   </svg>
                 </div>
-                <h4 className="dropzone-text">Drag & drop QR image here, or browse files</h4>
-                <p className="dropzone-sub">Supports PNG, JPG, WEBP up to 10MB</p>
+                <h4 className="dropzone-text">Drag & drop QR image here, or click to browse</h4>
+                <p className="dropzone-sub">Supports PNG, JPG, WEBP, SVG up to 10MB</p>
               </div>
             )}
           </div>
@@ -687,7 +732,7 @@ export default function QrScanner() {
               <div className="viewfinder-corner top-right" />
               <div className="viewfinder-corner bottom-left" />
               <div className="viewfinder-corner bottom-right" />
-              {isCameraActive && <div className="camera-laser-scan" />}
+              {isCameraActive && <div className="camera-laser-scan qr-emerald-laser" />}
               <div className="camera-status-overlay font-mono">
                 {isCameraActive ? '[LIVE OPTICAL SCANNER ACTIVE]' : '[CAMERA SENSOR STANDBY]'}
               </div>
@@ -712,6 +757,28 @@ export default function QrScanner() {
           </div>
         )}
 
+        {/* Decoded Payload Inspector Card (if available) */}
+        {decodedPayload && !isScanning && (
+          <div className="decoded-payload-card animate-fade-in">
+            <div className="decoded-payload-header">
+              <span className="decoded-payload-badge font-mono">
+                ✓ DECODED QR MATRIX
+              </span>
+              <button
+                type="button"
+                className="btn btn-sm btn-secondary copy-payload-btn"
+                onClick={handleCopyPayload}
+                title="Copy decoded string to clipboard"
+              >
+                {copiedPayload ? '✓ Copied' : '📋 Copy Payload'}
+              </button>
+            </div>
+            <div className="decoded-payload-text font-mono">
+              {decodedPayload}
+            </div>
+          </div>
+        )}
+
         {/* Validation Error */}
         {validationError && (
           <div className="validation-error-message animate-fade-in">
@@ -724,34 +791,65 @@ export default function QrScanner() {
           <div className="preset-quick-group">
             <span className="preset-label">Sample QR Presets:</span>
             <div className="preset-chips">
-              {PRESET_SAMPLES.qrCodes.map((preset, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  className={`preset-chip chip-${preset.type.toLowerCase()}`}
-                  onClick={() => handlePresetSelect(preset)}
-                  disabled={isScanning}
-                >
-                  {preset.label}
-                </button>
-              ))}
+              {PRESET_SAMPLES.qrCodes.map((preset, idx) => {
+                const isSelected = activePresetIndex === idx;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    className={`preset-chip chip-${preset.type.toLowerCase()} ${isSelected ? 'active-preset' : ''}`}
+                    onClick={() => handlePresetSelect(preset, idx)}
+                    disabled={isScanning}
+                    data-testid={`preset-qr-${idx}`}
+                    title={`Decoded: ${preset.decoded}`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Scanning In-Progress Animation */}
+      {/* Scanning In-Progress Staged Analysis Display */}
       {isScanning && (
-        <div className="cyber-card scanning-in-progress animate-pulse">
-          <div className="scanning-radar-container">
-            <div className="scanning-radar-sweep" />
+        <div className="cyber-card scanning-in-progress animate-pulse qr-scanning-card">
+          <div className="scanning-radar-container qr-radar-container">
+            <div className="scanning-radar-sweep qr-radar-sweep" />
             <div className="scanning-radar-grid" />
             <div className="scanning-radar-crosshair" />
           </div>
+
           <div className="scanning-status-texts font-mono">
-            <p className="status-primary-text">INSPECTING DECODED QR PAYLOAD...</p>
+            <p className="status-primary-text">
+              <span className="inspecting-label qr-inspect-label">INSPECTING QR PAYLOAD:</span>{' '}
+              <span className="status-primary-target font-mono">
+                {decodedPayload ? (decodedPayload.length > 50 ? `${decodedPayload.slice(0, 50)}...` : decodedPayload) : 'Optical Matrix...'}
+              </span>
+            </p>
+
+            {/* 4-Stage Multi-Signal Verification Pipeline */}
+            <div className="scanning-stages-timeline">
+              {QR_ANALYSIS_STAGES.map((stage, idx) => {
+                const isCompleted = idx < activeStageIndex;
+                const isActive = idx === activeStageIndex;
+                return (
+                  <div
+                    key={stage.id}
+                    className={`scanning-stage-step ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''}`}
+                  >
+                    <span className="stage-status-icon font-mono">
+                      {isCompleted ? '✓' : isActive ? '▶' : '○'}
+                    </span>
+                    <span className="stage-step-label">{stage.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+
             <p className="status-sub-text">
-              Querying FastAPI V3.4 detection engine • Evaluating URL lexical rules • Analyzing heuristics...
+              Current stage: <strong className="active-phase-name">{QR_ANALYSIS_STAGES[activeStageIndex]?.label}</strong>
             </p>
           </div>
         </div>
@@ -789,17 +887,17 @@ export default function QrScanner() {
           <h3 className="guide-title">Understanding "Quishing" (QR Phishing) Threats</h3>
           <div className="guide-grid">
             <div className="guide-item">
-              <div className="guide-step-num font-mono">01</div>
+              <div className="guide-step-num font-mono" style={{ color: '#10b981' }}>01</div>
               <h4>Physical Sticker Tampering</h4>
               <p>Attackers paste fake QR code stickers over legitimate parking meters, restaurant menus, or transit kiosks.</p>
             </div>
             <div className="guide-item">
-              <div className="guide-step-num font-mono">02</div>
+              <div className="guide-step-num font-mono" style={{ color: '#10b981' }}>02</div>
               <h4>Multi-Hop Redirect Cloaking</h4>
               <p>Decoded URLs often redirect through shortened hops to evade basic URL reputation filters.</p>
             </div>
             <div className="guide-item">
-              <div className="guide-step-num font-mono">03</div>
+              <div className="guide-step-num font-mono" style={{ color: '#10b981' }}>03</div>
               <h4>Direct Mobile Credential Harvesters</h4>
               <p>Quishing tricks mobile users into opening malicious credential prompts or rogue Wi-Fi setups.</p>
             </div>

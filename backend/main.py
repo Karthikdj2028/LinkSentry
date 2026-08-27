@@ -267,6 +267,10 @@ def scan_url(request_data: URLScanRequest, request: Request) -> dict[str, Any]:
         # 2. ML Threat Classification & Rule Engine
         result = analyze_url_ml(url)
 
+        raw_ml_prediction = str(
+            result.get("ml_prediction", "benign")
+        ).lower()
+
         prediction = str(
             result.get("prediction", "benign")
         ).lower()
@@ -301,7 +305,7 @@ def scan_url(request_data: URLScanRequest, request: Request) -> dict[str, Any]:
         threat_analysis = {
             "verdict": base_threat_verdict,
             "risk_score": base_threat_score,
-            "ml_prediction": prediction,
+            "ml_prediction": raw_ml_prediction,
             "confidence": confidence
         }
 

@@ -25,23 +25,109 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
     threatAnalysis: directThreatAnalysis,
     timestamp = new Date().toLocaleTimeString(),
 
-    // Optional V3.4 backend metadata
+    // Complete V3.4 backend metadata
     backendAnalysis = {},
   } = resultData;
 
-  const {
-    mlPrediction,
-    trustedDomain,
-    impersonatedDomain,
-    typosquatDomain,
-    potentialBrand,
-    suspiciousSignals,
-    decisionScores: rawBackendScores,
-    modelVersion,
-    engine,
-  } = backendAnalysis;
+  const domainVerification =
+    directDomainVerification ||
+    backendAnalysis.domainVerification ||
+    backendAnalysis.domain_verification ||
+    details.domainVerification ||
+    null;
 
-  let rawDecisionScores = rawBackendScores || resultData.decisionScores || threatAnalysis?.decision_scores || threatAnalysis?.decision_margins || details.decisionScores || null;
+  const threatAnalysis =
+    directThreatAnalysis ||
+    backendAnalysis.threatAnalysis ||
+    backendAnalysis.threat_analysis ||
+    null;
+
+  const mlPrediction =
+    backendAnalysis.mlPrediction ||
+    backendAnalysis.ml_prediction ||
+    threatAnalysis?.ml_prediction ||
+    details.mlPrediction ||
+    'N/A';
+
+  const modelPrediction =
+    backendAnalysis.modelPrediction ||
+    backendAnalysis.model_prediction ||
+    backendAnalysis.prediction ||
+    details.finalModelPrediction ||
+    (typeof verdict === 'string' ? verdict.toLowerCase() : 'safe');
+
+  const trustedDomain =
+    typeof backendAnalysis.trustedDomain === 'boolean'
+      ? backendAnalysis.trustedDomain
+      : typeof backendAnalysis.trusted_domain === 'boolean'
+      ? backendAnalysis.trusted_domain
+      : typeof details.trustedDomain === 'boolean'
+      ? details.trustedDomain
+      : false;
+
+  const trustOverride =
+    typeof backendAnalysis.trustOverride === 'boolean'
+      ? backendAnalysis.trustOverride
+      : typeof backendAnalysis.trust_override === 'boolean'
+      ? backendAnalysis.trust_override
+      : typeof details.trustOverride === 'boolean'
+      ? details.trustOverride
+      : false;
+
+  const ruleOverride =
+    typeof backendAnalysis.ruleOverride === 'boolean'
+      ? backendAnalysis.ruleOverride
+      : typeof backendAnalysis.rule_override === 'boolean'
+      ? backendAnalysis.rule_override
+      : typeof details.ruleOverride === 'boolean'
+      ? details.ruleOverride
+      : false;
+
+  const impersonatedDomain =
+    backendAnalysis.impersonatedDomain ||
+    backendAnalysis.impersonated_domain ||
+    details.impersonatedDomain;
+
+  const typosquatDomain =
+    backendAnalysis.typosquatDomain ||
+    backendAnalysis.typosquat_domain ||
+    details.typosquatDomain;
+
+  const potentialBrand =
+    backendAnalysis.potentialBrand ||
+    backendAnalysis.potential_brand ||
+    details.potentialBrand;
+
+  const suspiciousSignals = Array.isArray(backendAnalysis.suspiciousSignals)
+    ? backendAnalysis.suspiciousSignals
+    : Array.isArray(backendAnalysis.suspicious_signals)
+    ? backendAnalysis.suspicious_signals
+    : Array.isArray(details.suspiciousSignals)
+    ? details.suspiciousSignals
+    : typeof details.suspiciousSignals === 'string' && details.suspiciousSignals !== 'None detected'
+    ? [details.suspiciousSignals]
+    : [];
+
+  const modelVersion =
+    backendAnalysis.modelVersion ||
+    backendAnalysis.model_version ||
+    details.modelVersion ||
+    'V3.4';
+
+  const engine =
+    backendAnalysis.engine ||
+    details.detectionEngine ||
+    'LinkSentry V3.4';
+
+  let rawDecisionScores =
+    backendAnalysis.decisionScores ||
+    backendAnalysis.decision_scores ||
+    resultData.decisionScores ||
+    threatAnalysis?.decision_scores ||
+    threatAnalysis?.decision_margins ||
+    details.decisionScores ||
+    null;
+
   let decisionScores = null;
   if (rawDecisionScores && typeof rawDecisionScores === 'object') {
     decisionScores = rawDecisionScores;
@@ -52,9 +138,6 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
       decisionScores = null;
     }
   }
-
-  const domainVerification = directDomainVerification || backendAnalysis.domainVerification || details.domainVerification || null;
-  const threatAnalysis = directThreatAnalysis || backendAnalysis.threatAnalysis || null;
 
   const normalizedVerdict = String(verdict).toLowerCase().replace(/[\s-]/g, '_');
 
@@ -68,8 +151,12 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
       `Confidence: ${confidence}`,
       '',
       '--- Threat Classification ---',
-      `ML Model Prediction: ${mlPrediction || threatAnalysis?.ml_prediction || 'N/A'}`,
-      `Threat Classification: ${threatAnalysis?.verdict || 'N/A'}`,
+      `Raw ML Prediction: ${mlPrediction}`,
+      `Final Model / Fusion Prediction: ${modelPrediction}`,
+      `Trusted Domain: ${trustedDomain ? 'Yes' : 'No'}`,
+      `Trust Override: ${trustOverride ? 'Yes' : 'No'}`,
+      `Rule Override: ${ruleOverride ? 'Yes' : 'No'}`,
+      suspiciousSignals.length > 0 ? `Suspicious Signals: ${suspiciousSignals.join(', ')}` : '',
       '',
       '--- Domain Verification ---',
       domainVerification ? `Verification Status: ${domainVerification.status || 'N/A'}` : '',
@@ -80,14 +167,14 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
       '',
       '--- Detection Details ---',
       `Domain: ${details.domain || 'N/A'}`,
-      `Engine: ${engine || details.detectionEngine || 'LinkSentry V3.4'}`,
+      `Engine: ${engine}`,
       details.messageRiskScore ? `Message Heuristic Risk: ${details.messageRiskScore}` : '',
       details.extractedPhoneNumbers ? `Extracted Contacts: ${details.extractedPhoneNumbers}` : '',
       `Indicators: ${Array.isArray(details.threatIndicators) && details.threatIndicators.length
         ? details.threatIndicators.join(', ')
         : 'None'
       }`,
-      `Model Version: ${modelVersion || details.modelVersion || 'V3.4'}`,
+      `Model Version: ${modelVersion}`,
       '',
       `Timestamp: ${timestamp}`,
     ].filter(Boolean).join('\n');
@@ -106,10 +193,10 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
       case 'phishing':
       case 'critical':
       case 'malicious':
-        return 'CRITICAL THREAT: LinkSentry detected strong indicators of phishing, deceptive branding, or credential harvesting.';
+        return 'CRITICAL THREAT: LinkSentry detected strong indicators of phishing, deceptive branding, or high-risk payload delivery.';
 
       case 'malware':
-        return 'MALWARE THREAT: Characteristics associated with malicious payload delivery or malware activity were detected.';
+        return 'MALWARE THREAT: Characteristics associated with malicious payload delivery or executable script activity were detected.';
 
       case 'defacement':
         return 'DEFACEMENT THREAT: Characteristics associated with compromised or defaced infrastructure were detected.';
@@ -147,8 +234,6 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
     }
     return <span className="font-mono">N/A</span>;
   };
-
-  const hasBackendAnalysis = Object.keys(backendAnalysis).length > 0;
 
   return (
     <div className="cyber-card scan-result-card animate-fade-in" data-testid="scan-result-card">
@@ -194,15 +279,16 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
 
       {/* MAIN RESULT GRID */}
       <div className="scan-result-grid">
-        {/* LEFT COLUMN */}
+        {/* LEFT COLUMN: Verdict, Risk, Domain Reachability */}
         <div className="scan-verdict-pane">
-          <div className="verdict-banner-box">
+          {/* 1. Final Security Verdict & Clear Human Explanation */}
+          <div className={`verdict-banner-box verdict-box-${normalizedVerdict}`}>
             <div className="verdict-header-row">
               <span className="verdict-label-sub">
                 Final Security Verdict
               </span>
               <span className="verdict-engine-tag font-mono">
-                Multi-Signal Fusion
+                Multi-Signal Decision Fusion
               </span>
             </div>
 
@@ -221,18 +307,37 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
               </span>
             </div>
 
-            <p className="verdict-description-text">
+            <p className="verdict-description-text font-mono">
               {getVerdictDescription()}
             </p>
 
-            <p className="verdict-engine-note font-mono">
-              Determined by LinkSentry's multi-signal fusion engine combining ML heuristics, DNS, reachability, and brand reputation.
-            </p>
+            {/* Clear Action Guidance */}
+            <div className={`recommendation-box rec-${normalizedVerdict}`} style={{ marginTop: '0.75rem' }}>
+              <strong>Security Guidance:</strong>
+              <p style={{ margin: '0.25rem 0 0 0' }}>
+                {normalizedVerdict === 'phishing' || normalizedVerdict === 'critical' || normalizedVerdict === 'malicious' ? (
+                  '🚫 High-Risk Threat: Do not click, authenticate, enter passwords, or download attachments from this source.'
+                ) : normalizedVerdict === 'malware' ? (
+                  '🚫 Malware Risk: Do not download or execute files from this link. Isolate affected systems immediately.'
+                ) : normalizedVerdict === 'defacement' ? (
+                  '⚠ Defacement Risk: Destination appears compromised. Do not interact until domain integrity is verified.'
+                ) : normalizedVerdict === 'suspicious' ? (
+                  '⚠ Caution Advised: Brand impersonation or unusual patterns detected. Verify through an independent channel.'
+                ) : normalizedVerdict === 'non_existent' ? (
+                  'ℹ Non-Existent Host: The target domain does not resolve in public DNS and cannot host active web content.'
+                ) : normalizedVerdict === 'unreachable' ? (
+                  'ℹ Unreachable Destination: Server failed to establish a network connection during analysis.'
+                ) : (
+                  '✅ Clean Evaluation: Verified authentic and reachable. No malicious heuristics or phishing lures detected.'
+                )}
+              </p>
+            </div>
           </div>
 
+          {/* 2. Risk Score Meter */}
           <RiskScoreMeter score={riskScore} />
 
-          {/* DOMAIN VERIFICATION CARD */}
+          {/* 3. Domain Verification Evidence */}
           {(domainVerification || scanType === 'URL') && (
             <div className="cyber-card domain-verification-card" style={{ marginTop: '1rem' }} data-testid="domain-verification-section">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
@@ -326,9 +431,120 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
               </div>
             </div>
           )}
+        </div>
 
-          {/* ENGINE SUMMARY */}
-          <div className="cyber-card" style={{ marginTop: '1rem' }}>
+        {/* RIGHT COLUMN: Observed Threat Signals, Anatomy & Technical Depth */}
+        <div className="scan-heuristics-pane">
+          {/* 4. Observed Threat Signals & Rule Detections */}
+          <div className="cyber-card" style={{ marginBottom: '1rem' }}>
+            <h4 className="heuristics-title">
+              Observed Threat Signals & Evidence
+            </h4>
+
+            <div className="heuristics-list">
+              {details.domain && (
+                <div className="heuristic-item">
+                  <span className="heuristic-key">Target Host / Domain</span>
+                  <span className="heuristic-val font-mono">{details.domain}</span>
+                </div>
+              )}
+
+              {details.sslStatus && (
+                <div className="heuristic-item">
+                  <span className="heuristic-key">Transport Layer Security</span>
+                  <span className="heuristic-val font-mono">{details.sslStatus}</span>
+                </div>
+              )}
+
+              {impersonatedDomain && impersonatedDomain !== 'None' && (
+                <div className="heuristic-item">
+                  <span className="heuristic-key">Target Brand Impersonated</span>
+                  <span className="heuristic-val font-mono text-red">⚠ {impersonatedDomain}</span>
+                </div>
+              )}
+
+              {typosquatDomain && typosquatDomain !== 'None' && (
+                <div className="heuristic-item">
+                  <span className="heuristic-key">Typosquatting Signature</span>
+                  <span className="heuristic-val font-mono text-red">⚠ {typosquatDomain}{potentialBrand ? ` (Target: ${potentialBrand})` : ''}</span>
+                </div>
+              )}
+
+              {/* Observed Threat Indicators */}
+              {Array.isArray(details.threatIndicators) && details.threatIndicators.length > 0 ? (
+                details.threatIndicators.map((indicator, index) => (
+                  <div key={`${indicator}-${index}`} className="heuristic-item">
+                    <span className="heuristic-key">Threat Indicator {String(index + 1).padStart(2, '0')}</span>
+                    <span className="heuristic-val font-mono text-red">⚠ {indicator}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="heuristic-item">
+                  <span className="heuristic-key">Threat Indicators</span>
+                  <span className="heuristic-val font-mono text-green">✓ No threat indicators detected</span>
+                </div>
+              )}
+
+              {/* V3.4 Rule Decision Signals */}
+              {Array.isArray(suspiciousSignals) && suspiciousSignals.length > 0 && (
+                <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)' }} data-testid="scan-suspicious-signals-list">
+                  {suspiciousSignals.map((signal, index) => (
+                    <div key={`${signal}-${index}`} className="heuristic-item">
+                      <span className="heuristic-key">Rule Signal {String(index + 1).padStart(2, '0')}</span>
+                      <span className="heuristic-val font-mono text-red">🚨 {formatKey(signal)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 5. Embedded URL Anatomy */}
+          {scanType === 'URL' && target && (
+            <div style={{ marginBottom: '1rem' }}>
+              <UrlAnatomy
+                url={target}
+                analysisMetadata={backendAnalysis}
+                compact={true}
+                showTitle={true}
+              />
+            </div>
+          )}
+
+          {/* 6. Multi-Signal Embedded URLs Breakdown (Messages/QR) */}
+          {Array.isArray(details.embeddedUrls) && details.embeddedUrls.length > 0 && (
+            <div className="cyber-card" style={{ marginBottom: '1rem' }}>
+              <h4 className="heuristics-title">
+                Embedded Link Risk Breakdown
+              </h4>
+              <div className="heuristics-list">
+                {details.embeddedUrls.map((emb, idx) => {
+                  const embVerdict = emb.verdict || 'Safe';
+                  const embScore = typeof emb.risk_score === 'number' ? emb.risk_score : (emb.riskScore || 0);
+                  return (
+                    <div key={idx} className="heuristic-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.4rem' }}>
+                      <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span className="heuristic-val font-mono" style={{ fontSize: '0.85rem', color: 'var(--brand-cyan)' }}>
+                          🔗 {emb.domain || emb.url}
+                        </span>
+                        <Badge status={embVerdict}>
+                          {embVerdict.toUpperCase()} ({embScore})
+                        </Badge>
+                      </div>
+                      {emb.impersonated_domain && (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--status-phishing)' }}>
+                          Target Brand: {emb.impersonated_domain}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 7. Technical Detection Engine Specifications & Classifiers */}
+          <div className="cyber-card" style={{ marginBottom: '1rem' }}>
             <h4 className="heuristics-title">
               Detection Engine Specifications
             </h4>
@@ -337,14 +553,49 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
               <div className="heuristic-item">
                 <span className="heuristic-key">Engine Architecture</span>
                 <span className="heuristic-val font-mono">
-                  {engine || details.detectionEngine || 'LinkSentry V3.4 Fusion'}
+                  {engine}
                 </span>
               </div>
 
               <div className="heuristic-item">
                 <span className="heuristic-key">Model Version</span>
                 <span className="heuristic-val font-mono">
-                  {modelVersion || details.modelVersion || 'V3.4'}
+                  {modelVersion}
+                </span>
+              </div>
+
+              <div className="heuristic-item">
+                <span className="heuristic-key">Raw ML Prediction</span>
+                <span className="heuristic-val font-mono" data-testid="scan-ml-prediction">
+                  {mlPrediction}
+                </span>
+              </div>
+
+              <div className="heuristic-item">
+                <span className="heuristic-key">Final Model / Fusion Prediction</span>
+                <span className="heuristic-val font-mono" data-testid="scan-final-model-prediction">
+                  {modelPrediction}
+                </span>
+              </div>
+
+              <div className="heuristic-item">
+                <span className="heuristic-key">Trusted Domain</span>
+                <span className="heuristic-val font-mono" data-testid="scan-trusted-domain">
+                  {renderBoolean(trustedDomain)}
+                </span>
+              </div>
+
+              <div className="heuristic-item">
+                <span className="heuristic-key">Trust Override</span>
+                <span className="heuristic-val font-mono" data-testid="scan-trust-override">
+                  {renderBoolean(trustOverride)}
+                </span>
+              </div>
+
+              <div className="heuristic-item">
+                <span className="heuristic-key">Rule Override</span>
+                <span className="heuristic-val font-mono" data-testid="scan-rule-override">
+                  {renderBoolean(ruleOverride)}
                 </span>
               </div>
 
@@ -374,143 +625,12 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
                   </span>
                 </div>
               )}
-
-              {hasBackendAnalysis && (
-                <>
-                  <div className="heuristic-item">
-                    <span className="heuristic-key">ML Model Prediction</span>
-                    <span className="heuristic-val font-mono" data-testid="scan-ml-prediction">
-                      {mlPrediction || threatAnalysis?.ml_prediction || 'N/A'}
-                    </span>
-                  </div>
-
-                  <div className="heuristic-item">
-                    <span className="heuristic-key">Trusted Domain Check</span>
-                    <span className="heuristic-val font-mono">
-                      {renderBoolean(trustedDomain)}
-                    </span>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN */}
-        <div className="scan-heuristics-pane">
-          <h4 className="heuristics-title">
-            Detection Analysis & Threat Evidence
-          </h4>
-
-          {/* DOMAIN & NETWORK INFO */}
-          <div className="heuristics-list">
-            {details.domain && (
-              <div className="heuristic-item">
-                <span className="heuristic-key">Registrable Domain</span>
-                <span className="heuristic-val font-mono">{details.domain}</span>
-              </div>
-            )}
-
-            {details.sslStatus && (
-              <div className="heuristic-item">
-                <span className="heuristic-key">SSL / Transport Layer</span>
-                <span className="heuristic-val font-mono">{details.sslStatus}</span>
-              </div>
-            )}
-
-            {hasBackendAnalysis && (
-              <>
-                {impersonatedDomain && impersonatedDomain !== 'None' && (
-                  <div className="heuristic-item">
-                    <span className="heuristic-key">Target Brand Impersonated</span>
-                    <span className="heuristic-val font-mono text-red">⚠ {impersonatedDomain}</span>
-                  </div>
-                )}
-
-                {typosquatDomain && typosquatDomain !== 'None' && (
-                  <div className="heuristic-item">
-                    <span className="heuristic-key">Typosquatting Signature</span>
-                    <span className="heuristic-val font-mono text-red">⚠ {typosquatDomain}{potentialBrand ? ` (Target: ${potentialBrand})` : ''}</span>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* MULTI-SIGNAL: EMBEDDED URLS BREAKDOWN */}
-          {Array.isArray(details.embeddedUrls) && details.embeddedUrls.length > 0 && (
-            <div style={{ marginTop: '1.25rem' }}>
-              <h4 className="heuristics-title">
-                Embedded Link Risk Breakdown
-              </h4>
-              <div className="heuristics-list">
-                {details.embeddedUrls.map((emb, idx) => {
-                  const embVerdict = emb.verdict || 'Safe';
-                  const embScore = typeof emb.risk_score === 'number' ? emb.risk_score : (emb.riskScore || 0);
-                  return (
-                    <div key={idx} className="heuristic-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.4rem' }}>
-                      <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span className="heuristic-val font-mono" style={{ fontSize: '0.85rem', color: '#00f2fe' }}>
-                          🔗 {emb.domain || emb.url}
-                        </span>
-                        <Badge status={embVerdict}>
-                          {embVerdict.toUpperCase()} ({embScore})
-                        </Badge>
-                      </div>
-                      {emb.impersonated_domain && (
-                        <span style={{ fontSize: '0.75rem', color: '#f87171' }}>
-                          Target Brand: {emb.impersonated_domain}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* THREAT INDICATORS */}
-          <div style={{ marginTop: '1.25rem' }}>
-            <h4 className="heuristics-title">
-              Observed Risk Indicators
-            </h4>
-            <div className="heuristics-list">
-              {Array.isArray(details.threatIndicators) && details.threatIndicators.length > 0 ? (
-                details.threatIndicators.map((indicator, index) => (
-                  <div key={`${indicator}-${index}`} className="heuristic-item">
-                    <span className="heuristic-key">Signal {String(index + 1).padStart(2, '0')}</span>
-                    <span className="heuristic-val font-mono text-red">⚠ {indicator}</span>
-                  </div>
-                ))
-              ) : (
-                <div className="heuristic-item">
-                  <span className="heuristic-key">Status</span>
-                  <span className="heuristic-val font-mono text-green">✓ No threat indicators detected</span>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* V3.4 SUSPICIOUS SIGNALS */}
-          {Array.isArray(suspiciousSignals) && suspiciousSignals.length > 0 && (
-            <div style={{ marginTop: '1.25rem' }}>
-              <h4 className="heuristics-title">
-                Rule Decision Signals
-              </h4>
-              <div className="heuristics-list">
-                {suspiciousSignals.map((signal, index) => (
-                  <div key={`${signal}-${index}`} className="heuristic-item">
-                    <span className="heuristic-key">Detection {String(index + 1).padStart(2, '0')}</span>
-                    <span className="heuristic-val font-mono text-red">{formatKey(signal)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* MODEL DECISION SIGNALS */}
+          {/* 8. Technical ML Decision Margins */}
           {decisionScores && typeof decisionScores === 'object' && Object.keys(decisionScores).length > 0 && (
-            <div className="model-decision-signals-card" style={{ marginTop: '1.25rem' }}>
+            <div className="model-decision-signals-card" style={{ marginBottom: '1rem' }}>
               <div
                 className="signals-header-row"
                 style={{ cursor: 'pointer' }}
@@ -535,7 +655,7 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
                 </div>
 
                 <span className="signal-note-pill font-mono" title="LinearSVC decision scores represent relative class margin distances from hyperplanes, not independent probabilities.">
-                  ℹ Relative Margins (Not Probabilities)
+                  Relative classifier margins — not probabilities.
                 </span>
               </div>
 
@@ -550,7 +670,7 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
                       const numVal = typeof value === 'number' ? value : parseFloat(value) || 0;
                       const formattedVal = `${numVal > 0 ? '+' : ''}${numVal.toFixed(4)}`;
                       const isPositive = numVal > 0;
-                      const isLeading = key.toLowerCase() === (mlPrediction || threatAnalysis?.ml_prediction || '').toLowerCase();
+                      const isLeading = key.toLowerCase() === (typeof mlPrediction === 'string' ? mlPrediction.toLowerCase() : '');
 
                       // Map value into a visual indicator width (0 to 100%)
                       // LinearSVC margins generally fall between -5.0 and +2.0
@@ -597,40 +717,6 @@ export default function ScanResultCard({ resultData, scanType = 'URL', onReset }
               )}
             </div>
           )}
-
-          {/* EMBEDDED URL ANATOMY FOR SCANNED URL TARGET */}
-          {scanType === 'URL' && target && (
-            <div style={{ marginTop: '1.25rem' }}>
-              <UrlAnatomy
-                url={target}
-                analysisMetadata={backendAnalysis}
-                compact={true}
-                showTitle={true}
-              />
-            </div>
-          )}
-
-          {/* SECURITY RECOMMENDATION */}
-          <div className={`recommendation-box rec-${normalizedVerdict}`}>
-            <strong>Security Recommendation:</strong>
-            <p>
-              {normalizedVerdict === 'phishing' || normalizedVerdict === 'critical' || normalizedVerdict === 'malicious' ? (
-                '🚫 Do not open, authenticate, download attachments, or disburse funds. Block or report this communication.'
-              ) : normalizedVerdict === 'malware' ? (
-                '🚫 Do not access the payload or download content from it. Isolate affected devices immediately.'
-              ) : normalizedVerdict === 'defacement' ? (
-                '⚠ Avoid interacting with the destination until its integrity and ownership have been verified.'
-              ) : normalizedVerdict === 'suspicious' ? (
-                '⚠ Do not enter credentials, OTP codes, or financial information. Verify the identity through independent channels.'
-              ) : normalizedVerdict === 'non_existent' ? (
-                'ℹ This domain does not exist in public DNS. It cannot be reached or used for live interaction.'
-              ) : normalizedVerdict === 'unreachable' ? (
-                'ℹ The target server is currently unreachable. If this is unexpected, verify the link or try again later.'
-              ) : (
-                '✅ No malicious indicators were detected. Continue to follow standard security protocols.'
-              )}
-            </p>
-          </div>
         </div>
       </div>
 

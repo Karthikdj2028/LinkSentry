@@ -69,7 +69,16 @@ export default function UrlAnatomy({
   showTitle = true,
   compact = false,
 }) {
-  const [activeSegmentKey, setActiveSegmentKey] = useState('domain');
+  const hasPayloadWarning = Boolean(
+    (Array.isArray(analysisMetadata?.suspiciousSignals) && analysisMetadata.suspiciousSignals.includes('high_risk_payload_extension')) ||
+    (Array.isArray(analysisMetadata?.suspicious_signals) && analysisMetadata.suspicious_signals.includes('high_risk_payload_extension')) ||
+    (Array.isArray(analysisMetadata?.indicators) && analysisMetadata.indicators.some((ind) => String(ind).toLowerCase().includes('high_risk_payload_extension')))
+  );
+
+  const [activeSegmentKey, setActiveSegmentKey] = useState(() => {
+    if (hasPayloadWarning) return 'path';
+    return 'domain';
+  });
   const componentId = useId();
 
   const anatomy = parseUrlAnatomy(url);
@@ -86,8 +95,12 @@ export default function UrlAnatomy({
       threatAnalysis,
       domainVerification,
       indicators = [],
-      suspiciousSignals = [],
     } = analysisMetadata;
+
+    const suspiciousSignals =
+      analysisMetadata.suspiciousSignals ||
+      analysisMetadata.suspicious_signals ||
+      [];
 
     if (segmentKey === 'domain') {
       if (typosquatDomain && typosquatDomain !== 'None') {
@@ -141,7 +154,7 @@ export default function UrlAnatomy({
     }
 
     if (segmentKey === 'tld') {
-      const isSuspiciousTld = indicators.some((ind) => ind.toLowerCase().includes('tld')) ||
+      const isSuspiciousTld = indicators.some((ind) => String(ind).toLowerCase().includes('tld')) ||
         (Array.isArray(suspiciousSignals) && suspiciousSignals.some((s) => String(s).toLowerCase().includes('tld')));
       if (isSuspiciousTld) {
         return {
@@ -152,7 +165,15 @@ export default function UrlAnatomy({
     }
 
     if (segmentKey === 'path') {
-      const pathIndicator = indicators.find((ind) => ind.toLowerCase().includes('path') || ind.toLowerCase().includes('executable'));
+      const isHighRiskPayload = (Array.isArray(suspiciousSignals) && suspiciousSignals.includes('high_risk_payload_extension')) ||
+        indicators.some((ind) => String(ind).toLowerCase().includes('high_risk_payload_extension') || String(ind).toLowerCase().includes('payload') || String(ind).toLowerCase().includes('executable'));
+      if (isHighRiskPayload) {
+        return {
+          severity: 'high',
+          message: 'High-Risk Payload Extension: URL path points to a high-risk executable, script, or payload extension (.hta/.exe/etc).',
+        };
+      }
+      const pathIndicator = indicators.find((ind) => String(ind).toLowerCase().includes('path') || String(ind).toLowerCase().includes('executable'));
       if (pathIndicator) {
         return {
           severity: 'medium',
@@ -162,7 +183,7 @@ export default function UrlAnatomy({
     }
 
     if (segmentKey === 'query') {
-      const queryIndicator = indicators.find((ind) => ind.toLowerCase().includes('redirect') || ind.toLowerCase().includes('parameter'));
+      const queryIndicator = indicators.find((ind) => String(ind).toLowerCase().includes('redirect') || String(ind).toLowerCase().includes('parameter'));
       if (queryIndicator) {
         return {
           severity: 'medium',

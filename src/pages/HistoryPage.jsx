@@ -14,7 +14,7 @@ function formatFirestoreTimestamp(createdAt) {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       });
     }
     if (typeof createdAt.seconds === 'number') {
@@ -22,7 +22,7 @@ function formatFirestoreTimestamp(createdAt) {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       });
     }
     const parsedDate = new Date(createdAt);
@@ -31,7 +31,7 @@ function formatFirestoreTimestamp(createdAt) {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       });
     }
   } catch (err) {
@@ -68,13 +68,21 @@ function formatVerdict(verdict) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+function getVectorLabel(type) {
+  const t = (type || 'url').toLowerCase();
+  if (t === 'qr') return '📷 QR';
+  if (t === 'message') return '💬 Message';
+  return '🌐 URL';
+}
+
 export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
   const { scans, loading, error, refreshLocalScans, removeScan } = useScans();
   const { securityPreferences } = useTheme();
   const isCloudSyncOff = securityPreferences?.cloudSync === false;
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilter, setActiveFilter] = useState('ALL');
+  const [vectorFilter, setVectorFilter] = useState('ALL'); // 'ALL' | 'URL' | 'QR' | 'MESSAGE'
+  const [verdictFilter, setVerdictFilter] = useState('ALL'); // 'ALL' | 'SAFE' | 'SUSPICIOUS' | 'PHISHING' | 'UNREACHABLE' | 'INVALID'
   const [sortBy, setSortBy] = useState('NEWEST');
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
@@ -83,9 +91,9 @@ export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
     refreshLocalScans();
   };
 
-  const handleLaunchScanner = () => {
+  const handleLaunchScanner = (vector = 'url') => {
     if (onNavigateToScanner) {
-      onNavigateToScanner('url');
+      onNavigateToScanner(vector);
     } else if (onSelectTab) {
       onSelectTab('scanner');
     }
@@ -93,7 +101,8 @@ export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
 
   const handleClearFilters = () => {
     setSearchTerm('');
-    setActiveFilter('ALL');
+    setVectorFilter('ALL');
+    setVerdictFilter('ALL');
     setSortBy('NEWEST');
   };
 
@@ -101,7 +110,7 @@ export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
     e?.stopPropagation();
     if (!scanId) return;
 
-    const confirmDelete = window.confirm('Are you sure you want to delete this scan record?');
+    const confirmDelete = window.confirm('Are you sure you want to delete this scan record from your history?');
     if (!confirmDelete) return;
 
     try {
@@ -119,18 +128,7 @@ export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
     }
   };
 
-  // Filter chips definition
-  const filterChips = [
-    { id: 'ALL', label: 'All Scans' },
-    { id: 'PHISHING', label: 'Phishing' },
-    { id: 'SUSPICIOUS', label: 'Suspicious' },
-    { id: 'SAFE', label: 'Safe' },
-    { id: 'URL', label: 'Links' },
-    { id: 'QR', label: 'QR Codes' },
-    { id: 'MESSAGE', label: 'Messages' },
-  ];
-
-  // Memoized Filtering and Sorting over unified scan records
+  // Memoized Filtering and Sorting over real unified scan records
   const filteredAndSortedRecords = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
 
@@ -139,22 +137,33 @@ export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
       const scanDomain = item.domain || '';
       const scanType = (item.type || 'url').toUpperCase();
       const scanVerdict = (item.verdict || 'safe').toUpperCase();
+      const scanEngine = item.engine || '';
+      const scanIndicators = Array.isArray(item.indicators) ? item.indicators.join(' ') : '';
 
+      // Text search
       const matchesSearch =
         !q ||
         scanInput.toLowerCase().includes(q) ||
         scanDomain.toLowerCase().includes(q) ||
         scanType.toLowerCase().includes(q) ||
-        scanVerdict.toLowerCase().includes(q);
+        scanVerdict.toLowerCase().includes(q) ||
+        scanEngine.toLowerCase().includes(q) ||
+        scanIndicators.toLowerCase().includes(q);
 
       if (!matchesSearch) return false;
 
-      if (activeFilter === 'ALL') return true;
-      if (activeFilter === 'SAFE' || activeFilter === 'SUSPICIOUS' || activeFilter === 'PHISHING') {
-        return scanVerdict === activeFilter;
+      // Vector filter
+      if (vectorFilter !== 'ALL' && scanType !== vectorFilter) {
+        return false;
       }
-      if (activeFilter === 'URL' || activeFilter === 'QR' || activeFilter === 'MESSAGE') {
-        return scanType === activeFilter;
+
+      // Verdict filter
+      if (verdictFilter !== 'ALL') {
+        if (verdictFilter === 'SAFE' && scanVerdict !== 'SAFE') return false;
+        if (verdictFilter === 'SUSPICIOUS' && scanVerdict !== 'SUSPICIOUS') return false;
+        if (verdictFilter === 'PHISHING' && scanVerdict !== 'PHISHING') return false;
+        if (verdictFilter === 'UNREACHABLE' && scanVerdict !== 'UNREACHABLE' && scanVerdict !== 'NON-EXISTENT' && scanVerdict !== 'NON_EXISTENT') return false;
+        if (verdictFilter === 'INVALID' && scanVerdict !== 'INVALID') return false;
       }
 
       return true;
@@ -179,9 +188,9 @@ export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
           return timeB - timeA;
       }
     });
-  }, [scans, searchTerm, activeFilter, sortBy]);
+  }, [scans, searchTerm, vectorFilter, verdictFilter, sortBy]);
 
-  const hasActiveFilter = searchTerm.trim() !== '' || activeFilter !== 'ALL' || sortBy !== 'NEWEST';
+  const hasActiveFilter = searchTerm.trim() !== '' || vectorFilter !== 'ALL' || verdictFilter !== 'ALL' || sortBy !== 'NEWEST';
 
   return (
     <div className="page-container history-page animate-fade-in">
@@ -192,14 +201,14 @@ export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
             <span className="cyber-badge-dot pulse" style={{ backgroundColor: 'var(--brand-cyan)' }} />
             <span className="font-mono">SECURITY LOGS</span>
           </div>
-          <h1 className="page-main-heading">Scan History & Activity</h1>
+          <h1 className="page-main-heading">Scan History</h1>
           <p className="page-subheading">
-            Review previous threat assessments, investigation records, and security classifications synchronized with your account.
+            Review, filter, and inspect previous threat assessments across URL, QR, and Message vectors.
           </p>
         </div>
 
         {/* Sync Status Banner */}
-        <div className="cyber-card auth-status-banner" style={{ marginBottom: '2rem' }}>
+        <div className="cyber-card auth-status-banner" style={{ marginBottom: '1.75rem' }}>
           <div className="status-icon-box">{isCloudSyncOff ? '📱' : '🗄️'}</div>
           <div className="status-text-group">
             <strong className="status-title">
@@ -208,11 +217,11 @@ export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
             <p className="status-body">
               {isCloudSyncOff ? (
                 <span>
-                  <strong>Cloud sync is off</strong> — scans remain stored privately on this device ({scans.length} record{scans.length === 1 ? '' : 's'}).
+                  <strong>Cloud sync is off</strong> — scan records remain stored privately on this device ({scans.length} record{scans.length === 1 ? '' : 's'}).
                 </span>
               ) : (
                 <span>
-                  {scans.length} scan record{scans.length === 1 ? '' : 's'} stored securely in your private history.
+                  {scans.length} scan record{scans.length === 1 ? '' : 's'} synchronized in your private audit trail.
                 </span>
               )}
             </p>
@@ -231,14 +240,14 @@ export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
 
         {/* Search, Sort & Filter Controls Card */}
         <div className="cyber-card history-controls-card" style={{ marginBottom: '2rem' }}>
-          {/* Search + Sort Controls Bar */}
+          {/* Top Row: Search Input + Sort Dropdown */}
           <div className="history-search-sort-row">
             <div className="search-box-wrapper history-search-wrapper">
               <span className="search-icon" aria-hidden="true">🔍</span>
               <input
                 type="text"
                 className="form-input search-input font-mono"
-                placeholder="Search history by URL, domain, type, or verdict..."
+                placeholder="Search history by URL, domain, payload, or verdict..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 disabled={loading && scans.length === 0}
@@ -280,30 +289,71 @@ export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
             </div>
           </div>
 
-          {/* Filter Chips Bar (Horizontally scrollable on mobile) */}
-          <div className="history-filter-chips-row" role="tablist" aria-label="Filter Scans by Category">
-            {filterChips.map((chip) => {
-              const isActive = activeFilter === chip.id;
-              return (
-                <button
-                  key={chip.id}
-                  type="button"
-                  className={`filter-chip ${isActive ? 'active' : ''}`}
-                  onClick={() => setActiveFilter(chip.id)}
-                  data-testid={`filter-chip-${chip.id.toLowerCase()}`}
-                  role="tab"
-                  aria-selected={isActive}
-                >
-                  {chip.label}
-                </button>
-              );
-            })}
+          {/* Filter Categories: Vectors & Verdicts */}
+          <div className="history-filters-container">
+            {/* Scan Vector Chips */}
+            <div className="history-filter-group">
+              <span className="history-filter-group-label font-mono">Vector:</span>
+              <div className="history-filter-chips-row" role="tablist" aria-label="Filter by Scan Vector">
+                {[
+                  { id: 'ALL', label: 'All Vectors' },
+                  { id: 'URL', label: '🌐 URL' },
+                  { id: 'QR', label: '📷 QR' },
+                  { id: 'MESSAGE', label: '💬 Message' },
+                ].map((chip) => {
+                  const isActive = vectorFilter === chip.id;
+                  return (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      className={`filter-chip ${isActive ? 'active' : ''}`}
+                      onClick={() => setVectorFilter(chip.id)}
+                      data-testid={`vector-filter-${chip.id.toLowerCase()}`}
+                      role="tab"
+                      aria-selected={isActive}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Verdict Chips */}
+            <div className="history-filter-group">
+              <span className="history-filter-group-label font-mono">Verdict:</span>
+              <div className="history-filter-chips-row" role="tablist" aria-label="Filter by Verdict">
+                {[
+                  { id: 'ALL', label: 'All Verdicts' },
+                  { id: 'SAFE', label: 'Safe' },
+                  { id: 'SUSPICIOUS', label: 'Suspicious' },
+                  { id: 'PHISHING', label: 'Phishing' },
+                  { id: 'UNREACHABLE', label: 'Unreachable' },
+                  { id: 'INVALID', label: 'Invalid' },
+                ].map((chip) => {
+                  const isActive = verdictFilter === chip.id;
+                  return (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      className={`filter-chip ${isActive ? 'active' : ''}`}
+                      onClick={() => setVerdictFilter(chip.id)}
+                      data-testid={`verdict-filter-${chip.id.toLowerCase()}`}
+                      role="tab"
+                      aria-selected={isActive}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {/* Results Count & Filter Summary Row */}
           <div className="history-results-summary">
             <span className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Showing {filteredAndSortedRecords.length} of {scans.length} record{scans.length === 1 ? '' : 's'}
+              Showing <strong>{filteredAndSortedRecords.length}</strong> of <strong>{scans.length}</strong> record{scans.length === 1 ? '' : 's'}
             </span>
             {hasActiveFilter && (
               <button
@@ -311,9 +361,9 @@ export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
                 className="btn btn-secondary btn-sm"
                 onClick={handleClearFilters}
                 data-testid="history-clear-all-filters-btn"
-                style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+                style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}
               >
-                Reset Filters
+                Reset All Filters
               </button>
             )}
           </div>
@@ -343,19 +393,37 @@ export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
               {scans.length === 0
                 ? 'You have not scanned any targets yet. Run a URL, QR code, or Message scan to start building your unified security audit trail.'
                 : searchTerm
-                ? `No scans matching query "${searchTerm}". Try a different search term or reset your filters.`
-                : `No scans found under category "${activeFilter}".`}
+                ? `No scan records matching "${searchTerm}". Try adjusting your search query or reset your filters.`
+                : 'No scan records match the selected vector or verdict filters.'}
             </p>
 
             {scans.length === 0 ? (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleLaunchScanner}
-                data-testid="history-empty-launch-scanner-btn"
-              >
-                Launch Threat Scanner ➔
-              </button>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => handleLaunchScanner('url')}
+                  data-testid="history-empty-launch-url-btn"
+                >
+                  🌐 Scan a URL ➔
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => handleLaunchScanner('qr')}
+                  data-testid="history-empty-launch-qr-btn"
+                >
+                  📷 Scan QR Code
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => handleLaunchScanner('message')}
+                  data-testid="history-empty-launch-message-btn"
+                >
+                  💬 Scan Message
+                </button>
+              </div>
             ) : (
               <button
                 type="button"
@@ -416,7 +484,7 @@ export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
                         </td>
                         <td>
                           <span className="badge-chip font-mono">
-                            {itemType === 'QR' ? '📷 QR' : itemType === 'MESSAGE' ? '💬 SMS' : '🌐 URL'}
+                            {getVectorLabel(itemType)}
                           </span>
                         </td>
                         <td>
@@ -488,7 +556,7 @@ export default function HistoryPage({ onSelectTab, onNavigateToScanner }) {
                         )}
                       </div>
                       <span className="badge-chip font-mono" style={{ fontSize: '0.6875rem' }}>
-                        {itemType === 'QR' ? '📷 QR' : itemType === 'MESSAGE' ? '💬 SMS' : '🌐 URL'}
+                        {getVectorLabel(itemType)}
                       </span>
                     </div>
 

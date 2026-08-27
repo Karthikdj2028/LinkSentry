@@ -158,6 +158,60 @@ SHORTENERS = {
 
 
 # ============================================================
+# HIGH-RISK PAYLOAD & EXECUTABLE EXTENSIONS
+# ============================================================
+# High-risk URL path/file extensions associated with dangerous scripts,
+# binaries, installers, and archives (especially when distributed via
+# multi-tenant or shared infrastructure).
+# Note: These extensions serve as suspicious telemetry signals and
+# context indicators, not automatic sole proof of malware.
+HIGH_RISK_PAYLOAD_EXTENSIONS = {
+    "hta",
+    "exe",
+    "scr",
+    "bat",
+    "cmd",
+    "vbs",
+    "vbe",
+    "js",
+    "jse",
+    "ps1",
+    "psm1",
+    "iso",
+    "apk",
+    "dmg",
+    "msi",
+}
+
+
+def extract_payload_extension(url: str) -> str:
+    """
+    Safely extract the trailing file extension from the URL path.
+    Returns normalized lowercase extension without dot (e.g. 'hta', 'exe'),
+    or an empty string if no valid file extension is present.
+    """
+    try:
+        parsed = urlparse(url if "://" in url else "//" + url)
+        path = parsed.path or ""
+    except Exception:
+        path = ""
+
+    if not path or ("/" not in path and "." not in path):
+        return ""
+
+    # Strip query/trailing slash and take last segment
+    last_segment = path.rstrip("/").split("/")[-1]
+    if not last_segment or "." not in last_segment:
+        return ""
+
+    ext = last_segment.rsplit(".", 1)[-1].strip().lower()
+    if 1 <= len(ext) <= 8 and ext.isalnum():
+        return ext
+
+    return ""
+
+
+# ============================================================
 # URL HELPERS
 # ============================================================
 
@@ -200,6 +254,28 @@ TWO_PART_TLD_SUFFIXES = {
     "co.id", "com.tr", "com.pk", "com.eg", "com.sa", "com.ar", "com.co", "com.ph",
     "com.ng", "com.vn", "com.hk", "co.th", "com.my", "com.tw", "org.uk", "gov.in",
     "edu.au", "gov.uk", "ac.uk", "net.au", "org.in", "net.in", "ac.in", "gov.au"
+}
+
+
+# ============================================================
+# SHARED HOSTING & MULTI-TENANT INFRASTRUCTURE EXEMPTIONS
+# ============================================================
+# Multi-tenant and shared-hosting infrastructure namespaces where arbitrary users
+# can host untrusted content or deploy applications. These namespaces must NEVER
+# receive a global trusted-domain override merely because the parent domain appears
+# in popularity rankings (such as Tranco).
+SHARED_HOSTING_SUFFIXES = {
+    "r2.dev",
+    "workers.dev",
+    "pages.dev",
+    "github.io",
+    "vercel.app",
+    "netlify.app",
+    "web.app",
+    "firebaseapp.com",
+    "duckdns.org",
+    "ngrok-free.app",
+    "glitch.me",
 }
 
 
@@ -795,10 +871,19 @@ class URLMLModel:
             for family in LEGITIMATE_BRAND_DOMAINS.values()
         )
 
+        is_shared_hosting = (
+            registrable in SHARED_HOSTING_SUFFIXES
+            or hostname in SHARED_HOSTING_SUFFIXES
+            or any(hostname.endswith("." + suffix) for suffix in SHARED_HOSTING_SUFFIXES)
+        )
+
         trusted = (
-            registrable in self.trusted_domains
-            or hostname in self.trusted_domains
-            or is_brand_legit
+            not is_shared_hosting
+            and (
+                registrable in self.trusted_domains
+                or hostname in self.trusted_domains
+                or is_brand_legit
+            )
         )
 
         return {
@@ -876,6 +961,18 @@ class URLMLModel:
         ] >= 3:
             signals.append(
                 "multiple_suspicious_keywords"
+            )
+
+        payload_ext = extract_payload_extension(
+            url
+        )
+
+        if (
+            payload_ext
+            in HIGH_RISK_PAYLOAD_EXTENSIONS
+        ):
+            signals.append(
+                "high_risk_payload_extension"
             )
 
         return signals
@@ -1149,6 +1246,10 @@ class URLMLModel:
 
             "suspicious_signals": (
                 suspicious_signals
+            ),
+
+            "payload_extension": (
+                extract_payload_extension(url) or None
             ),
 
             "decision_scores": {

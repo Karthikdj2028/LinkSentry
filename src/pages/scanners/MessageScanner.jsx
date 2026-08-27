@@ -1,10 +1,19 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import ScanResultCard from '../../components/ScanResultCard';
 import { PRESET_SAMPLES } from '../../data/mockData';
 import { useAuth, useTheme } from '../../context';
 import { saveScan, mapBackendScanToFirestoreDoc } from '../../firebase';
 import { API_BASE_URL } from '../../config/api';
 import { saveLocalScan, createLocalTimestamp } from '../../utils/localHistory';
+
+const MAX_MESSAGE_LENGTH = 4000;
+
+const MESSAGE_ANALYSIS_STAGES = [
+  { id: 1, label: 'Parsing text syntax & tokenizing linguistic cues' },
+  { id: 2, label: 'Evaluating social engineering & urgency heuristics' },
+  { id: 3, label: 'Extracting & isolating embedded destination links' },
+  { id: 4, label: 'Synthesizing LinkSentry multi-signal decision fusion' },
+];
 
 export default function MessageScanner() {
   const { currentUser } = useAuth();
@@ -13,11 +22,36 @@ export default function MessageScanner() {
   const [validationError, setValidationError] = useState('');
   const [saveWarning, setSaveWarning] = useState('');
   const [isScanning, setIsScanning] = useState(false);
+  const [activeStageIndex, setActiveStageIndex] = useState(0);
   const [scanResult, setScanResult] = useState(null);
+  const [activePresetIndex, setActivePresetIndex] = useState(null);
+  const textareaRef = useRef(null);
+
+  // Staged progress tracker while scanning is in flight
+  useEffect(() => {
+    let timer;
+    if (isScanning) {
+      setActiveStageIndex(0);
+      timer = setInterval(() => {
+        setActiveStageIndex((prev) => {
+          if (prev < MESSAGE_ANALYSIS_STAGES.length - 1) {
+            return prev + 1;
+          }
+          return prev;
+        });
+      }, 350);
+    } else {
+      setActiveStageIndex(0);
+    }
+    return () => clearInterval(timer);
+  }, [isScanning]);
 
   const validateMessage = (text) => {
     if (!text || !text.trim()) {
       return 'Please enter a message or SMS payload to analyze.';
+    }
+    if (text.length > MAX_MESSAGE_LENGTH) {
+      return `Message exceeds maximum allowed length of ${MAX_MESSAGE_LENGTH} characters (${text.length} chars).`;
     }
     return '';
   };
@@ -91,14 +125,14 @@ export default function MessageScanner() {
       setScanResult({
         target: `Message: "${targetSnippet}"`,
         verdict: formattedVerdict,
-        riskScore: typeof data.risk_score === 'number' ? data.risk_score : 0,
+        riskScore: typeof data.risk_score === 'number' ? data.risk_score : (data.message_risk || 0),
         confidence: confidenceDisplay,
         details,
+        backendAnalysis: data,
         timestamp: new Date().toLocaleTimeString(),
       });
 
-      // 2. Persist successful scan to Cloud Firestore under authenticated user
-      // Persist scan: ALWAYS to local history
+      // 2. Persist scan: ALWAYS to local history
       const scanDoc = mapBackendScanToFirestoreDoc(
         currentUser?.uid || 'anonymous',
         payloadText,
@@ -110,11 +144,10 @@ export default function MessageScanner() {
 
       saveLocalScan(currentUser?.uid || 'anonymous', scanDoc);
 
-      // Persist to Cloud Firestore (if authenticated and Cloud Sync is ON)
+      // 3. Persist to Cloud Firestore (if authenticated and Cloud Sync is ON)
       if (currentUser?.uid && securityPreferences?.cloudSync !== false) {
         try {
           await saveScan(currentUser.uid, scanDoc);
-          console.log('[LinkSentry] Message scan synchronized to Cloud Firestore.');
         } catch (saveErr) {
           console.error('Cloud Firestore Message scan save error:', saveErr);
           setSaveWarning('Message scan stored locally, but cloud synchronization failed.');
@@ -122,26 +155,52 @@ export default function MessageScanner() {
       }
     } catch (err) {
       console.error('Message threat scan backend error:', err);
-      setValidationError('Unable to connect to LinkSentry backend.');
+      setValidationError('Unable to connect to LinkSentry threat engine. Please ensure backend service is running.');
       setScanResult(null);
     } finally {
       setIsScanning(false);
     }
   };
 
-  const handlePresetSelect = (preset) => {
+  const handlePresetSelect = (preset, idx) => {
     setMessageText(preset.text);
+    setActivePresetIndex(idx);
     setValidationError('');
     setSaveWarning('');
     setScanResult(null);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
   };
 
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     setMessageText('');
+    setActivePresetIndex(null);
     setValidationError('');
     setSaveWarning('');
     setScanResult(null);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, []);
+
+  // Keyboard shortcut handlers (Ctrl+Enter / Cmd+Enter to submit, Escape to clear)
+  const handleKeyDown = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      if (!isScanning && messageText.trim()) {
+        handleScan();
+      }
+    } else if (e.key === 'Escape') {
+      if (messageText) {
+        handleClear();
+      }
+    }
   };
+
+  const charCount = messageText.length;
+  const isNearLimit = charCount > MAX_MESSAGE_LENGTH * 0.9;
+  const isOverLimit = charCount > MAX_MESSAGE_LENGTH;
 
   return (
     <div className="scanner-tab-content">
@@ -166,25 +225,53 @@ export default function MessageScanner() {
               <label htmlFor="message-input" className="form-label">
                 Paste Message Body
               </label>
-              <span className="character-counter font-mono">
-                {messageText.length} characters
+              <div className="message-header-meta">
+                <span className={`character-counter font-mono ${isOverLimit ? 'counter-over' : isNearLimit ? 'counter-warn' : ''}`}>
+                  {charCount.toLocaleString()} / {MAX_MESSAGE_LENGTH.toLocaleString()} chars
+                </span>
+                {messageText && !isScanning && (
+                  <button
+                    type="button"
+                    className="message-quick-clear"
+                    onClick={handleClear}
+                    title="Clear input (Esc)"
+                    aria-label="Clear message"
+                  >
+                    × Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="textarea-container">
+              <textarea
+                ref={textareaRef}
+                id="message-input"
+                className={`form-textarea font-mono ${validationError ? 'input-error' : ''}`}
+                placeholder="Paste SMS content, urgent account alert, fake bank transaction, parcel delivery notice, or email message body here..."
+                rows={6}
+                value={messageText}
+                onChange={(e) => {
+                  setMessageText(e.target.value);
+                  setActivePresetIndex(null);
+                  if (validationError) setValidationError('');
+                }}
+                onKeyDown={handleKeyDown}
+                disabled={isScanning}
+                data-testid="message-input"
+                aria-describedby={validationError ? 'message-validation-error' : undefined}
+              />
+            </div>
+
+            {/* Keyboard shortcut hint */}
+            <div className="message-input-footer-hint">
+              <span className="shortcut-hint-text">
+                Press <kbd className="font-mono">Ctrl</kbd> + <kbd className="font-mono">Enter</kbd> to analyze • <kbd className="font-mono">Esc</kbd> to clear
               </span>
             </div>
-            <textarea
-              id="message-input"
-              className={`form-textarea font-mono ${validationError ? 'input-error' : ''}`}
-              placeholder="Paste SMS content, loan solicitation, WhatsApp alert, or email body here..."
-              rows={5}
-              value={messageText}
-              onChange={(e) => {
-                setMessageText(e.target.value);
-                if (validationError) setValidationError('');
-              }}
-              disabled={isScanning}
-              data-testid="message-input"
-            />
+
             {validationError && (
-              <div className="validation-error-message animate-fade-in" data-testid="message-validation-error">
+              <div className="validation-error-message animate-fade-in" id="message-validation-error" data-testid="message-validation-error" role="alert">
                 ⚠️ {validationError}
               </div>
             )}
@@ -195,13 +282,13 @@ export default function MessageScanner() {
               <button
                 type="submit"
                 className="btn btn-primary btn-lg scan-submit-btn"
-                disabled={isScanning || !messageText.trim()}
+                disabled={isScanning || !messageText.trim() || isOverLimit}
                 data-testid="message-scan-submit"
               >
                 {isScanning ? (
                   <>
                     <span className="spinner-border" />
-                    <span>Evaluating Multi-Signal Threat Evidence...</span>
+                    <span>Analyzing Message Threat...</span>
                   </>
                 ) : (
                   <>
@@ -226,25 +313,29 @@ export default function MessageScanner() {
             <div className="preset-quick-group">
               <span className="preset-label">Sample Threat Messages:</span>
               <div className="preset-chips">
-                {PRESET_SAMPLES.messages.map((preset, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    className={`preset-chip chip-${preset.type.toLowerCase()}`}
-                    onClick={() => handlePresetSelect(preset)}
-                    disabled={isScanning}
-                    data-testid={`preset-message-${idx}`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
+                {PRESET_SAMPLES.messages.map((preset, idx) => {
+                  const isSelected = activePresetIndex === idx;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`preset-chip chip-${preset.type.toLowerCase()} ${isSelected ? 'active-preset' : ''}`}
+                      onClick={() => handlePresetSelect(preset, idx)}
+                      disabled={isScanning}
+                      data-testid={`preset-message-${idx}`}
+                      title={preset.text}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
         </form>
       </div>
 
-      {/* Scanning In-Progress Animation */}
+      {/* Scanning In-Progress Staged Pipeline Display */}
       {isScanning && (
         <div className="cyber-card scanning-in-progress animate-pulse">
           <div className="scanning-radar-container">
@@ -252,10 +343,36 @@ export default function MessageScanner() {
             <div className="scanning-radar-grid" />
             <div className="scanning-radar-crosshair" />
           </div>
+
           <div className="scanning-status-texts font-mono">
-            <p className="status-primary-text">EVALUATING MESSAGE INTENT & THREAT SIGNALS...</p>
+            <p className="status-primary-text">
+              <span className="inspecting-label">ANALYZING MESSAGE:</span>{' '}
+              <span className="status-primary-target font-mono">
+                {messageText.length > 50 ? `${messageText.slice(0, 50)}...` : messageText}
+              </span>
+            </p>
+
+            {/* 4-Stage Multi-Signal Verification Pipeline */}
+            <div className="scanning-stages-timeline">
+              {MESSAGE_ANALYSIS_STAGES.map((stage, idx) => {
+                const isCompleted = idx < activeStageIndex;
+                const isActive = idx === activeStageIndex;
+                return (
+                  <div
+                    key={stage.id}
+                    className={`scanning-stage-step ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''}`}
+                  >
+                    <span className="stage-status-icon font-mono">
+                      {isCompleted ? '✓' : isActive ? '▶' : '○'}
+                    </span>
+                    <span className="stage-step-label">{stage.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+
             <p className="status-sub-text">
-              Querying FastAPI V3.4 threat engine • Detecting smishing heuristics • Detonating embedded URLs...
+              Current stage: <strong className="active-phase-name">{MESSAGE_ANALYSIS_STAGES[activeStageIndex]?.label}</strong>
             </p>
           </div>
         </div>

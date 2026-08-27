@@ -302,7 +302,7 @@ export default function ProfilePage() {
               <div className="preference-info">
                 <strong className="preference-title">Cloud Telemetry Synchronization</strong>
                 <p className="preference-desc">
-                  Synchronize your multi-vector scan investigations with the LinkSentry Cloud Vault across all authenticated sessions.
+                  Synchronize your multi-vector scan investigations with Cloud Firestore across all authenticated sessions. When disabled, scan records remain strictly local to this device.
                 </p>
               </div>
               <label className="switch toggle-switch" aria-label="Toggle Cloud Telemetry Synchronization">
@@ -321,7 +321,7 @@ export default function ProfilePage() {
               <div className="preference-info">
                 <strong className="preference-title">Threat Telemetry Intelligence Sharing</strong>
                 <p className="preference-desc">
-                  Allow anonymized threat indicators to participate in LinkSentry decentralized detection heuristics.
+                  Contribute aggregated scan telemetry (verdicts and anonymized indicators) to the local database for historical reporting and trend analytics.
                 </p>
               </div>
               <label className="switch toggle-switch" aria-label="Toggle Threat Telemetry Intelligence Sharing">
@@ -335,22 +335,28 @@ export default function ProfilePage() {
               </label>
             </div>
 
-            {/* 3. Real-Time Threat Detection */}
-            <div className="preference-item preference-toggle-row">
+            {/* 3. Real-Time Multi-Signal Detection (System Enforced Core Engine) */}
+            <div className="preference-item preference-toggle-row" style={{ opacity: 0.9 }}>
               <div className="preference-info">
-                <strong className="preference-title">Real-Time Multi-Signal Detection</strong>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <strong className="preference-title">Real-Time Multi-Signal Detection</strong>
+                  <span className="badge-pill badge-safe font-mono" style={{ fontSize: '0.6875rem' }}>
+                    ● Always Active • Core Engine
+                  </span>
+                </div>
                 <p className="preference-desc">
-                  Continuously evaluate submitted targets against hybrid ML models, optical QR decoders, and NLP regex matrices.
+                  Core V3.4 multi-signal analysis (LinearSVC ML classifier, lexical heuristics, DNS reachability, and trusted-domain rules) is continuously enforced for all incoming scan requests.
                 </p>
               </div>
-              <label className="switch toggle-switch" aria-label="Toggle Real-Time Multi-Signal Detection">
+              <label className="switch toggle-switch" aria-label="Real-Time Multi-Signal Detection is Always Active" title="System Enforced: Core detection engine cannot be disabled.">
                 <input
                   type="checkbox"
-                  checked={securityPreferences.realTimeDetection !== false}
-                  onChange={(e) => handlePrefChange('realTimeDetection', e.target.checked)}
+                  checked={true}
+                  disabled={true}
+                  readOnly={true}
                   data-testid="pref-realtime"
                 />
-                <span className="slider round" />
+                <span className="slider round" style={{ cursor: 'not-allowed', opacity: 0.8 }} />
               </label>
             </div>
 
@@ -359,7 +365,7 @@ export default function ProfilePage() {
               <div className="preference-info">
                 <strong className="preference-title">Threat Alert Notifications</strong>
                 <p className="preference-desc">
-                  Receive browser notifications when high-severity phishing campaigns or credential harvesting lures are flagged.
+                  Request browser notifications when high-severity phishing campaigns, malicious payloads, or credential lures are flagged.
                 </p>
               </div>
               <label className="switch toggle-switch" aria-label="Toggle Threat Alert Notifications">
@@ -465,15 +471,6 @@ export default function ProfilePage() {
                   data-testid="profile-reset-pwd-btn"
                 >
                   {resetSent ? '✓ Reset Link Sent' : '🔑 Send Password Reset Link'}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={handleLogout}
-                  disabled={isLoggingOut}
-                  data-testid="profile-logout-btn"
-                >
-                  {isLoggingOut ? 'Signing Out...' : '🔒 Sign Out'}
                 </button>
               </div>
             </div>

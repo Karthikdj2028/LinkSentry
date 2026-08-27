@@ -1,10 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ThemeContext } from './themeContextInstance';
 import { useAuth } from './useAuth';
-import { getUserSettings, saveUserSettings, subscribeToUserSettings } from '../firebase';
+import { saveUserSettings, subscribeToUserSettings } from '../firebase';
 
 export function ThemeProvider({ children }) {
   const { currentUser } = useAuth();
+
+  // Track recent local user intent timestamps to prevent stale Firestore snapshots from reverting local actions
+  const lastUserThemeChangeRef = useRef(0);
+  const lastUserPrefChangeRef = useRef(0);
 
   // 1. Theme State ('system' | 'light' | 'dark')
   const [theme, setThemeState] = useState(() => {
@@ -33,6 +37,7 @@ export function ThemeProvider({ children }) {
     const defaultPrefs = {
       realTimeDetection: true,
       cloudSync: true,
+      threatSharing: true,
       clipboardDetection: false,
       pushNotifications: true
     };
@@ -69,41 +74,31 @@ export function ThemeProvider({ children }) {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  // Sync settings with Firestore for authenticated user
+  // Sync settings with Firestore for authenticated user via real-time subscription
   useEffect(() => {
     if (!currentUser || !currentUser.uid) return;
 
-    // Load initial settings from Firestore
-    getUserSettings(currentUser.uid).then((remoteSettings) => {
-      if (remoteSettings) {
-        if (remoteSettings.theme && (remoteSettings.theme === 'system' || remoteSettings.theme === 'light' || remoteSettings.theme === 'dark')) {
-          setThemeState(remoteSettings.theme);
-          localStorage.setItem('linksentry_theme', remoteSettings.theme);
-        }
-        setSecurityPreferences((prev) => {
-          const merged = {
-            realTimeDetection: remoteSettings.realTimeDetection !== undefined ? remoteSettings.realTimeDetection : prev.realTimeDetection,
-            cloudSync: remoteSettings.cloudSync !== undefined ? remoteSettings.cloudSync : prev.cloudSync,
-            clipboardDetection: remoteSettings.clipboardDetection !== undefined ? remoteSettings.clipboardDetection : prev.clipboardDetection,
-            pushNotifications: remoteSettings.pushNotifications !== undefined ? remoteSettings.pushNotifications : prev.pushNotifications
-          };
-          localStorage.setItem('linksentry_security_prefs', JSON.stringify(merged));
-          return merged;
-        });
-      }
-    }).catch(console.error);
-
-    // Subscribe to real-time updates across devices
     const unsubscribe = subscribeToUserSettings(currentUser.uid, (remoteSettings) => {
-      if (remoteSettings) {
-        if (remoteSettings.theme) {
+      if (!remoteSettings) return;
+
+      // Check if user recently explicitly changed theme locally
+      const isRecentThemeChange = Date.now() - lastUserThemeChangeRef.current < 5000;
+      if (!isRecentThemeChange && remoteSettings.theme) {
+        if (remoteSettings.theme === 'system' || remoteSettings.theme === 'light' || remoteSettings.theme === 'dark') {
           setThemeState(remoteSettings.theme);
           localStorage.setItem('linksentry_theme', remoteSettings.theme);
         }
+      }
+
+      // Check if user recently explicitly toggled preferences locally
+      const isRecentPrefChange = Date.now() - lastUserPrefChangeRef.current < 5000;
+      if (!isRecentPrefChange) {
         setSecurityPreferences((prev) => {
           const merged = {
-            realTimeDetection: remoteSettings.realTimeDetection !== undefined ? remoteSettings.realTimeDetection : prev.realTimeDetection,
+            ...prev,
+            realTimeDetection: true, // System enforced
             cloudSync: remoteSettings.cloudSync !== undefined ? remoteSettings.cloudSync : prev.cloudSync,
+            threatSharing: remoteSettings.threatSharing !== undefined ? remoteSettings.threatSharing : prev.threatSharing,
             clipboardDetection: remoteSettings.clipboardDetection !== undefined ? remoteSettings.clipboardDetection : prev.clipboardDetection,
             pushNotifications: remoteSettings.pushNotifications !== undefined ? remoteSettings.pushNotifications : prev.pushNotifications
           };
@@ -118,28 +113,47 @@ export function ThemeProvider({ children }) {
     };
   }, [currentUser]);
 
-  // Set theme handler
+  // Set theme handler with immediate DOM application & local timestamp lock
   const setTheme = useCallback((newTheme) => {
     if (newTheme !== 'system' && newTheme !== 'light' && newTheme !== 'dark') return;
+
+    lastUserThemeChangeRef.current = Date.now();
     setThemeState(newTheme);
     localStorage.setItem('linksentry_theme', newTheme);
 
-    if (currentUser && currentUser.uid) {
-      saveUserSettings(currentUser.uid, { theme: newTheme }).catch(console.error);
+    const isLight = newTheme === 'system' ? systemIsLight : newTheme === 'light';
+    const targetResolved = isLight ? 'light' : 'dark';
+    if (typeof document !== 'undefined') {
+      const root = document.documentElement;
+      root.setAttribute('data-theme', targetResolved);
+      root.style.colorScheme = targetResolved;
     }
-  }, [currentUser]);
 
-  // Update a single security preference
+    if (currentUser && currentUser.uid) {
+      saveUserSettings(currentUser.uid, { theme: newTheme }).catch((err) => {
+        console.warn('[LinkSentry] Firestore theme save notice:', err?.message || err);
+      });
+    }
+  }, [currentUser, systemIsLight]);
+
+  // Update a single security preference with local timestamp lock
   const updateSecurityPreference = useCallback((key, value) => {
+    lastUserPrefChangeRef.current = Date.now();
+
     setSecurityPreferences((prev) => {
       const updated = { ...prev, [key]: value };
+      // Enforce realTimeDetection
+      updated.realTimeDetection = true;
+
       localStorage.setItem('linksentry_security_prefs', JSON.stringify(updated));
 
       if (currentUser && currentUser.uid) {
-        saveUserSettings(currentUser.uid, { [key]: value }).catch(console.error);
+        saveUserSettings(currentUser.uid, { [key]: value }).catch((err) => {
+          console.warn('[LinkSentry] Firestore pref save notice:', err?.message || err);
+        });
       }
 
-      // Handle browser permissions if enabling specific features
+      // Handle browser permissions if enabling pushNotifications
       if (key === 'pushNotifications' && value === true && typeof window !== 'undefined' && 'Notification' in window) {
         if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
           Notification.requestPermission();

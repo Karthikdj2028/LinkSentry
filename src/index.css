@@ -1,33 +1,34 @@
 /* ==========================================================================
-   LinkSentry Commercial Cybersecurity Design System & Theme Engine
+   LinkSentry Cybersecurity Design System & Theme Engine (Stitch Integration)
    ========================================================================== */
 
-/* Dark Mode Theme Tokens (Default) */
+/* Dark Mode Theme Tokens (Default Cyber Theme) */
 :root,
 :root[data-theme="dark"] {
-  /* Surfaces & Backgrounds */
-  --bg-main: #0b111e;
-  --bg-surface: #111c2e;
-  --bg-surface-elevated: #16243b;
-  --bg-card: rgba(17, 28, 46, 0.95);
-  --bg-card-hover: #192a45;
-  --bg-glass: rgba(17, 28, 46, 0.85);
-  --bg-input: #0e1726;
+  /* Core Surfaces & Backgrounds */
+  --bg-main: #080d1a;
+  --bg-surface: #0f172a;
+  --bg-surface-elevated: #162035;
+  --bg-card: rgba(15, 23, 42, 0.95);
+  --bg-card-hover: #1a2744;
+  --bg-glass: rgba(15, 23, 42, 0.85);
+  --bg-input: #0b1222;
 
   /* Borders & Dividers */
-  --border-subtle: rgba(148, 163, 184, 0.14);
-  --border-medium: rgba(148, 163, 184, 0.25);
+  --border-subtle: rgba(148, 163, 184, 0.12);
+  --border-medium: rgba(148, 163, 184, 0.22);
+  --border-card: rgba(148, 163, 184, 0.14);
   --border-focus: #06b6d4;
-  --border-card: rgba(148, 163, 184, 0.15);
 
-  /* Primary Brand & Accents */
+  /* Primary Brand & Cyber Accents */
   --brand-cyan: #06b6d4;
   --brand-cyan-light: #22d3ee;
   --brand-blue: #3b82f6;
   --brand-accent: #06b6d4;
   --brand-accent-subtle: rgba(6, 182, 212, 0.12);
+  --brand-accent-glow: rgba(6, 182, 212, 0.25);
 
-  /* Threat Status Colors */
+  /* Threat Status Colors (Semantic Security Tokens) */
   --status-safe: #10b981;
   --status-safe-bg: rgba(16, 185, 129, 0.12);
   --status-safe-border: rgba(16, 185, 129, 0.3);
@@ -56,139 +57,154 @@
   --status-info: #0ea5e9;
   --status-info-bg: rgba(14, 165, 233, 0.12);
   --status-info-border: rgba(14, 165, 233, 0.3);
+  --status-info-text: #38bdf8;
 
-  /* Typography */
+  --status-neutral: #64748b;
+  --status-neutral-bg: rgba(100, 116, 139, 0.12);
+  --status-neutral-border: rgba(100, 116, 139, 0.3);
+  --status-neutral-text: #94a3b8;
+
+  /* Typography Colors */
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
-  --text-inverse: #0f172a;
+  --text-disabled: #475569;
+  --text-inverse: #080d1a;
 
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* Layout & Radii */
+  /* Layout, Radii & Shadows */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 20px;
   --radius-full: 9999px;
 
-  /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px rgba(6, 182, 212, 0.15);
 
-  --scrollbar-track: #0b111e;
+  --scrollbar-track: #080d1a;
   --scrollbar-thumb: #1e293b;
 
-  --nav-bg: rgba(11, 17, 30, 0.88);
+  --nav-bg: rgba(8, 13, 26, 0.9);
   --nav-border: rgba(148, 163, 184, 0.12);
-  --modal-overlay: rgba(0, 0, 0, 0.65);
+  --modal-overlay: rgba(0, 0, 0, 0.7);
 
-  /* Overview Dashboard Semantic Tokens (Dark Mode) */
+  /* Semantic Overview / Dashboard Tokens */
   --overview-heading: #f8fafc;
   --overview-text: #f8fafc;
   --overview-muted: #94a3b8;
-  --overview-card-bg: rgba(17, 28, 46, 0.95);
-  --overview-card-border: rgba(148, 163, 184, 0.15);
-  --overview-track: #16243b;
-  --overview-track-border: rgba(148, 163, 184, 0.14);
-  --overview-hover: #192a45;
+  --overview-card-bg: rgba(15, 23, 42, 0.95);
+  --overview-card-border: rgba(148, 163, 184, 0.14);
+  --overview-track: #162035;
+  --overview-track-border: rgba(148, 163, 184, 0.12);
+  --overview-hover: #1a2744;
   --overview-subtle-bg: rgba(6, 182, 212, 0.08);
 }
 
-/* Light Mode Theme Tokens */
+/* Light Mode Theme Tokens (Crisp Security Console) */
 :root[data-theme="light"] {
-  /* Surfaces & Backgrounds */
-  --bg-main: #F5F8FC;
-  --bg-surface: #FFFFFF;
-  --bg-surface-elevated: #FFFFFF;
-  --bg-card: #FFFFFF;
-  --bg-card-hover: #F8FAFC;
+  /* Core Surfaces & Backgrounds */
+  --bg-main: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-surface-elevated: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
   --bg-glass: rgba(255, 255, 255, 0.96);
-  --bg-input: #FFFFFF;
+  --bg-input: #ffffff;
 
   /* Borders & Dividers */
-  --border-subtle: #D9E2EC;
-  --border-medium: #CBD5E1;
-  --border-focus: #0284C7;
-  --border-card: #D9E2EC;
+  --border-subtle: #cbd5e1;
+  --border-medium: #94a3b8;
+  --border-card: #cbd5e1;
+  --border-focus: #0284c7;
 
   /* Primary Brand & Accents */
-  --brand-cyan: #06B6D4;
-  --brand-cyan-light: #0284C7;
-  --brand-blue: #0284C7;
-  --brand-accent: #0284C7;
+  --brand-cyan: #0284c7;
+  --brand-cyan-light: #0369a1;
+  --brand-blue: #0284c7;
+  --brand-accent: #0284c7;
   --brand-accent-subtle: rgba(2, 132, 199, 0.08);
+  --brand-accent-glow: rgba(2, 132, 199, 0.15);
 
   /* Threat Status Colors */
-  --status-safe: #16A34A;
-  --status-safe-bg: #F0FDF4;
-  --status-safe-border: #BBF7D0;
-  --status-safe-text: #15803D;
+  --status-safe: #16a34a;
+  --status-safe-bg: #f0fdf4;
+  --status-safe-border: #bbf7d0;
+  --status-safe-text: #15803d;
 
-  --status-suspicious: #D97706;
-  --status-suspicious-bg: #FFFBEB;
-  --status-suspicious-border: #FDE68A;
-  --status-suspicious-text: #B45309;
+  --status-suspicious: #d97706;
+  --status-suspicious-bg: #fffbeb;
+  --status-suspicious-border: #fde68a;
+  --status-suspicious-text: #b45309;
 
-  --status-phishing: #DC2626;
-  --status-phishing-bg: #FEF2F2;
-  --status-phishing-border: #FECACA;
-  --status-phishing-text: #B91C1C;
+  --status-phishing: #dc2626;
+  --status-phishing-bg: #fef2f2;
+  --status-phishing-border: #fecaca;
+  --status-phishing-text: #b91c1c;
 
-  --status-malware: #B91C1C;
-  --status-malware-bg: #FEF2F2;
-  --status-malware-border: #FECACA;
-  --status-malware-text: #991B1B;
+  --status-malware: #b91c1c;
+  --status-malware-bg: #fef2f2;
+  --status-malware-border: #fecaca;
+  --status-malware-text: #991b1b;
 
-  --status-defacement: #7C3AED;
-  --status-defacement-bg: #F5F3FF;
-  --status-defacement-border: #DDD6FE;
-  --status-defacement-text: #6D28D9;
+  --status-defacement: #7c3aed;
+  --status-defacement-bg: #f5f3ff;
+  --status-defacement-border: #ddd6fe;
+  --status-defacement-text: #6d28d9;
 
-  --status-info: #0284C7;
-  --status-info-bg: #F0F9FF;
-  --status-info-border: #BAE6FD;
+  --status-info: #0284c7;
+  --status-info-bg: #f0f9ff;
+  --status-info-border: #bae6fd;
+  --status-info-text: #0369a1;
 
-  /* Typography */
-  --text-primary: #172033;
-  --text-secondary: #52627A;
-  --text-muted: #718096;
-  --text-inverse: #FFFFFF;
+  --status-neutral: #64748b;
+  --status-neutral-bg: #f1f5f9;
+  --status-neutral-border: #cbd5e1;
+  --status-neutral-text: #334155;
+
+  /* Typography Colors - High Contrast Slate Hierarchy */
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #475569;
+  --text-disabled: #94a3b8;
+  --text-inverse: #ffffff;
 
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* Layout & Radii */
+  /* Layout, Radii & Shadows */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 20px;
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -1px rgba(15, 23, 42, 0.03);
-  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.06), 0 4px 6px -2px rgba(15, 23, 42, 0.03);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -1px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -2px rgba(15, 23, 42, 0.04);
+  --shadow-glow: 0 0 15px rgba(2, 132, 199, 0.12);
 
-  --scrollbar-track: #F1F5F9;
-  --scrollbar-thumb: #CBD5E1;
+  --scrollbar-track: #f1f5f9;
+  --scrollbar-thumb: #cbd5e1;
 
   --nav-bg: rgba(255, 255, 255, 0.96);
-  --nav-border: #D9E2EC;
+  --nav-border: #cbd5e1;
   --modal-overlay: rgba(15, 23, 42, 0.45);
 
-  /* Overview Dashboard Semantic Tokens (Light Mode) */
-  --overview-heading: #0F172A;
-  --overview-text: #1E293B;
-  --overview-muted: #64748B;
-  --overview-card-bg: #FFFFFF;
-  --overview-card-border: #D9E2EC;
-  --overview-track: #E2E8F0;
-  --overview-track-border: #CBD5E1;
-  --overview-hover: #F8FAFC;
-  --overview-subtle-bg: #F0F9FF;
+  /* Semantic Overview / Dashboard Tokens */
+  --overview-heading: #0f172a;
+  --overview-text: #0f172a;
+  --overview-muted: #475569;
+  --overview-card-bg: #ffffff;
+  --overview-card-border: #cbd5e1;
+  --overview-track: #e2e8f0;
+  --overview-track-border: #cbd5e1;
+  --overview-hover: #f1f5f9;
+  --overview-subtle-bg: #f0f9ff;
 }
 
 /* Transitions */

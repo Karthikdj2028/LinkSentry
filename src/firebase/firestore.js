@@ -266,45 +266,72 @@ export async function deleteScan(userId, scanId) {
 }
 
 /**
- * Retrieves the user's cross-platform preferences from Firestore.
- * Path: users/{userId}/settings/preferences
+ * Fetches the user's settings document from Firestore.
+/**
+ * Normalizes user settings from Firestore document data, supporting both
+ * nested `settings: { ... }` / `preferences: { ... }` and top-level fields.
+ */
+function extractSettingsFromDocData(data) {
+  if (!data || typeof data !== 'object') return {};
+  const settings = { ...(data.settings || data.preferences || {}) };
+  // Merge any flat "settings.<key>" properties if present from legacy writes
+  for (const [key, value] of Object.entries(data)) {
+    if (key.startsWith('settings.') && key.length > 9) {
+      const subKey = key.slice(9);
+      settings[subKey] = value;
+    }
+  }
+  // Top-level theme fallback if written at root
+  if (data.theme && !settings.theme) {
+    settings.theme = data.theme;
+  }
+  return settings;
+}
+
+/**
+ * Fetches the user's settings document from Firestore.
+ * Path: users/{userId}
  * 
  * @param {string} userId - Authenticated user's Firebase UID
- * @returns {Promise<object|null>} Settings document or null
+ * @returns {Promise<object|null>} Settings object or null
  */
 export async function getUserSettings(userId) {
   if (!userId) return null;
   try {
-    const settingsDocRef = doc(db, 'users', userId, 'settings', 'preferences');
-    const docSnap = await getDoc(settingsDocRef);
+    const userDocRef = doc(db, 'users', userId);
+    const docSnap = await getDoc(userDocRef);
     if (docSnap.exists()) {
-      return docSnap.data();
+      return extractSettingsFromDocData(docSnap.data());
     }
     return null;
   } catch (err) {
-    console.error('Failed to get user settings from Firestore:', err);
+    console.warn('[LinkSentry] User settings load notice:', err?.message || err);
     return null;
   }
 }
 
 /**
  * Saves or merges the user's cross-platform preferences in Firestore.
- * Path: users/{userId}/settings/preferences
+ * Path: users/{userId}
  * 
  * @param {string} userId - Authenticated user's Firebase UID
  * @param {object} settings - Settings object { theme, realTimeDetection, cloudSync, clipboardDetection, pushNotifications }
  * @returns {Promise<void>}
  */
 export async function saveUserSettings(userId, settings) {
-  if (!userId) return;
+  if (!userId || !settings || typeof settings !== 'object') return;
   try {
-    const settingsDocRef = doc(db, 'users', userId, 'settings', 'preferences');
-    await setDoc(settingsDocRef, {
-      ...settings,
+    const userDocRef = doc(db, 'users', userId);
+    const updatePayload = {
+      settings: {},
       updatedAt: serverTimestamp()
-    }, { merge: true });
+    };
+    for (const [key, value] of Object.entries(settings)) {
+      updatePayload.settings[key] = value;
+    }
+    await setDoc(userDocRef, updatePayload, { merge: true });
   } catch (err) {
-    console.error('Failed to save user settings to Firestore:', err);
+    console.warn('[LinkSentry] User settings save notice:', err?.message || err);
   }
 }
 
@@ -317,14 +344,24 @@ export async function saveUserSettings(userId, settings) {
  */
 export function subscribeToUserSettings(userId, onUpdate) {
   if (!userId) return () => {};
-  const settingsDocRef = doc(db, 'users', userId, 'settings', 'preferences');
-  return onSnapshot(settingsDocRef, (docSnap) => {
-    if (docSnap.exists()) {
-      onUpdate(docSnap.data());
-    }
-  }, (err) => {
-    console.error('Settings snapshot error:', err);
-  });
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    return onSnapshot(
+      userDocRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const settings = extractSettingsFromDocData(docSnap.data());
+          onUpdate(settings);
+        }
+      },
+      (err) => {
+        console.warn('[LinkSentry] Settings snapshot notice:', err?.message || err);
+      }
+    );
+  } catch (err) {
+    console.warn('[LinkSentry] Settings subscription notice:', err?.message || err);
+    return () => {};
+  }
 }
 
 /**

@@ -101,7 +101,6 @@ rank,domain,source,trusted
 100,workbox.dk,tranco,True
 101,sentry.io,tranco,True
 102,reddit.com,tranco,True
-103,workers.dev,tranco,True
 104,ui.com,tranco,True
 105,blogspot.com,tranco,True
 106,t.me,tranco,True
@@ -116,7 +115,6 @@ rank,domain,source,trusted
 115,openai.com,tranco,True
 116,vk.com,tranco,True
 117,criteo.com,tranco,True
-118,github.io,tranco,True
 119,snapchat.com,tranco,True
 120,registrar-servers.com,tranco,True
 121,amazonvideo.com,tranco,True
@@ -179,7 +177,6 @@ rank,domain,source,trusted
 178,adobe.io,tranco,True
 179,afternic.com,tranco,True
 180,example.com,tranco,True
-181,azurewebsites.net,tranco,True
 182,w3.org,tranco,True
 183,jomodns.com,tranco,True
 184,webex.com,tranco,True
@@ -265,7 +262,6 @@ rank,domain,source,trusted
 264,telecid.ru,tranco,True
 265,meraki.com,tranco,True
 266,virginm.net,tranco,True
-267,pages.dev,tranco,True
 268,avast.com,tranco,True
 269,vecdnlb.com,tranco,True
 270,facebook.net,tranco,True
@@ -283,7 +279,6 @@ rank,domain,source,trusted
 282,mozilla.com,tranco,True
 283,ttvnw.net,tranco,True
 284,hp.com,tranco,True
-285,duckdns.org,tranco,True
 286,nature.com,tranco,True
 287,byteoversea.net,tranco,True
 288,gov.uk,tranco,True
@@ -740,7 +735,6 @@ rank,domain,source,trusted
 739,bidr.io,tranco,True
 740,homedepot.com,tranco,True
 741,mckinsey.com,tranco,True
-742,vercel.app,tranco,True
 743,wpguardian.com,tranco,True
 744,browser-intake-datadoghq.com,tranco,True
 745,primevideo.com,tranco,True
@@ -890,7 +884,6 @@ rank,domain,source,trusted
 889,bankofamerica.com,tranco,True
 890,warnerbros.com,tranco,True
 891,perplexity.ai,tranco,True
-892,herokuapp.com,tranco,True
 893,hilton.com,tranco,True
 894,tiktokw.us,tranco,True
 895,footprintdns.com,tranco,True
@@ -959,7 +952,6 @@ rank,domain,source,trusted
 958,leiniao.com,tranco,True
 959,note.com,tranco,True
 960,nexusmods.com,tranco,True
-961,netlify.app,tranco,True
 962,opera-api.com,tranco,True
 963,internetwarriors.net,tranco,True
 964,abovedomains.com,tranco,True
@@ -2300,7 +2292,6 @@ rank,domain,source,trusted
 2299,axon.ai,tranco,True
 2300,last.fm,tranco,True
 2301,verizon.com,tranco,True
-2302,onrender.com,tranco,True
 2303,nflxext.com,tranco,True
 2304,zeasn.tv,tranco,True
 2305,ad.gt,tranco,True
@@ -2903,7 +2894,6 @@ rank,domain,source,trusted
 2902,nokia.com,tranco,True
 2903,sfmc-marketing.com,tranco,True
 2904,chip.de,tranco,True
-2905,railway.app,tranco,True
 2906,uribl.com,tranco,True
 2907,atsenergo.ru,tranco,True
 2908,claude.com,tranco,True
@@ -2958,7 +2948,6 @@ rank,domain,source,trusted
 2957,rosminzdrav.ru,tranco,True
 2958,libero.it,tranco,True
 2959,square.site,tranco,True
-2960,web.app,tranco,True
 2961,redbubble.com,tranco,True
 2962,rsc.org,tranco,True
 2963,check24.de,tranco,True
@@ -5331,7 +5320,6 @@ rank,domain,source,trusted
 5330,aclu.org,tranco,True
 5331,rutracker.org,tranco,True
 5332,monster.com,tranco,True
-5333,firebaseapp.com,tranco,True
 5334,cloudflaressl.com,tranco,True
 5335,ufanet.ru,tranco,True
 5336,atptour.com,tranco,True
@@ -5809,7 +5797,6 @@ rank,domain,source,trusted
 5808,star4live.com,tranco,True
 5809,real.com,tranco,True
 5810,2cnt.net,tranco,True
-5811,r2.dev,tranco,True
 5812,python.ca,tranco,True
 5813,gscdn.net,tranco,True
 5814,gigya.com,tranco,True
@@ -7175,7 +7162,6 @@ rank,domain,source,trusted
 7174,d-net.pro,tranco,True
 7175,comdirect.de,tranco,True
 7176,teleport.media,tranco,True
-7177,ngrok.io,tranco,True
 7178,kyoto-u.ac.jp,tranco,True
 7179,ulta.com,tranco,True
 7180,dnsdomen.com,tranco,True
@@ -7609,7 +7595,6 @@ rank,domain,source,trusted
 7608,vkcs.cloud,tranco,True
 7609,cnnamador.com,tranco,True
 7610,word.tips,tranco,True
-7611,fly.dev,tranco,True
 7612,adultwork.com,tranco,True
 7613,bluewin.ch,tranco,True
 7614,olxcdn.com,tranco,True
@@ -11531,7 +11516,6 @@ rank,domain,source,trusted
 11530,santander.co.uk,tranco,True
 11531,paramount.com,tranco,True
 11532,daumcdn.net,tranco,True
-11533,ngrok-free.app,tranco,True
 11534,blogspot.in,tranco,True
 11535,wooga.com,tranco,True
 11536,adn.cloud,tranco,True
@@ -21119,7 +21103,6 @@ rank,domain,source,trusted
 21118,mundosexanuncio.com,tranco,True
 21119,middleeastmonitor.com,tranco,True
 21120,qhmoka.com,tranco,True
-21121,glitch.me,tranco,True
 21122,lytehosting.com,tranco,True
 21123,nefes.com.tr,tranco,True
 21124,sssrvpn.pro,tranco,True
@@ -21521,7 +21504,6 @@ rank,domain,source,trusted
 21520,myfcloud.com,tranco,True
 21521,kubtel.ru,tranco,True
 21522,privatter.net,tranco,True
-21523,ngrok-free.dev,tranco,True
 21524,elconsolto.com,tranco,True
 21525,manomano.it,tranco,True
 21526,myoas.net,tranco,True

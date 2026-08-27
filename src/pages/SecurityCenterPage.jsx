@@ -15,7 +15,7 @@ function formatFirestoreTimestamp(createdAt) {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       });
     }
     if (typeof createdAt.seconds === 'number') {
@@ -23,7 +23,7 @@ function formatFirestoreTimestamp(createdAt) {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       });
     }
     const parsedDate = new Date(createdAt);
@@ -32,7 +32,7 @@ function formatFirestoreTimestamp(createdAt) {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       });
     }
   } catch (err) {
@@ -47,20 +47,22 @@ function formatVerdict(verdict) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-/**
- * SecurityCenterPage Component
- * Provides live SOC defense rating, multi-signal telemetry sensors,
- * active threat incident quarantine monitor, and security audit report generation.
- */
 export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner }) {
   const { scans, error } = useScans();
   const { currentUser } = useAuth();
-  const { securityPreferences } = useTheme();
+  const { securityPreferences, updateSecurityPreference } = useTheme();
 
   const [exportNotice, setExportNotice] = useState('');
+  const [prefNotice, setPrefNotice] = useState('');
   const [showAuditModal, setShowAuditModal] = useState(false);
 
-  // Memoized Telemetry Calculations
+  const handlePrefChange = (key, val) => {
+    updateSecurityPreference(key, val);
+    setPrefNotice('Security preference updated');
+    setTimeout(() => setPrefNotice(''), 3000);
+  };
+
+  // Memoized Telemetry Calculations from real scans
   const socData = useMemo(() => {
     const totalScans = scans.length;
     const safeScans = scans.filter((s) => (s.verdict || '').toLowerCase() === 'safe').length;
@@ -72,8 +74,8 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
     const threatPercentage = totalScans === 0 ? 0 : Math.round((threatsDetected / totalScans) * 100);
 
     const calculatedScore = totalScans === 0
-      ? 98
-      : Math.max(10, Math.min(99, Math.round(100 - (phishingScans * 25 + suspiciousScans * 10) / Math.max(1, totalScans))));
+      ? 100
+      : Math.max(10, Math.min(100, Math.round(100 - (phishingScans * 25 + suspiciousScans * 10) / Math.max(1, totalScans))));
 
     const getScoreStatus = (score) => {
       if (score >= 85) return { label: 'OPTIMAL DEFENSE', color: '#10b981', badgeClass: 'badge-safe', desc: 'Minimal risk exposure detected across audited telemetry channels.' };
@@ -84,7 +86,7 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
 
     const scoreStatus = getScoreStatus(calculatedScore);
 
-    // Recent Threat Incidents (Non-safe payloads)
+    // Recent Threat Incidents (Real non-safe payloads)
     const threatIncidents = scans
       .filter((s) => (s.verdict || '').toLowerCase() !== 'safe')
       .slice(0, 5);
@@ -94,21 +96,21 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
     const defenseSensors = [
       {
         id: 'ml_engine',
-        title: 'AI Multi-Signal Phishing Engine',
-        desc: 'LinkSentry hybrid ML inference and regex heuristic matrix evaluating incoming targets.',
+        title: 'Multi-Signal Phishing Classifier',
+        desc: 'LinkSentry V3.4 LinearSVC inference and lexical heuristic matrix evaluating incoming targets.',
         status: 'Active',
         statusType: 'safe',
         icon: '🧠',
-        metric: 'V3.4 Hybrid'
+        metric: 'V3.4 Hybrid',
       },
       {
         id: 'qr_radar',
         title: 'QR Code / Quishing Optical Radar',
-        desc: 'Decoded matrix parsing with homoglyph & shortened redirect analysis.',
+        desc: 'Decoded matrix parsing with jsQR, extracting destination links and optical payloads client-side.',
         status: 'Protected',
         statusType: 'safe',
         icon: '📷',
-        metric: 'Optical Decoders'
+        metric: 'Optical Decoders',
       },
       {
         id: 'sms_heuristic',
@@ -117,19 +119,19 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
         status: 'Protected',
         statusType: 'safe',
         icon: '💬',
-        metric: 'NLP Heuristics'
+        metric: 'NLP Heuristics',
       },
       {
         id: 'vault_sync',
-        title: 'Local & Cloud Vault Sync',
+        title: 'Telemetry Storage Vault',
         desc: isCloudSyncOn
           ? 'Firestore real-time cloud synchronization active across authenticated sessions.'
-          : 'Local device encryption vault active. Scans remain private to this browser.',
+          : 'Local device storage vault active. Scans remain private to this browser.',
         status: isCloudSyncOn ? 'Cloud Synced' : 'Local Storage Only',
         statusType: isCloudSyncOn ? 'safe' : 'info',
         icon: isCloudSyncOn ? '☁️' : '🔒',
-        metric: isCloudSyncOn ? 'Cloud Live' : 'Device Vault'
-      }
+        metric: isCloudSyncOn ? 'Cloud Live' : 'Device Vault',
+      },
     ];
 
     return {
@@ -143,7 +145,7 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
       calculatedScore,
       scoreStatus,
       threatIncidents,
-      defenseSensors
+      defenseSensors,
     };
   }, [scans, securityPreferences]);
 
@@ -182,9 +184,9 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
     setTimeout(() => setExportNotice(''), 4000);
   };
 
-  const handleLaunchScanner = () => {
+  const handleLaunchScanner = (vector = 'url') => {
     if (onNavigateToScanner) {
-      onNavigateToScanner('url');
+      onNavigateToScanner(vector);
     } else if (onSelectTab) {
       onSelectTab('scanner');
     }
@@ -201,7 +203,7 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
           </div>
           <h1 className="page-main-heading">Security Center & Defense Posture</h1>
           <p className="page-subheading">
-            Live multi-vector defense posture evaluation, active threat incident monitor, and actionable cybersecurity directives.
+            Live multi-vector defense posture evaluation, active threat incident monitor, and actionable security controls.
           </p>
         </div>
 
@@ -248,6 +250,7 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={() => setShowAuditModal(true)}
+                disabled={scans.length === 0}
                 data-testid="security-center-print-btn"
               >
                 📄 Generate Security Audit Report
@@ -319,7 +322,7 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
                 <p className="card-subtitle">Real-time status of multi-vector detection and storage controls</p>
               </div>
               <span className="badge-tier font-mono" style={{ fontSize: '0.6875rem' }}>
-                4 Controls
+                4 Sensors
               </span>
             </div>
 
@@ -328,7 +331,7 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
                 <div key={sensor.id} className="soc-sensor-item">
                   <div className="soc-sensor-icon">{sensor.icon}</div>
                   <div className="soc-sensor-content">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
                       <strong className="soc-sensor-title">{sensor.title}</strong>
                       <Badge status={sensor.statusType === 'safe' ? 'Safe' : 'Info'} size="sm">
                         {sensor.status}
@@ -345,11 +348,11 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
           <div className="cyber-card soc-panel-card">
             <div className="card-header-row">
               <div>
-                <h3 className="card-title">Active Threat Incidents & Quarantine</h3>
+                <h3 className="card-title">Recent Flagged Threats & Incidents</h3>
                 <p className="card-subtitle">Most recent suspicious and phishing targets flagged by detection engines</p>
               </div>
               <span className="badge-tier font-mono" style={{ fontSize: '0.6875rem', color: socData.threatsDetected > 0 ? 'var(--status-phishing)' : 'var(--status-safe)' }}>
-                {socData.threatsDetected} Incident{socData.threatsDetected === 1 ? '' : 's'}
+                {socData.threatsDetected} Threat{socData.threatsDetected === 1 ? '' : 's'}
               </span>
             </div>
 
@@ -360,13 +363,13 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
                   Zero Active Threat Incidents
                 </h4>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '380px', margin: '0 auto 1rem', lineHeight: '1.45' }}>
-                  No active phishing or suspicious payloads detected. Your workspace is currently in clean security standing.
+                  No active phishing or suspicious payloads recorded. Your workspace is in clean security standing.
                 </p>
                 {socData.totalScans === 0 && (
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
-                    onClick={handleLaunchScanner}
+                    onClick={() => handleLaunchScanner('url')}
                   >
                     Launch Multi-Vector Scanner ➔
                   </button>
@@ -383,7 +386,7 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
 
                   return (
                     <div key={incident.id} className="soc-incident-card">
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                           <Badge status={itemVerdict} size="sm">
                             {itemVerdict} ({itemRisk}/100)
@@ -407,14 +410,115 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
           </div>
         </div>
 
-        {/* Actionable Defense Recommendations Card */}
+        {/* Configurable Security & Telemetry Controls */}
+        <div className="cyber-card soc-panel-card" style={{ marginBottom: '2rem' }}>
+          <div className="card-header-row">
+            <div>
+              <h3 className="card-title">Security & Telemetry Controls</h3>
+              <p className="card-subtitle">Manage cloud synchronization, intelligence sharing, and notification preferences</p>
+            </div>
+            <span className="badge-tier font-mono" style={{ fontSize: '0.6875rem' }}>SETTINGS</span>
+          </div>
+
+          <div className="preferences-list" style={{ marginTop: '1.25rem' }}>
+            {/* 1. Cloud Synchronization */}
+            <div className="preference-item preference-toggle-row">
+              <div className="preference-info">
+                <strong className="preference-title">Cloud Telemetry Synchronization</strong>
+                <p className="preference-desc">
+                  Synchronize multi-vector scan records with Cloud Firestore across your authenticated sessions.
+                </p>
+              </div>
+              <label className="switch toggle-switch" aria-label="Toggle Cloud Telemetry Synchronization">
+                <input
+                  type="checkbox"
+                  checked={securityPreferences?.cloudSync !== false}
+                  onChange={(e) => handlePrefChange('cloudSync', e.target.checked)}
+                  data-testid="soc-pref-cloudsync"
+                />
+                <span className="slider round" />
+              </label>
+            </div>
+
+            {/* 2. Threat Telemetry Sharing */}
+            <div className="preference-item preference-toggle-row">
+              <div className="preference-info">
+                <strong className="preference-title">Threat Telemetry Intelligence Sharing</strong>
+                <p className="preference-desc">
+                  Contribute aggregated scan indicators to the local database for historical reporting and trend analytics.
+                </p>
+              </div>
+              <label className="switch toggle-switch" aria-label="Toggle Threat Telemetry Intelligence Sharing">
+                <input
+                  type="checkbox"
+                  checked={securityPreferences?.threatSharing !== false}
+                  onChange={(e) => handlePrefChange('threatSharing', e.target.checked)}
+                  data-testid="soc-pref-threatsharing"
+                />
+                <span className="slider round" />
+              </label>
+            </div>
+
+            {/* 3. Real-Time Detection (System Enforced) */}
+            <div className="preference-item preference-toggle-row" style={{ opacity: 0.9 }}>
+              <div className="preference-info">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <strong className="preference-title">Real-Time Multi-Signal Detection</strong>
+                  <span className="badge-pill badge-safe font-mono" style={{ fontSize: '0.6875rem' }}>
+                    ● Always Active • Core Engine
+                  </span>
+                </div>
+                <p className="preference-desc">
+                  Core V3.4 multi-signal analysis is continuously enforced for all incoming URL, QR, and Message scan requests.
+                </p>
+              </div>
+              <label className="switch toggle-switch" aria-label="Real-Time Detection is always active" title="System Enforced: Core detection engine cannot be disabled.">
+                <input
+                  type="checkbox"
+                  checked={true}
+                  disabled={true}
+                  readOnly={true}
+                  data-testid="soc-pref-realtime"
+                />
+                <span className="slider round" style={{ cursor: 'not-allowed', opacity: 0.8 }} />
+              </label>
+            </div>
+
+            {/* 4. Threat Alert Notifications */}
+            <div className="preference-item preference-toggle-row">
+              <div className="preference-info">
+                <strong className="preference-title">Threat Alert Notifications</strong>
+                <p className="preference-desc">
+                  Request browser notifications when high-severity phishing campaigns or credential lures are flagged.
+                </p>
+              </div>
+              <label className="switch toggle-switch" aria-label="Toggle Threat Alert Notifications">
+                <input
+                  type="checkbox"
+                  checked={securityPreferences?.pushNotifications !== false}
+                  onChange={(e) => handlePrefChange('pushNotifications', e.target.checked)}
+                  data-testid="soc-pref-notifications"
+                />
+                <span className="slider round" />
+              </label>
+            </div>
+
+            {prefNotice && (
+              <div className="save-status-banner animate-fade-in" style={{ borderColor: 'rgba(16, 185, 129, 0.4)', background: 'rgba(16, 185, 129, 0.1)', color: '#6ee7b7', marginTop: '1rem', padding: '0.75rem 1rem', borderRadius: '8px' }}>
+                ✓ {prefNotice}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Actionable Defense Directives Card */}
         <div className="cyber-card soc-panel-card">
           <div className="card-header-row">
             <div>
               <h3 className="card-title">Actionable Defense Directives & Remediation</h3>
               <p className="card-subtitle">Context-aware security advisories based on your workspace telemetry</p>
             </div>
-            <span className="badge-tier font-mono" style={{ fontSize: '0.6875rem' }}>SOC Playbooks</span>
+            <span className="badge-tier font-mono" style={{ fontSize: '0.6875rem' }}>SOC Directives</span>
           </div>
 
           <div className="soc-recommendations-grid" style={{ marginTop: '1.25rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
@@ -425,7 +529,7 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
               </div>
               <p className="soc-rec-body">
                 {socData.phishingScans > 0
-                  ? `${socData.phishingScans} high-risk phishing links were flagged. Ensure users avoid providing credentials and verify destination domains against official portals.`
+                  ? `${socData.phishingScans} high-risk phishing link${socData.phishingScans === 1 ? ' was' : 's were'} flagged. Ensure users avoid providing credentials and verify destination domains against official portals.`
                   : 'Zero phishing lures currently detected. Continue enforcing multi-factor authentication (MFA) on corporate accounts.'}
               </p>
             </div>
@@ -464,4 +568,3 @@ export default function SecurityCenterPage({ onSelectTab, onNavigateToScanner })
     </div>
   );
 }
-
