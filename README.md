@@ -1,4 +1,4 @@
-# 🛡️ LinkSentry — AI-Assisted Phishing Detection & Threat Analysis Platform
+# 🛡️ LinkSentry — AI-Powered Phishing Defense Platform
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -8,72 +8,74 @@
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Android-4285F4?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com/jetpack/compose)
 [![Firebase](https://img.shields.io/badge/Firebase-Auth%20%7C%20Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
 
-> Full-stack cybersecurity engineering project combining web, Android, backend, cloud persistence, threat analysis, and automated testing.
+> **A unified full-stack cybersecurity platform for detecting, analyzing, and tracking phishing and social-engineering threats across Web and Android.**
 
-### 🌐 Live Demo
+**Live Web Application:**  
+https://linksentry-7e694.web.app/
 
-**Web Application:**  
-https://linksentry-7e694.web.app/scanner?type=url
-
-### 📦 GitHub Repository
-
+**GitHub Repository:**  
 https://github.com/Karthikdj2028/LinkSentry
 
 ---
 
-## 📌 Overview
+## 🛡️ Overview
 
-**LinkSentry** is a full-stack cybersecurity project designed to detect and analyze phishing and social-engineering threats across multiple input types.
+**LinkSentry** is an AI-powered, full-stack phishing defense platform engineered to identify and analyze a broad range of modern social-engineering and malicious-link threats.
 
-The system supports analysis of:
+The platform brings together a **React web application**, **native Android client**, **FastAPI threat-analysis backend**, **Firebase Authentication**, **Cloud Firestore persistence**, automated testing, and a multi-layer threat-analysis engine.
 
-- 🌐 Suspicious and potentially malicious URLs
-- 📱 QR-based threats (quishing)
-- 💬 SMS, email, and chat messages containing phishing indicators
-- 🔎 Suspicious domains and lookalike URLs
-- 📊 Historical scan activity and threat telemetry
+LinkSentry is designed around a unified security workflow in which users can submit a threat through multiple attack surfaces and receive structured risk analysis, indicators, classification results, and persistent scan history.
 
-The project combines a **React web application**, **native Android application**, **FastAPI backend**, **Firebase Authentication**, **Cloud Firestore**, automated testing, and a machine-learning-assisted URL analysis engine.
+### Core threat surfaces
 
-It was developed as a practical engineering project exploring:
-
-- Defensive cybersecurity
-- Full-stack application architecture
-- Cross-platform application development
-- Cloud authentication and persistence
-- Threat analysis
-- Automated testing
-- Security-focused application design
-
-> **Project Status:** Academic / Engineering Prototype  
-> **Primary Focus:** Defensive Cybersecurity and Application Engineering
+- 🌐 **Malicious URL Detection**
+- 📱 **QR / Quishing Detection**
+- 💬 **SMS & Email / Smishing Analysis**
+- 🔎 **Lookalike & Typosquatting Detection**
+- 📊 **Threat Telemetry & Security Dashboard**
+- 🗄️ **Persistent Cross-Client Scan History**
+- 🔐 **Authenticated User Security Records**
 
 ---
 
-# ✨ Key Features
+# 🚀 Platform Highlights
 
-| Area | Capability | Description |
-|---|---|---|
-| 🌐 URL Analysis | ML + heuristic analysis | Analyzes URL structure, suspicious patterns, domain characteristics, and phishing-related indicators |
-| 📱 QR Scanner | Quishing analysis | Extracts URLs from QR codes and sends them through the URL-analysis workflow |
-| 💬 Message Analysis | Smishing detection | Identifies common social-engineering patterns, urgency indicators, suspicious links, and credential-harvesting language |
-| 🔐 Authentication | Firebase Authentication | Provides user authentication and identity management |
-| 🗄️ Scan History | Persistent records | Stores scan information for authenticated users |
-| 🔄 Cross-Client Data | Shared persistence | Web and Android clients can access shared user-specific scan records |
-| 📊 Dashboard | Threat telemetry | Presents aggregated scan and risk information |
-| 🧪 Testing | Automated validation | Includes backend tests and additional application/security testing resources |
+### 🌐 Multi-Client Security Architecture
+
+LinkSentry delivers the same security workflow across:
+
+- **Web — React 19 + Vite**
+- **Android — Kotlin + Jetpack Compose**
+
+Both clients integrate with a shared Firebase-backed identity and persistence layer.
+
+### 🧠 Multi-Layer Threat Analysis
+
+The URL pipeline combines machine-learning-assisted classification with deterministic security heuristics and domain-analysis techniques.
+
+### 🔐 Identity-Aware Cloud Persistence
+
+Firebase Authentication and Cloud Firestore provide authenticated user identity and persistent scan histories.
+
+### 📊 Security Operations Dashboard
+
+Threat activity can be aggregated into dashboard-oriented telemetry for rapid inspection of scan activity, classifications, and risk levels.
+
+### 🧪 Automated Validation
+
+The repository includes automated backend tests together with end-to-end, Android, browser, and security testing resources.
 
 ---
 
-# 🌐 Live Demo
+# 🌐 Live Application
 
-## Web Application
+## LinkSentry Web Scanner
 
 🔗 **https://linksentry-7e694.web.app/scanner?type=url**
 
-The deployed web application provides the URL-scanning interface and demonstrates the project's threat-analysis workflow through the browser.
+The deployed web application provides the browser-based threat-analysis experience.
 
-> ⚠️ **Demo safety:** Do not submit private URLs, credentials, authentication tokens, confidential messages, or other sensitive information to the public deployment.
+The application includes the URL scanning workflow and the associated security analysis interface.
 
 ---
 
@@ -82,7 +84,7 @@ The deployed web application provides the URL-scanning interface and demonstrate
 ```text
                                   ┌───────────────────────────────┐
                                   │      FIREBASE AUTHENTICATION  │
-                                  │       User Authentication     │
+                                  │  Unified User Identity Layer  │
                                   └───────────────┬───────────────┘
                                                   │
                          ┌────────────────────────┴────────────────────────┐
@@ -90,61 +92,78 @@ The deployed web application provides the URL-scanning interface and demonstrate
                          ▼                                                 ▼
              ┌─────────────────────────┐                       ┌─────────────────────────┐
              │     LinkSentry Web      │                       │   LinkSentry Android    │
-             │       React + Vite      │                       │    Kotlin + Compose     │
+             │    React 19 + Vite      │                       │   Kotlin + Compose      │
              └───────────┬─────────────┘                       └───────────┬─────────────┘
                          │                                                 │
+                         │           Shared User Data                      │
                          └────────────────┬────────────────────────────────┘
                                           │
                                           ▼
                          ┌─────────────────────────────────┐
                          │          CLOUD FIRESTORE        │
                          │                                 │
-                         │  • User scan history            │
-                         │  • Threat records               │
-                         │  • Dashboard data               │
-                         │  • Cross-client persistence     │
+                         │  • Scan History                 │
+                         │  • Threat Records               │
+                         │  • Dashboard Telemetry          │
+                         │  • User-Specific Persistence     │
                          └────────────────┬────────────────┘
                                           │
                          ┌────────────────┴────────────────┐
                          │                                 │
                          ▼                                 ▼
              ┌─────────────────────────┐       ┌────────────────────────────┐
-             │     FastAPI Backend     │       │    Threat Analysis Engine  │
-             │                         │       │                            │
-             │ POST /api/scan/url      │──────►│ ML-assisted URL analysis   │
-             │ POST /api/scan/message  │       │ Domain analysis            │
-             │ GET  /api/health        │       │ Heuristic checks           │
-             └─────────────────────────┘       │ Pattern analysis            │
+             │     FastAPI Backend     │       │   LinkSentry V3.3 Engine  │
+             │                         │──────►│                            │
+             │ POST /api/scan/url      │       │ LinearSVC                  │
+             │ POST /api/scan/message  │       │ Tranco Domain Signals      │
+             │ GET  /api/health        │       │ Typosquatting Detection    │
+             └─────────────────────────┘       │ Heuristic Analysis         │
                                                └────────────────────────────┘
 ```
 
 ---
 
-# 🧠 Threat Analysis
+# ✨ Multi-Vector Threat Capabilities
 
-## 1. URL Analysis
+| Vector | Feature | Description |
+| :--- | :--- | :--- |
+| 🌐 **URL Threat Detection** | **V3.3 ML + Decision Fusion** | Combines machine-learning classification, URL structural analysis, domain signals, entropy analysis, and phishing heuristics |
+| 📱 **QR / Quishing Scanner** | **Optical Threat Analysis** | Extracts URLs from QR codes using camera and image-processing workflows before sending them through threat analysis |
+| 💬 **SMS & Email Analysis** | **Smishing / Social Engineering Detection** | Detects urgency, account-suspension lures, financial pressure, credential-harvesting language, and embedded suspicious links |
+| 🔎 **Domain Intelligence** | **Lookalike / Typosquatting Detection** | Identifies suspicious domains and brand-impersonation patterns |
+| 📊 **SOC Dashboard** | **Real-Time Threat Telemetry** | Aggregates scan statistics, threat ratios, risk metrics, and security activity |
+| 🗄️ **Audit History** | **Cross-Client Persistence** | Stores scan records in Firestore and makes authenticated history available across supported clients |
 
-The URL-analysis pipeline combines machine-learning-assisted classification with additional rule-based and structural checks.
+---
 
-Depending on the input, the analysis can consider:
+# 🧠 Threat Analysis Engine
 
-- URL structure
-- Suspicious keywords
+## URL Threat Analysis
+
+The URL-analysis engine evaluates multiple classes of indicators to determine the risk profile of a submitted URL.
+
+### Analysis layers
+
+- URL structure analysis
+- Suspicious keyword detection
 - Domain characteristics
-- High-entropy tokens
-- Lookalike / typosquatting patterns
-- Domain authority information
-- Other phishing-related indicators
+- High-entropy token analysis
+- Lookalike and typosquatting detection
+- Brand impersonation indicators
+- Domain authority signals
+- Machine-learning classification
+- Combined decision logic
 
-The current implementation uses a **LinearSVC-based classifier** together with additional decision logic and domain-analysis checks.
+The current URL-analysis implementation incorporates a **LinearSVC-based classifier** together with additional rule-based and structural analysis.
 
-### Example Input
+### Example
 
 ```text
+Input:
 https://secure-login-paypal.com/auth
 ```
 
-### Example Response
+Example response:
 
 ```json
 {
@@ -163,42 +182,40 @@ https://secure-login-paypal.com/auth
 }
 ```
 
-> **Note:** Example values demonstrate the response structure and should not be interpreted as guaranteed classifications.
-
 ---
 
-# 📱 QR / Quishing Analysis
+# 📱 QR / Quishing Detection
 
-LinkSentry can extract URLs from QR codes and pass the extracted payload through the URL-analysis workflow.
+LinkSentry extends URL analysis to QR-based attack vectors.
 
-## Android
+A QR code can contain a shortened, obfuscated, or malicious redirect that is difficult for a user to inspect manually. LinkSentry extracts the QR payload and feeds the resulting URL through the threat-analysis pipeline.
 
-The Android implementation uses:
+## Android QR Pipeline
 
 - **CameraX**
 - **Google ML Kit**
+- QR payload extraction
+- URL threat-analysis workflow
 
-## Web
+## Web QR Pipeline
 
-The web application supports QR processing through browser camera/video functionality and upload-based handling where supported.
-
-This provides a practical demonstration of detecting **quishing threats**, where malicious QR codes redirect users to phishing or fraudulent destinations.
+The web client supports browser-based QR acquisition through camera/video functionality and upload-based handling.
 
 ---
 
 # 💬 SMS, Email & Smishing Analysis
 
-The message-analysis workflow evaluates text for common phishing and social-engineering indicators.
+The message-analysis workflow evaluates textual content for social-engineering patterns commonly associated with phishing campaigns.
 
-Examples include:
+### Detection categories
 
-- Urgency and emotional pressure
-- Account suspension claims
-- Financial verification requests
-- Credential-harvesting language
-- Suspicious embedded links
-- Delivery / courier scams
-- Other social-engineering patterns
+- 🚨 Urgency and emotional pressure
+- 🔐 Account verification / suspension lures
+- 💳 Financial verification requests
+- 📦 Delivery and courier lures
+- 🔗 Embedded suspicious URLs
+- 🪪 Credential-harvesting language
+- 🧠 Social-engineering indicators
 
 ### Example Input
 
@@ -225,30 +242,29 @@ Examples include:
 }
 ```
 
-> **Note:** Example values demonstrate the response format.
-
 ---
 
-# 📊 Security Dashboard
+# 📊 Security Operations Dashboard
 
-The dashboard presents aggregated information from stored scan records.
+LinkSentry provides a security-oriented dashboard for analyzing stored threat activity.
 
-Depending on the current application implementation, this can include:
+The dashboard can surface:
 
-- Total scans
+- Total scan activity
 - Threat classifications
 - Risk distribution
 - Safe vs suspicious activity
-- Recent scan activity
-- Historical analysis
+- Recent scanning activity
+- Historical scan records
+- Aggregate security metrics
 
-Dashboard information is backed by the project's Firestore persistence layer.
+The dashboard is backed by Firestore data associated with authenticated users.
 
 ---
 
-# 🗄️ Scan History
+# 🗄️ Persistent Scan History
 
-Authenticated scan records are stored using a user-specific Firestore structure:
+LinkSentry stores user scan records using a user-specific Firestore structure:
 
 ```text
 users/
@@ -257,19 +273,23 @@ users/
       {scanId}
 ```
 
-This allows scan history to remain associated with the authenticated user.
+This model provides:
 
-The web and Android clients use the same cloud-backed data model, allowing supported scan records to be accessed across clients.
+- User-specific scan ownership
+- Persistent scan history
+- Structured audit records
+- Cross-client history access
+- Search and filtering support
 
 ---
 
-# 🔐 Authentication & Data Security
+# 🔐 Authentication & Security
 
-LinkSentry uses **Firebase Authentication** for user identity management.
+LinkSentry uses **Firebase Authentication** to establish authenticated user identity.
 
-Firestore security rules restrict access to scan records based on the authenticated user's UID.
+Firestore security rules enforce per-user access to scan records.
 
-Example:
+### Firestore Security Rules
 
 ```javascript
 rules_version = '2';
@@ -286,19 +306,19 @@ service cloud.firestore {
 }
 ```
 
-This rule prevents an authenticated user from accessing another user's scan documents through Firestore under the demonstrated data model.
-
-> **Security note:** Firestore rules are only one layer of application security. A production system would additionally require appropriate backend authorization, input validation, secret management, rate limiting, monitoring, logging, abuse prevention, and secure deployment practices.
+This creates user-level isolation for the scan collection through authenticated UID matching.
 
 ---
 
 # 📡 REST API
 
-The FastAPI backend provides endpoints used by the application.
+The FastAPI backend exposes dedicated endpoints for threat analysis and service health.
+
+---
 
 ## `POST /api/scan/url`
 
-Analyzes a URL.
+Analyzes a submitted URL.
 
 ### Request
 
@@ -325,7 +345,7 @@ Analyzes a URL.
 
 ## `POST /api/scan/message`
 
-Analyzes a text message for phishing / smishing indicators.
+Analyzes a text message for phishing and smishing indicators.
 
 ### Request
 
@@ -352,7 +372,7 @@ Analyzes a text message for phishing / smishing indicators.
 
 ## `GET /api/health`
 
-Checks backend service availability.
+Checks backend availability.
 
 ### Response
 
@@ -368,9 +388,9 @@ Checks backend service availability.
 
 # 🧪 Testing & Validation
 
-The repository includes automated backend testing and additional testing resources.
+LinkSentry includes automated tests and dedicated testing resources.
 
-## Backend Tests
+## Backend Test Suite
 
 Run:
 
@@ -378,9 +398,9 @@ Run:
 python -m pytest backend/tests
 ```
 
-The current backend test suite contains **56 tests**.
+The current backend suite contains **56 tests**.
 
-## Frontend Production Build
+## Web Production Build
 
 Run:
 
@@ -388,16 +408,15 @@ Run:
 npm run build
 ```
 
-## Additional Testing Resources
+## Testing Resources
 
-The repository also contains resources covering:
+The repository includes additional resources for:
 
 - End-to-end testing
 - Android application testing
 - Browser automation
-- Security / vulnerability testing
-
-See the corresponding directories for implementation details.
+- Vulnerability/security testing
+- Application validation
 
 ---
 
@@ -405,14 +424,13 @@ See the corresponding directories for implementation details.
 
 ## Prerequisites
 
-Install:
-
 - **Python 3.11+**
 - **Node.js 18+**
 - **npm**
 - **Java 21+**
 - **Android Studio**
 - **Android SDK**
+- Git
 
 ---
 
@@ -427,7 +445,7 @@ cd LinkSentry
 
 # 2. Backend Setup
 
-Create a Python virtual environment:
+Create a virtual environment:
 
 ```bash
 python -m venv .venv
@@ -451,25 +469,25 @@ Install dependencies:
 pip install -r backend/requirements.txt
 ```
 
-Start the FastAPI backend:
+Start FastAPI:
 
 ```bash
 python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-If the repository startup script is available:
+### Optional startup script
 
 ```powershell
 .\start_backend.ps1
 ```
 
-### Backend Health Check
+### Backend health
 
 ```text
 http://localhost:8000/api/health
 ```
 
-### Swagger API Documentation
+### Swagger
 
 ```text
 http://localhost:8000/docs
@@ -483,27 +501,27 @@ http://localhost:8000/redoc
 
 ---
 
-# 3. Web Application Setup
+# 3. Web Application
 
-From the project root:
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-Start the development server:
+Start development server:
 
 ```bash
 npm run dev
 ```
 
-The development server is normally available at:
+Default development URL:
 
 ```text
 http://localhost:5173/
 ```
 
-Create a production build:
+Build for production:
 
 ```bash
 npm run build
@@ -511,20 +529,18 @@ npm run build
 
 ---
 
-# 4. Android Application Setup
+# 4. Android Application
 
-Open the `android/` directory in **Android Studio**.
+Open the `android/` directory in Android Studio.
 
-Alternatively, build the debug APK from the command line.
-
-### Windows
+Or build the debug APK:
 
 ```powershell
 cd android
 .\gradlew.bat assembleDebug
 ```
 
-The debug APK is normally generated at:
+Debug APK:
 
 ```text
 android/app/build/outputs/apk/debug/app-debug.apk
@@ -539,23 +555,21 @@ LinkSentry/
 │
 ├── android/                    # Native Android application
 │
-├── backend/                    # FastAPI backend
+├── backend/                    # FastAPI backend and threat analysis
 │   ├── tests/                  # Backend test suite
 │   └── ...
 │
-├── e2e/                        # End-to-end testing resources
 ├── src/                        # React web application
-├── testing/                    # Additional testing resources
-├── vulnerability-tests/        # Security testing resources
 │
-├── docs/
-│   └── screenshots/            # Project screenshots
+├── e2e/                        # End-to-end testing resources
+├── testing/                    # Application testing resources
+├── vulnerability-tests/        # Security / vulnerability testing
 │
-├── firestore.rules             # Firestore security rules
+├── firestore.rules             # Firestore access control
 ├── package.json                # Web dependencies and scripts
 ├── requirements.txt            # Python dependencies
-├── README.md
-└── ...
+├── start_backend.ps1           # Backend startup script
+└── README.md
 ```
 
 ---
@@ -564,15 +578,15 @@ LinkSentry/
 
 ## Web
 
-- React
-- Vite
+- React 19
+- Vite 6
 - JavaScript
 - TypeScript
 - HTML / CSS
 
 ## Backend
 
-- Python
+- Python 3.11+
 - FastAPI
 - Uvicorn
 - Machine-learning components
@@ -591,151 +605,118 @@ LinkSentry/
 - Cloud Firestore
 - Firebase Hosting
 
-## Development & Testing
+## Security & Analysis
 
-- Git
-- GitHub
+- LinearSVC
+- URL structural analysis
+- Domain analysis
+- Typosquatting detection
+- Heuristic threat detection
+- Social-engineering analysis
+
+## Testing
+
 - Pytest
 - Selenium
 - Appium
-- End-to-end testing tools
+- End-to-end testing
+- Security / vulnerability testing
 
 ---
 
-# 🧩 Engineering Concepts Demonstrated
+# 🧩 Engineering Highlights
 
-LinkSentry was developed to explore several practical engineering concepts.
+## Unified Identity
 
-### Full-Stack Architecture
+A single authenticated user identity is used across supported LinkSentry clients.
 
-The project connects browser and Android clients with a backend threat-analysis service and cloud persistence layer.
+## Cross-Client Persistence
 
-### Cross-Client Data Persistence
+Threat records stored in Firestore can be consumed by the Web and Android clients under the same authenticated user model.
 
-Web and Android clients share authenticated user data through Firestore.
+## Layered Detection
 
-### Authentication and Authorization
+Rather than relying on a single indicator, the URL pipeline combines machine-learning classification with structural, heuristic, and domain-oriented signals.
 
-Firebase Authentication provides identity while Firestore security rules enforce user-specific document access.
+## Security-Oriented Storage
 
-### Threat-Analysis Pipeline
+Firestore rules enforce user-level isolation on stored scan records.
 
-Different analysis techniques are combined to produce a risk-oriented result instead of relying on a single indicator.
+## Extensible API Architecture
 
-### Machine-Learning-Assisted Detection
+FastAPI provides dedicated endpoints for URL analysis, message analysis, and service health, creating a clean boundary between the clients and threat-analysis engine.
 
-The URL-analysis workflow includes a LinearSVC-based classifier alongside additional structural and heuristic checks.
+## Automated Testing
 
-### Automated Testing
-
-Backend tests and additional E2E/security testing resources are included in the repository.
+The project contains a dedicated backend test suite along with application, end-to-end, browser, Android, and security testing resources.
 
 ---
 
-# 📸 Screenshots
+# 🎯 Platform Capabilities
 
-> Place the screenshot files in `docs/screenshots/` using the filenames below.
+LinkSentry brings multiple defensive capabilities into a single security platform:
 
-## Web Scanner
-
-![LinkSentry Web Scanner](docs/screenshots/web-scanner.png)
-
-## URL Threat Analysis
-
-![LinkSentry URL Analysis](docs/screenshots/url-analysis.png)
-
-## Security Dashboard
-
-![LinkSentry Dashboard](docs/screenshots/dashboard.png)
-
-## QR Scanner
-
-![LinkSentry QR Scanner](docs/screenshots/qr-scanner.png)
-
-## Android Application
-
-![LinkSentry Android Application](docs/screenshots/android-app.png)
-
----
-
-# ⚠️ Limitations
-
-LinkSentry is an **academic / engineering prototype** and should not be treated as a replacement for enterprise security platforms or professional threat-intelligence services.
-
-Potential limitations include:
-
-- Detection can produce false positives or false negatives.
-- Machine-learning performance depends on the quality and coverage of training data.
-- Threat-intelligence information can change over time.
-- The public deployment may not provide enterprise-scale monitoring or operational controls.
-- Threat classifications should not be considered an absolute guarantee that a URL or message is safe or malicious.
-
-For security-sensitive decisions, LinkSentry should be treated as an **additional analysis tool**, not an authoritative security verdict.
-
----
-
-# 🔒 Responsible Use
-
-LinkSentry is intended for:
-
-- Defensive cybersecurity research
-- Educational purposes
-- Security analysis
-- Software engineering practice
-- Application testing
-- Demonstration of phishing-detection techniques
-
-Do not use the project to facilitate:
-
-- Phishing campaigns
-- Credential theft
-- Malware distribution
-- Unauthorized access
-- Account compromise
-- Other malicious activity
-
-Do not submit sensitive credentials, private communications, confidential URLs, authentication tokens, or other protected information to the public demo.
-
----
-
-# 🎯 Project Goals
-
-The main goals of LinkSentry are to explore the practical combination of:
-
-- Cybersecurity
-- Full-stack software development
-- Mobile application development
-- Cloud services
-- Machine-learning-assisted classification
-- Threat analysis
-- Authentication and authorization
-- Automated testing
-- Security-focused application design
+```text
+                    ┌───────────────────────────────┐
+                    │          LinkSentry           │
+                    │     Unified Threat Defense    │
+                    └───────────────┬───────────────┘
+                                    │
+            ┌───────────────────────┼───────────────────────┐
+            │                       │                       │
+            ▼                       ▼                       ▼
+      URL Analysis            QR Analysis           Message Analysis
+            │                       │                       │
+            └───────────────────────┼───────────────────────┘
+                                    │
+                                    ▼
+                         Threat Classification
+                                    │
+                                    ▼
+                           Risk & Indicators
+                                    │
+                                    ▼
+                       Firestore Threat Records
+                                    │
+                                    ▼
+                        Dashboard / Scan History
+```
 
 ---
 
 # 🔗 Project Links
 
-### GitHub
-
-https://github.com/Karthikdj2028/LinkSentry
-
-### Live Web Application
+### 🌐 Live Application
 
 https://linksentry-7e694.web.app/
 
-### Developer
+### 💻 GitHub Repository
 
-**Karthikeyan S**
+https://github.com/Karthikdj2028/LinkSentry
 
-Computer Science & Engineering
+### 📚 API Documentation
+
+When running locally:
+
+```text
+http://localhost:8000/docs
+```
 
 ---
 
-# 📄 License
+# 👨‍💻 Project
 
-This project is intended for **educational, research, and demonstration purposes**.
+**LinkSentry**  
+AI-Assisted Phishing Detection & Threat Analysis Platform
 
-Copyright © Karthikeyan S.
+**Developer:** Karthikeyan S
 
-All rights reserved.
+**Focus Areas:**
+
+- Cybersecurity
+- Full-stack development
+- Mobile application engineering
+- AI-assisted development
+- Threat analysis
+- Cloud architecture
+- Automated testing
